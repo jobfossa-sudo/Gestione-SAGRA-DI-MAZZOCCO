@@ -85,3 +85,67 @@ export const PREFISSO_REPARTO: Record<Reparto, string> = {
   cucina: 'C',
   bevande: 'B',
 };
+
+// ---------------------------------------------------------------------------
+// Richieste/risposte delle Cloud Functions callable — condivise tra
+// `functions/` (che le implementa) e le app client (che le chiamano), così
+// i due lati non possono andare fuori sincrono sulla forma dei dati.
+// ---------------------------------------------------------------------------
+
+export interface ItemOrdineRichiesta {
+  prodottoId: string;
+  quantita: number;
+}
+
+export interface CreaOrdineRisposta {
+  ordineId: string;
+  numero: number;
+  totale: number;
+}
+
+export interface CreaOrdineBozzaRichiesta {
+  serataId: string;
+  tavolo: number;
+  coperti: number;
+  items: ItemOrdineRichiesta[];
+}
+
+export interface CreaOrdineCassaRichiesta {
+  serataId: string;
+  items: ItemOrdineRichiesta[];
+  tavolo?: number | null;
+  coperti?: number | null;
+}
+
+export interface ConfermaOrdineRichiesta {
+  serataId: string;
+  numero: number;
+}
+
+export interface SegnaSottoOrdineProntoRichiesta {
+  serataId: string;
+  sottoOrdineId: string;
+}
+
+export interface SegnaSottoOrdineProntoRisposta {
+  sottoOrdineId: string;
+}
+
+export interface ConsegnaSottoOrdineRichiesta {
+  serataId: string;
+  codice: string;
+}
+
+export interface ConsegnaSottoOrdineRisposta {
+  ordineId: string;
+  ordineCompletato: boolean;
+}
+
+export interface AnnullaOrdineRichiesta {
+  serataId: string;
+  ordineId: string;
+}
+
+export interface AnnullaOrdineRisposta {
+  ordineId: string;
+}

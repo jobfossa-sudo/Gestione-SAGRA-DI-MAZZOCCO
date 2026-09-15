@@ -6,10 +6,13 @@
 // Non tocca mai il database reale (solo l'emulatore locale).
 
 process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
 
 const admin = require('firebase-admin');
 admin.initializeApp({ projectId: 'gestione-sagra-mazzocco' });
 const db = admin.firestore();
+
+const CASSIERE_TEST = { email: 'cassiere@sagra.test', password: 'test1234' };
 
 const PRODOTTI_FITTIZI = [
   { id: 'panino', nome: 'Panino', prezzo: 5, reparto: 'cucina', disponibile: true, categoria: 'Cucina' },
@@ -33,7 +36,16 @@ async function main() {
     await db.collection('prodotti').doc(prodotto.id).set(prodotto);
   }
 
-  console.log(`Seed completato: serata "${oggi}" + ${PRODOTTI_FITTIZI.length} prodotti fittizi.`);
+  try {
+    await admin.auth().getUserByEmail(CASSIERE_TEST.email);
+  } catch (err) {
+    if (err.code !== 'auth/user-not-found') throw err;
+    await admin.auth().createUser(CASSIERE_TEST);
+  }
+
+  console.log(
+    `Seed completato: serata "${oggi}" + ${PRODOTTI_FITTIZI.length} prodotti fittizi + utente cassiere di test (${CASSIERE_TEST.email} / ${CASSIERE_TEST.password}).`
+  );
 }
 
 main()

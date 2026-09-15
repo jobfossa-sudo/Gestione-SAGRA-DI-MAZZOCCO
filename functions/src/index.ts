@@ -20,6 +20,17 @@ import {
   ItemSottoOrdine,
   Reparto,
   PREFISSO_REPARTO,
+  ItemOrdineRichiesta,
+  CreaOrdineRisposta,
+  CreaOrdineBozzaRichiesta,
+  CreaOrdineCassaRichiesta,
+  ConfermaOrdineRichiesta,
+  SegnaSottoOrdineProntoRichiesta,
+  SegnaSottoOrdineProntoRisposta,
+  ConsegnaSottoOrdineRichiesta,
+  ConsegnaSottoOrdineRisposta,
+  AnnullaOrdineRichiesta,
+  AnnullaOrdineRisposta,
 } from '@sagra-mazzocco/shared';
 
 initializeApp();
@@ -29,23 +40,18 @@ const db = getFirestore();
 // Helper condivisi
 // ---------------------------------------------------------------------------
 
-interface ItemRichiesto {
-  prodottoId: string;
-  quantita: number;
-}
-
 function richiedeAutenticazione(request: CallableRequest): void {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Operazione riservata al personale autenticato.');
   }
 }
 
-function validaItemsRichiesti(items: unknown): ItemRichiesto[] {
+function validaItemsRichiesti(items: unknown): ItemOrdineRichiesta[] {
   if (!Array.isArray(items) || items.length === 0) {
     throw new HttpsError('invalid-argument', "L'ordine deve contenere almeno un prodotto.");
   }
   return items.map((item) => {
-    const { prodottoId, quantita } = (item ?? {}) as ItemRichiesto;
+    const { prodottoId, quantita } = (item ?? {}) as ItemOrdineRichiesta;
     if (typeof prodottoId !== 'string' || !prodottoId) {
       throw new HttpsError('invalid-argument', 'Prodotto non valido.');
     }
@@ -69,7 +75,7 @@ function validaInteroPositivo(valore: unknown, nomeCampo: string): number {
  * altrimenti chiunque potrebbe alterare i prezzi di un ordine pubblico da QR. */
 async function costruisciItemsOrdine(
   transaction: Transaction,
-  itemsRichiesti: ItemRichiesto[]
+  itemsRichiesti: ItemOrdineRichiesta[]
 ): Promise<{ items: ItemOrdine[]; totale: number }> {
   const items: ItemOrdine[] = [];
   let totale = 0;
@@ -161,15 +167,8 @@ function generaSottoOrdini(
 // pagato né inviato ai reparti. Non richiede autenticazione (flusso pubblico).
 // ---------------------------------------------------------------------------
 
-interface CreaOrdineBozzaDati {
-  serataId: string;
-  tavolo: number;
-  coperti: number;
-  items: ItemRichiesto[];
-}
-
-export const creaOrdineBozza = onCall(async (request: CallableRequest<CreaOrdineBozzaDati>) => {
-  const { serataId, tavolo, coperti, items } = request.data ?? ({} as CreaOrdineBozzaDati);
+export const creaOrdineBozza = onCall(async (request: CallableRequest<CreaOrdineBozzaRichiesta>): Promise<CreaOrdineRisposta> => {
+  const { serataId, tavolo, coperti, items } = request.data ?? ({} as CreaOrdineBozzaRichiesta);
   if (typeof serataId !== 'string' || !serataId) {
     throw new HttpsError('invalid-argument', 'Serata non valida.');
   }
@@ -211,16 +210,9 @@ export const creaOrdineBozza = onCall(async (request: CallableRequest<CreaOrdine
 // sotto-ordini per reparto (l'ordine parte immediatamente in cucina/bar).
 // ---------------------------------------------------------------------------
 
-interface CreaOrdineCassaDati {
-  serataId: string;
-  items: ItemRichiesto[];
-  tavolo?: number | null;
-  coperti?: number | null;
-}
-
-export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdineCassaDati>) => {
+export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdineCassaRichiesta>): Promise<CreaOrdineRisposta> => {
   richiedeAutenticazione(request);
-  const { serataId, items, tavolo, coperti } = request.data ?? ({} as CreaOrdineCassaDati);
+  const { serataId, items, tavolo, coperti } = request.data ?? ({} as CreaOrdineCassaRichiesta);
   if (typeof serataId !== 'string' || !serataId) {
     throw new HttpsError('invalid-argument', 'Serata non valida.');
   }
@@ -264,14 +256,9 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
 // mostrato al cliente dopo l'invio da QR) e genera i sotto-ordini.
 // ---------------------------------------------------------------------------
 
-interface ConfermaOrdineDati {
-  serataId: string;
-  numero: number;
-}
-
-export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrdineDati>) => {
+export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrdineRichiesta>): Promise<CreaOrdineRisposta> => {
   richiedeAutenticazione(request);
-  const { serataId, numero } = request.data ?? ({} as ConfermaOrdineDati);
+  const { serataId, numero } = request.data ?? ({} as ConfermaOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId) {
     throw new HttpsError('invalid-argument', 'Serata non valida.');
   }
@@ -308,14 +295,9 @@ export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrd
 // come pronto per la consegna.
 // ---------------------------------------------------------------------------
 
-interface SegnaSottoOrdineProntoDati {
-  serataId: string;
-  sottoOrdineId: string;
-}
-
-export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<SegnaSottoOrdineProntoDati>) => {
+export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<SegnaSottoOrdineProntoRichiesta>): Promise<SegnaSottoOrdineProntoRisposta> => {
   richiedeAutenticazione(request);
-  const { serataId, sottoOrdineId } = request.data ?? ({} as SegnaSottoOrdineProntoDati);
+  const { serataId, sottoOrdineId } = request.data ?? ({} as SegnaSottoOrdineProntoRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof sottoOrdineId !== 'string' || !sottoOrdineId) {
     throw new HttpsError('invalid-argument', 'Sotto-ordine non valido.');
   }
@@ -346,14 +328,9 @@ export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<Seg
 // l'ordine passa automaticamente a "completata".
 // ---------------------------------------------------------------------------
 
-interface ConsegnaSottoOrdineDati {
-  serataId: string;
-  codice: string;
-}
-
-export const consegnaSottoOrdine = onCall(async (request: CallableRequest<ConsegnaSottoOrdineDati>) => {
+export const consegnaSottoOrdine = onCall(async (request: CallableRequest<ConsegnaSottoOrdineRichiesta>): Promise<ConsegnaSottoOrdineRisposta> => {
   richiedeAutenticazione(request);
-  const { serataId, codice } = request.data ?? ({} as ConsegnaSottoOrdineDati);
+  const { serataId, codice } = request.data ?? ({} as ConsegnaSottoOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof codice !== 'string' || !codice) {
     throw new HttpsError('invalid-argument', 'Codice non valido.');
   }
@@ -395,14 +372,9 @@ export const consegnaSottoOrdine = onCall(async (request: CallableRequest<Conseg
 // mai completato (individuati a fine serata).
 // ---------------------------------------------------------------------------
 
-interface AnnullaOrdineDati {
-  serataId: string;
-  ordineId: string;
-}
-
-export const annullaOrdine = onCall(async (request: CallableRequest<AnnullaOrdineDati>) => {
+export const annullaOrdine = onCall(async (request: CallableRequest<AnnullaOrdineRichiesta>): Promise<AnnullaOrdineRisposta> => {
   richiedeAutenticazione(request);
-  const { serataId, ordineId } = request.data ?? ({} as AnnullaOrdineDati);
+  const { serataId, ordineId } = request.data ?? ({} as AnnullaOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof ordineId !== 'string' || !ordineId) {
     throw new HttpsError('invalid-argument', 'Ordine non valido.');
   }
