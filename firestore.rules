@@ -1,12 +1,32 @@
 rules_version = '2';
 
-// Placeholder: nega tutto. Le regole vere vengono scritte nello Step 1 del
-// piano (modello dati e sicurezza). NON ancora distribuito al progetto live,
-// che resta in modalità test fino a quel momento.
+// Tutta la logica di scrittura (creazione ordini, cambi di stato, ecc.) passa
+// dalle Cloud Functions, che usano l'Admin SDK e quindi non sono soggette a
+// queste regole. Da qui i client (cassa, reparto, consegna, QR) possono solo
+// leggere, mai scrivere direttamente su ordini/sotto-ordini.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    // Menu: lettura pubblica (serve anche alla pagina QR non autenticata),
+    // scrittura riservata a utenti autenticati (staff che gestisce il menu).
+    match /prodotti/{prodottoId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /serate/{serataId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+
+      match /ordini/{ordineId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      match /sottoOrdini/{sottoOrdineId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
     }
   }
 }
