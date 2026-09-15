@@ -23,20 +23,26 @@ export function Login() {
   }
 
   return (
-    <form className="login" onSubmit={handleSubmit}>
-      <h1>Cassa — accesso</h1>
-      <label>
-        Email
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
-      </label>
-      <label>
-        Password
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-      </label>
-      {errore && <p className="errore">{errore}</p>}
-      <button type="submit" disabled={inCorso}>
-        {inCorso ? 'Accesso in corso…' : 'Entra'}
-      </button>
-    </form>
+    <div className="login">
+      <div className="login-intro">
+        <span className="occhiello">Sagra di Mazzocco</span>
+        <h1>Cassa</h1>
+        <p>Accedi con l'account del personale per prendere le comande.</p>
+      </div>
+      <form onSubmit={handleSubmit}>
+        <label>
+          Email
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+        </label>
+        <label>
+          Password
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        </label>
+        {errore && <p className="errore">{errore}</p>}
+        <button type="submit" className="bottone-principale" disabled={inCorso}>
+          {inCorso ? 'Accesso in corso…' : 'Entra'}
+        </button>
+      </form>
+    </div>
   );
 }

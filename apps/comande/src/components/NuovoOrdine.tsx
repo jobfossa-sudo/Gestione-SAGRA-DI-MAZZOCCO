@@ -5,6 +5,11 @@ import { creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { SERATA_ID_OGGI } from '../services/serata';
 
 const NOME_REPARTO: Record<Reparto, string> = { cucina: 'Cucina', bevande: 'Bevande' };
+const ORDINE_REPARTI: Reparto[] = ['cucina', 'bevande'];
+
+function euro(valore: number): string {
+  return valore.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
+}
 
 export function NuovoOrdine() {
   const prodotti = useProdottiDisponibili();
@@ -15,21 +20,23 @@ export function NuovoOrdine() {
   const [errore, setErrore] = useState<string | null>(null);
   const [messaggioSuccesso, setMessaggioSuccesso] = useState<string | null>(null);
 
-  const prodottiPerReparto = useMemo(() => {
-    const gruppi = new Map<Reparto, typeof prodotti>();
-    for (const prodotto of prodotti) {
-      const lista = gruppi.get(prodotto.reparto) ?? [];
-      lista.push(prodotto);
-      gruppi.set(prodotto.reparto, lista);
-    }
-    return gruppi;
-  }, [prodotti]);
+  const prodottiPerReparto = useMemo(
+    () =>
+      ORDINE_REPARTI.map((reparto) => ({
+        reparto,
+        lista: prodotti
+          .filter((p) => p.reparto === reparto)
+          .sort((a, b) => a.nome.localeCompare(b.nome, 'it')),
+      })).filter((gruppo) => gruppo.lista.length > 0),
+    [prodotti]
+  );
 
-  const totale = useMemo(
-    () => prodotti.reduce((somma, p) => somma + p.prezzo * (carrello[p.id] ?? 0), 0),
+  const selezionati = useMemo(
+    () => prodotti.filter((p) => (carrello[p.id] ?? 0) > 0),
     [prodotti, carrello]
   );
 
+  const totale = selezionati.reduce((somma, p) => somma + p.prezzo * carrello[p.id], 0);
   const numeroArticoli = Object.values(carrello).reduce((s, q) => s + q, 0);
 
   function cambiaQuantita(prodottoId: string, delta: number) {
@@ -53,7 +60,9 @@ export function NuovoOrdine() {
         tavolo: tavolo ? Number(tavolo) : null,
         coperti: coperti ? Number(coperti) : null,
       });
-      setMessaggioSuccesso(`Ordine n. ${risultato.data.numero} creato — totale € ${risultato.data.totale.toFixed(2)}`);
+      setMessaggioSuccesso(
+        `Ordine n. ${risultato.data.numero} inviato ai reparti — ${euro(risultato.data.totale)}`
+      );
       setCarrello({});
       setTavolo('');
       setCoperti('');
@@ -67,44 +76,91 @@ export function NuovoOrdine() {
   return (
     <div className="nuovo-ordine">
       <div className="colonna-menu">
-        {[...prodottiPerReparto.entries()].map(([reparto, lista]) => (
+        {prodottiPerReparto.map(({ reparto, lista }) => (
           <div key={reparto} className="gruppo-reparto">
-            <h2>{NOME_REPARTO[reparto]}</h2>
-            {lista.map((prodotto) => (
-              <div key={prodotto.id} className="riga-prodotto">
-                <span className="nome-prodotto">
-                  {prodotto.nome} <small>€ {prodotto.prezzo.toFixed(2)}</small>
-                </span>
-                <div className="controlli-quantita">
-                  <button type="button" onClick={() => cambiaQuantita(prodotto.id, -1)}>
-                    −
-                  </button>
-                  <span>{carrello[prodotto.id] ?? 0}</span>
-                  <button type="button" onClick={() => cambiaQuantita(prodotto.id, 1)}>
-                    +
-                  </button>
-                </div>
-              </div>
-            ))}
+            <div className="intestazione-reparto">
+              <span className="pallino" style={{ ['--reparto-colore' as string]: `var(--${reparto})` }} />
+              <h2>{NOME_REPARTO[reparto]}</h2>
+            </div>
+            <div className="griglia-prodotti">
+              {lista.map((prodotto) => {
+                const quantita = carrello[prodotto.id] ?? 0;
+                return (
+                  <div key={prodotto.id} className={`riga-prodotto${quantita > 0 ? ' selezionato' : ''}`}>
+                    <span className="nome-prodotto">
+                      {prodotto.nome}
+                      <small>{euro(prodotto.prezzo)}</small>
+                    </span>
+                    <div className="controlli-quantita">
+                      <button
+                        type="button"
+                        aria-label={`Togli ${prodotto.nome}`}
+                        disabled={quantita === 0}
+                        onClick={() => cambiaQuantita(prodotto.id, -1)}
+                      >
+                        −
+                      </button>
+                      <span>{quantita}</span>
+                      <button
+                        type="button"
+                        aria-label={`Aggiungi ${prodotto.nome}`}
+                        onClick={() => cambiaQuantita(prodotto.id, 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ))}
-        {prodotti.length === 0 && <p>Nessun prodotto disponibile.</p>}
+        {prodotti.length === 0 && <p className="vuoto">Nessun prodotto disponibile.</p>}
       </div>
 
       <div className="colonna-riepilogo">
-        <h2>Ordine</h2>
-        <label>
-          Tavolo (opzionale)
-          <input type="number" min="1" value={tavolo} onChange={(e) => setTavolo(e.target.value)} />
-        </label>
-        <label>
-          Coperti (opzionale)
-          <input type="number" min="1" value={coperti} onChange={(e) => setCoperti(e.target.value)} />
-        </label>
-        <p className="totale">Totale: € {totale.toFixed(2)}</p>
+        <h2>Riepilogo ordine</h2>
+
+        {selezionati.length === 0 ? (
+          <p className="carrello-vuoto">Tocca i prodotti per aggiungerli all'ordine.</p>
+        ) : (
+          <ul className="carrello">
+            {selezionati.map((p) => (
+              <li key={p.id}>
+                <span>
+                  <span className="quantita">{carrello[p.id]}×</span>
+                  {p.nome}
+                </span>
+                <span className="prezzo">{euro(p.prezzo * carrello[p.id])}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="campi-tavolo">
+          <label>
+            Tavolo
+            <input type="number" min="1" placeholder="—" value={tavolo} onChange={(e) => setTavolo(e.target.value)} />
+          </label>
+          <label>
+            Coperti
+            <input type="number" min="1" placeholder="—" value={coperti} onChange={(e) => setCoperti(e.target.value)} />
+          </label>
+        </div>
+
+        <p className="totale">
+          Totale <strong>{euro(totale)}</strong>
+        </p>
+
         {errore && <p className="errore">{errore}</p>}
         {messaggioSuccesso && <p className="successo">{messaggioSuccesso}</p>}
-        <button type="button" disabled={numeroArticoli === 0 || inCorso} onClick={inviaOrdine}>
+
+        <button
+          type="button"
+          className="bottone-principale"
+          disabled={numeroArticoli === 0 || inCorso}
+          onClick={inviaOrdine}
+        >
           {inCorso ? 'Invio in corso…' : 'Conferma e invia'}
         </button>
       </div>
