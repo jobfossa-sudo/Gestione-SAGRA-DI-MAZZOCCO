@@ -31,6 +31,8 @@ import {
   ConsegnaSottoOrdineRisposta,
   AnnullaOrdineRichiesta,
   AnnullaOrdineRisposta,
+  ApriSerataRichiesta,
+  ApriSerataRisposta,
 } from '@sagra-mazzocco/shared';
 
 initializeApp();
@@ -161,6 +163,32 @@ function generaSottoOrdini(
     transaction.set(sottoOrdineRef, sottoOrdine);
   }
 }
+
+// ---------------------------------------------------------------------------
+// apriSerata — prepara la serata di una data (contenitore degli ordini, con il
+// contatore che riparte da 1). Va chiamata una volta prima di iniziare a
+// prendere ordini; se la serata esiste già non la sovrascrive.
+// ---------------------------------------------------------------------------
+
+export const apriSerata = onCall(async (request: CallableRequest<ApriSerataRichiesta>): Promise<ApriSerataRisposta> => {
+  richiedeAutenticazione(request);
+  const { data } = request.data ?? ({} as ApriSerataRichiesta);
+  if (typeof data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    throw new HttpsError('invalid-argument', 'Data non valida: attesa nel formato AAAA-MM-GG.');
+  }
+
+  const serataRef = db.collection('serate').doc(data);
+
+  const giaEsistente = await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(serataRef);
+    if (snapshot.exists) return true;
+    const serata: Serata = { id: data, data, aperta: true, contatoreOrdini: 0 };
+    transaction.set(serataRef, serata);
+    return false;
+  });
+
+  return { serataId: data, giaEsistente };
+});
 
 // ---------------------------------------------------------------------------
 // creaOrdineBozza — cliente da QR: crea un ordine in stato "bozza", non ancora

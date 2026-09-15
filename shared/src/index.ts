@@ -97,6 +97,16 @@ export interface ItemOrdineRichiesta {
   quantita: number;
 }
 
+export interface ApriSerataRichiesta {
+  /** Data della serata in formato AAAA-MM-GG, usata anche come id. */
+  data: string;
+}
+
+export interface ApriSerataRisposta {
+  serataId: string;
+  giaEsistente: boolean;
+}
+
 export interface CreaOrdineRisposta {
   ordineId: string;
   numero: number;
