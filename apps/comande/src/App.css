@@ -307,29 +307,188 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- piatti finiti e porzioni residue (cassa) ---------- */
+
+.riga-prodotto.esaurito {
+  background: var(--surface-alt);
+  border-style: dashed;
+}
+.riga-prodotto.esaurito .titolo-prodotto,
+.riga-prodotto.esaurito small {
+  color: var(--text-muted);
+}
+.riga-prodotto.esaurito .titolo-prodotto {
+  text-decoration: line-through;
+}
+.targhetta-esaurito {
+  align-self: flex-start;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.note-prodotto {
+  font-style: italic;
+}
+/* Quante ne restano: lo legge solo chi sta in cassa. */
+.rimaste {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.rimaste.poche {
+  color: var(--danger);
+}
+.carrello li.non-disponibile {
+  color: var(--danger);
+  text-decoration: line-through;
+}
+
 /* ---------- conferma bozza ---------- */
 
 .conferma-bozza {
-  max-width: 460px;
+  display: grid;
+  grid-template-columns: minmax(360px, 460px) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .conferma-bozza {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.conferma-bozza .riquadro {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  box-shadow: var(--shadow);
+  gap: 4px;
 }
-.conferma-bozza .spiegazione {
-  font-size: 0.92rem;
-  color: var(--text-muted);
+.conferma-bozza h2 {
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-.conferma-bozza input {
+.cerca-ordine {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+.cerca-ordine input {
   font-size: 1.6rem;
   font-weight: 700;
   text-align: center;
   letter-spacing: 0.06em;
   padding: 14px;
+}
+
+/* Resoconto da far controllare al cliente */
+.resoconto {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  padding: 16px;
+}
+.testata-resoconto {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.numero-ordine {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.provenienza {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.voci-resoconto {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.voci-resoconto li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 0.98rem;
+}
+.voci-resoconto .quantita {
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.voci-resoconto .prezzo {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.bottoni-resoconto {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Elenco delle bozze ancora da incassare */
+.elenco-bozze {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.elenco-bozze li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.elenco-bozze li.richiamato {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.elenco-bozze .numero {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.elenco-bozze .dettagli {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85rem;
+  min-width: 0;
+}
+.elenco-bozze .voci {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.elenco-bozze .prezzo {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- fine serata ---------- */

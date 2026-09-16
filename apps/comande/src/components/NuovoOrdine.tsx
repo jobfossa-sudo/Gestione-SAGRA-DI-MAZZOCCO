@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useCategorie, useProdotti } from '../hooks';
+import { useCategorie, useDisponibilita, useProdotti } from '../hooks';
 import { creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { SERATA_ID_OGGI } from '../services/serata';
 
@@ -9,9 +9,10 @@ function euro(valore: number): string {
 
 export function NuovoOrdine() {
   const categorie = useCategorie();
-  const tuttiIProdotti = useProdotti();
-  // I piatti finiti restano visibili ma non ordinabili: se ne occupa il C3.
-  const prodotti = tuttiIProdotti.filter((p) => p.esauritoSerata !== SERATA_ID_OGGI);
+  // I piatti finiti restano nell'elenco, barrati: la cassiera deve poter dire
+  // al cliente "quello è finito" invece di cercare un piatto scomparso.
+  const prodotti = useProdotti();
+  const disponibilita = useDisponibilita();
   const [carrello, setCarrello] = useState<Record<string, number>>({});
   const [tavolo, setTavolo] = useState('');
   const [coperti, setCoperti] = useState('');
@@ -37,8 +38,35 @@ export function NuovoOrdine() {
     [prodotti, carrello]
   );
 
+  /** Porzioni ancora vendibili stasera: null quando il piatto non ha limite.
+   * Il numero lo vede solo chi sta in cassa, mai il cliente. */
+  function porzioniRimaste(prodottoId: string): number | null {
+    const riga = disponibilita.get(prodottoId);
+    if (!riga || riga.porzioniMassime === null) return null;
+    return Math.max(0, riga.porzioniMassime - riga.venduti);
+  }
+
   const totale = selezionati.reduce((somma, p) => somma + p.prezzo * carrello[p.id], 0);
   const numeroArticoli = Object.values(carrello).reduce((s, q) => s + q, 0);
+
+  /** Un piatto può finire mentre è già nel carrello, per mano di un'altra
+   * cassa: meglio dirlo qui che vedersi rifiutare l'ordine dopo averlo
+   * battuto. Non si vendono mezzi ordini, quindi si blocca l'invio. */
+  const avvisoPorzioni = useMemo(() => {
+    for (const p of selezionati) {
+      const quantita = carrello[p.id];
+      if (p.esauritoSerata === SERATA_ID_OGGI) return `${p.nome} è appena finito: toglilo dall'ordine.`;
+      const riga = disponibilita.get(p.id);
+      if (!riga || riga.porzioniMassime === null) continue;
+      const rimaste = Math.max(0, riga.porzioniMassime - riga.venduti);
+      if (quantita > rimaste) {
+        return rimaste === 0
+          ? `${p.nome} è appena finito: toglilo dall'ordine.`
+          : `Di ${p.nome} ${rimaste === 1 ? 'resta solo 1 porzione' : `restano solo ${rimaste} porzioni`}: correggi la quantità.`;
+      }
+    }
+    return null;
+  }, [selezionati, carrello, disponibilita]);
 
   function cambiaQuantita(prodottoId: string, delta: number) {
     setCarrello((prec) => {
@@ -88,11 +116,31 @@ export function NuovoOrdine() {
             <div className="griglia-prodotti">
               {lista.map((prodotto) => {
                 const quantita = carrello[prodotto.id] ?? 0;
+                const rimaste = porzioniRimaste(prodotto.id);
+                const finito = prodotto.esauritoSerata === SERATA_ID_OGGI || rimaste === 0;
+                // Non si vendono porzioni che non ci sono: il "+" si ferma da
+                // solo, così l'ordine non viene rifiutato dopo averlo battuto.
+                const alMassimo = rimaste !== null && quantita >= rimaste;
                 return (
-                  <div key={prodotto.id} className={`riga-prodotto${quantita > 0 ? ' selezionato' : ''}`}>
+                  <div
+                    key={prodotto.id}
+                    className={`riga-prodotto${quantita > 0 ? ' selezionato' : ''}${finito ? ' esaurito' : ''}`}
+                  >
                     <span className="nome-prodotto">
-                      {prodotto.nome}
-                      <small>{euro(prodotto.prezzo)}</small>
+                      <span className="titolo-prodotto">{prodotto.nome}</span>
+                      <small>
+                        {euro(prodotto.prezzo)}
+                        {prodotto.note && <span className="note-prodotto"> · {prodotto.note}</span>}
+                      </small>
+                      {finito ? (
+                        <span className="targhetta-esaurito">esaurito</span>
+                      ) : (
+                        rimaste !== null && (
+                          <small className={`rimaste${rimaste <= 3 ? ' poche' : ''}`}>
+                            {rimaste === 1 ? 'resta 1 porzione' : `restano ${rimaste} porzioni`}
+                          </small>
+                        )
+                      )}
                     </span>
                     <div className="controlli-quantita">
                       <button
@@ -107,6 +155,8 @@ export function NuovoOrdine() {
                       <button
                         type="button"
                         aria-label={`Aggiungi ${prodotto.nome}`}
+                        disabled={finito || alMassimo}
+                        title={alMassimo && !finito ? 'Non ci sono altre porzioni' : undefined}
                         onClick={() => cambiaQuantita(prodotto.id, 1)}
                       >
                         +
@@ -128,17 +178,24 @@ export function NuovoOrdine() {
           <p className="carrello-vuoto">Tocca i prodotti per aggiungerli all'ordine.</p>
         ) : (
           <ul className="carrello">
-            {selezionati.map((p) => (
-              <li key={p.id}>
-                <span>
-                  <span className="quantita">{carrello[p.id]}×</span>
-                  {p.nome}
-                </span>
-                <span className="prezzo">{euro(p.prezzo * carrello[p.id])}</span>
-              </li>
-            ))}
+            {selezionati.map((p) => {
+              const quantita = carrello[p.id];
+              const rimaste = porzioniRimaste(p.id);
+              const troppe = p.esauritoSerata === SERATA_ID_OGGI || (rimaste !== null && quantita > rimaste);
+              return (
+                <li key={p.id} className={troppe ? 'non-disponibile' : undefined}>
+                  <span>
+                    <span className="quantita">{quantita}×</span>
+                    {p.nome}
+                  </span>
+                  <span className="prezzo">{euro(p.prezzo * quantita)}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
+
+        {avvisoPorzioni && <p className="errore">{avvisoPorzioni}</p>}
 
         <div className="campi-tavolo">
           <label>
@@ -161,7 +218,7 @@ export function NuovoOrdine() {
         <button
           type="button"
           className="bottone-principale"
-          disabled={numeroArticoli === 0 || inCorso}
+          disabled={numeroArticoli === 0 || inCorso || avvisoPorzioni !== null}
           onClick={inviaOrdine}
         >
           {inCorso ? 'Invio in corso…' : 'Conferma e invia'}
