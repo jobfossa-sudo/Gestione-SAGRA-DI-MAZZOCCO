@@ -1,7 +1,14 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import type { Categoria, DisponibilitaProdotto, Ordine, Permessi, Prodotto } from '@sagra-mazzocco/shared';
+import type {
+  Categoria,
+  DisponibilitaProdotto,
+  Ordine,
+  Permessi,
+  Prodotto,
+  SottoOrdine,
+} from '@sagra-mazzocco/shared';
 import { auth, db } from './services/firebase';
 import { SERATA_ID_OGGI } from './services/serata';
 
@@ -79,6 +86,34 @@ export function useDisponibilita(): Map<string, DisponibilitaProdotto> {
   );
 
   return disponibilita;
+}
+
+/** Le comande della serata ancora da evadere: quelle da preparare e quelle
+ * pronte che aspettano di essere consegnate. Le consegnate escono da sole
+ * dall'elenco, così il pannello resta leggero tutta la sera.
+ *
+ * Il filtro per settore e l'ordinamento si fanno qui e non nella query: una
+ * query che li mettesse insieme richiederebbe un indice composto su Firestore,
+ * e i numeri di una serata stanno comodamente in memoria. */
+export function useSottoOrdiniDaEvadere(): SottoOrdine[] {
+  const [sottoOrdini, setSottoOrdini] = useState<SottoOrdine[]>([]);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, `serate/${SERATA_ID_OGGI}/sottoOrdini`),
+      where('stato', 'in', ['in_preparazione', 'pronta'])
+    );
+    return onSnapshot(q, (snapshot) => {
+      const elenco = snapshot.docs.map((doc) => doc.data() as SottoOrdine);
+      // Prima le più vecchie: in cucina si lavora in ordine di arrivo.
+      elenco.sort(
+        (a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0) || a.numeroOrdine - b.numeroOrdine
+      );
+      setSottoOrdini(elenco);
+    });
+  }, []);
+
+  return sottoOrdini;
 }
 
 /** Ordini della serata di oggi ancora "aperti": bozze mai confermate e ordini

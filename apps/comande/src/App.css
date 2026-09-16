@@ -272,6 +272,140 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- pannelli di settore ---------- */
+
+.pannello {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.pannello .sotto-schede button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Quanto preparare in tutto, sommando le comande in coda. */
+.totali {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+.totali li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.quantita-grande {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.6em;
+  text-align: right;
+}
+
+/* Le comande, una per riquadro: si leggono da lontano. */
+.comande {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.comanda {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+/* Chi aspetta da dieci minuti si fa notare. */
+.comanda.in-ritardo {
+  border-left-color: var(--danger);
+}
+.comanda header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.comanda .codice {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.comanda.in-ritardo .codice {
+  color: var(--danger);
+}
+.comanda .quando {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.voci-comanda {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.voci-comanda li {
+  display: flex;
+  gap: 10px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.voci-comanda .quantita {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.8em;
+}
+
+.elenco-pronte {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.elenco-pronte li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.elenco-pronte .codice {
+  font-weight: 800;
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+}
+.elenco-pronte .voci {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
 /* ---------- riepilogo ordine ---------- */
 
 .colonna-riepilogo {

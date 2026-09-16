@@ -8,6 +8,8 @@ import type {
   ImpostaPorzioniRichiesta,
   SegnaEsauritoRichiesta,
   ProdottoRisposta,
+  SegnaSottoOrdineProntoRichiesta,
+  SegnaSottoOrdineProntoRisposta,
 } from '@sagra-mazzocco/shared';
 import { functions } from './firebase';
 
@@ -29,6 +31,11 @@ export const annullaOrdine = httpsCallable<AnnullaOrdineRichiesta, AnnullaOrdine
 export const impostaPorzioni = httpsCallable<ImpostaPorzioniRichiesta, ProdottoRisposta>(functions, 'impostaPorzioni');
 
 export const segnaEsaurito = httpsCallable<SegnaEsauritoRichiesta, ProdottoRisposta>(functions, 'segnaEsaurito');
+
+export const segnaSottoOrdinePronto = httpsCallable<SegnaSottoOrdineProntoRichiesta, SegnaSottoOrdineProntoRisposta>(
+  functions,
+  'segnaSottoOrdinePronto'
+);
 
 /** Le Cloud Functions rispondono con errori HttpsError: firebase/functions
  * espone il messaggio leggibile in `error.message`, il resto (stack, codice
