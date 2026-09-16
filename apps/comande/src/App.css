@@ -276,136 +276,67 @@
 
 /* ---------- pannelli di settore ---------- */
 
-.pannello {
+/* Una sola pagina: sotto ogni reparto l'elenco di cosa preparare, con il
+   numero in fondo alla riga come in un listino, leggibile da lontano. */
+.pannello-unico {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-}
-.pannello .sotto-schede button {
-  display: flex;
-  align-items: center;
   gap: 8px;
 }
-
-/* Quanto preparare in tutto, sommando le comande in coda. */
-.totali {
-  list-style: none;
-  margin: 10px 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 10px;
+.elenco-settore + .elenco-settore {
+  margin-top: 14px;
 }
-.totali li {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 14px;
+.testata-settore {
+  margin: 0;
+  background: color-mix(in srgb, var(--settore-colore) 12%, transparent);
+  border-left: 4px solid var(--settore-colore);
+  border-bottom: 2px solid var(--settore-colore);
+  border-radius: 7px 7px 0 0;
+  padding: 8px 12px;
   font-size: 1.05rem;
-  font-weight: 600;
-}
-.quantita-grande {
-  font-size: 1.9rem;
   font-weight: 800;
-  line-height: 1;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-  min-width: 1.6em;
-  text-align: right;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--settore-colore);
 }
-
-/* Le comande, una per riquadro: si leggono da lontano. */
-.comande {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
-  align-items: start;
+.elenco-settore .vuoto {
+  margin: 10px 12px 0;
 }
-.comanda {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 5px solid var(--accent);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  box-shadow: var(--shadow);
-}
-/* Chi aspetta da dieci minuti si fa notare. */
-.comanda.in-ritardo {
-  border-left-color: var(--danger);
-}
-.comanda header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-.comanda .codice {
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-.comanda.in-ritardo .codice {
-  color: var(--danger);
-}
-.comanda .quando {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-.voci-comanda {
+.voci-settore {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
 }
-.voci-comanda li {
-  display: flex;
-  gap: 10px;
-  font-size: 1.15rem;
-  font-weight: 600;
-  line-height: 1.25;
-}
-.voci-comanda .quantita {
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-  min-width: 1.8em;
-}
-
-.elenco-pronte {
-  list-style: none;
-  margin: 10px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.elenco-pronte li {
+.voci-settore li {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  gap: 10px;
   padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 1.25rem;
+  font-weight: 600;
 }
-.elenco-pronte .codice {
-  font-weight: 800;
-  color: var(--success);
-  font-variant-numeric: tabular-nums;
-}
-.elenco-pronte .voci {
-  font-size: 0.9rem;
+.nome-voce small {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--text-muted);
+}
+/* I puntini tra nome e numero guidano l'occhio lungo la riga. */
+.puntini {
+  flex: 1;
+  min-width: 20px;
+  border-bottom: 2px dotted var(--border-strong, var(--border));
+  transform: translateY(-0.3em);
+}
+.quantita-voce {
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--settore-colore);
+  font-variant-numeric: tabular-nums;
+  min-width: 2ch;
+  text-align: right;
 }
 
 /* ---------- riepilogo ordine ---------- */
@@ -1173,20 +1104,4 @@ body.trascinamento-in-corso {
 }
 .aggiungi-componente .bottone-aggiungi {
   width: auto;
-}
-
-/* Pannello: i componenti ricordano per quali piatti si preparano. */
-.per-piatti {
-  margin: -4px 0 0;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-.nome-totale {
-  display: flex;
-  flex-direction: column;
-}
-.nome-totale small {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-muted);
 }
