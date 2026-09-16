@@ -38,16 +38,26 @@ const functions = getFunctions(app);
 // Stessa conversione di emailDaNomeUtente() in shared/src/index.ts.
 const email = `${nomeUtente.trim().toLowerCase()}@utenti.sagra-mazzocco.invalid`;
 
+// Le portate con cui parte il menù. Si rinominano, si riordinano e se ne
+// creano di nuove dall'app: questo è solo il punto di partenza.
+const CATEGORIE = [
+  { id: 'primi', nome: 'Primi', ordine: 0 },
+  { id: 'secondi', nome: 'Secondi', ordine: 10 },
+  { id: 'contorni', nome: 'Contorni', ordine: 20 },
+  { id: 'bevande', nome: 'Bevande', ordine: 30 },
+  { id: 'dessert', nome: 'Dessert', ordine: 40 },
+];
+
 // Menu di esempio: va sostituito con il menu vero della sagra.
-// categoria = come si legge nel menù; settore = chi lo prepara.
+// categoriaId = sotto quale portata compare; settore = chi lo prepara.
 const PRODOTTI = [
-  { id: 'pasta', categoria: 'primi', settore: 'cucina', nome: 'Pasta al ragù', note: 'ragù di manzo, grana', prezzo: 7, novita: false, esauritoSerata: null },
-  { id: 'grigliata', categoria: 'secondi', settore: 'griglia', nome: 'Grigliata mista', note: 'salsiccia, costine, pancetta', prezzo: 10, novita: false, esauritoSerata: null },
-  { id: 'panino', categoria: 'secondi', settore: 'griglia', nome: 'Panino con salsiccia', note: '', prezzo: 5, novita: false, esauritoSerata: null },
-  { id: 'patatine', categoria: 'contorni', settore: 'cucina', nome: 'Patatine fritte', note: '', prezzo: 3, novita: false, esauritoSerata: null },
-  { id: 'acqua', categoria: 'bevande', settore: 'bar', nome: 'Acqua', note: 'naturale o frizzante', prezzo: 1, novita: false, esauritoSerata: null },
-  { id: 'birra', categoria: 'bevande', settore: 'bar', nome: 'Birra', note: 'media, alla spina', prezzo: 3, novita: false, esauritoSerata: null },
-  { id: 'vino', categoria: 'bevande', settore: 'bar', nome: 'Vino (calice)', note: '', prezzo: 3, novita: false, esauritoSerata: null },
+  { id: 'pasta', categoriaId: 'primi', ordine: 0, settore: 'cucina', nome: 'Pasta al ragù', note: 'ragù di manzo, grana', prezzo: 7, novita: false, esauritoSerata: null },
+  { id: 'grigliata', categoriaId: 'secondi', ordine: 0, settore: 'griglia', nome: 'Grigliata mista', note: 'salsiccia, costine, pancetta', prezzo: 10, novita: false, esauritoSerata: null },
+  { id: 'panino', categoriaId: 'secondi', ordine: 10, settore: 'griglia', nome: 'Panino con salsiccia', note: '', prezzo: 5, novita: false, esauritoSerata: null },
+  { id: 'patatine', categoriaId: 'contorni', ordine: 0, settore: 'cucina', nome: 'Patatine fritte', note: '', prezzo: 3, novita: false, esauritoSerata: null },
+  { id: 'acqua', categoriaId: 'bevande', ordine: 0, settore: 'bar', nome: 'Acqua', note: 'naturale o frizzante', prezzo: 1, novita: false, esauritoSerata: null },
+  { id: 'birra', categoriaId: 'bevande', ordine: 10, settore: 'bar', nome: 'Birra', note: 'media, alla spina', prezzo: 3, novita: false, esauritoSerata: null },
+  { id: 'vino', categoriaId: 'bevande', ordine: 20, settore: 'bar', nome: 'Vino (calice)', note: '', prezzo: 3, novita: false, esauritoSerata: null },
 ];
 
 async function main() {
@@ -62,10 +72,13 @@ async function main() {
 
   await signInWithEmailAndPassword(auth, email, password);
 
+  for (const categoria of CATEGORIE) {
+    await setDoc(doc(db, 'categorie', categoria.id), categoria);
+  }
   for (const prodotto of PRODOTTI) {
     await setDoc(doc(db, 'prodotti', prodotto.id), prodotto);
   }
-  console.log(`Caricati ${PRODOTTI.length} prodotti nel menu.`);
+  console.log(`Caricate ${CATEGORIE.length} portate e ${PRODOTTI.length} prodotti nel menu.`);
 
   const oggi = new Date().toISOString().slice(0, 10);
   const risultato = await httpsCallable(functions, 'apriSerata')({ data: oggi });

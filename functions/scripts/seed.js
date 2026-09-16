@@ -31,17 +31,28 @@ const UTENTI_PROVA = [
   { nomeUtente: 'senzaruolo', nome: 'Account senza accessi', amministratore: false, accessi: {} },
 ];
 
-// categoria = come si legge nel menù; settore = chi lo prepara.
+// Le portate del menù: da qui in poi le gestisce l'amministratore dall'app.
+// Stesso elenco di CATEGORIE_INIZIALI in shared/src/index.ts.
+const CATEGORIE_FITTIZIE = [
+  { id: 'primi', nome: 'Primi', ordine: 0 },
+  { id: 'secondi', nome: 'Secondi', ordine: 10 },
+  { id: 'contorni', nome: 'Contorni', ordine: 20 },
+  { id: 'bevande', nome: 'Bevande', ordine: 30 },
+  { id: 'dessert', nome: 'Dessert', ordine: 40 },
+];
+
+// categoriaId = sotto quale portata compare; settore = chi lo prepara;
+// ordine = la posizione dentro la portata.
 const PRODOTTI_FITTIZI = [
-  { id: 'pasta', categoria: 'primi', settore: 'cucina', nome: 'Pasta al ragù', note: 'ragù di manzo, grana', prezzo: 7, novita: false, esauritoSerata: null },
-  { id: 'gnocchi', categoria: 'primi', settore: 'cucina', nome: 'Gnocchi al pomodoro', note: 'pomodoro e basilico', prezzo: 7, novita: true, esauritoSerata: null },
-  { id: 'grigliata', categoria: 'secondi', settore: 'griglia', nome: 'Grigliata mista', note: 'salsiccia, costine, pancetta', prezzo: 10, novita: false, esauritoSerata: null },
-  { id: 'panino', categoria: 'secondi', settore: 'griglia', nome: 'Panino con salsiccia', note: '', prezzo: 5, novita: false, esauritoSerata: null },
-  { id: 'patatine', categoria: 'contorni', settore: 'cucina', nome: 'Patatine fritte', note: '', prezzo: 3, novita: false, esauritoSerata: null },
-  { id: 'acqua', categoria: 'bevande', settore: 'bar', nome: 'Acqua', note: 'naturale o frizzante', prezzo: 1, novita: false, esauritoSerata: null },
-  { id: 'birra', categoria: 'bevande', settore: 'bar', nome: 'Birra', note: 'media, alla spina', prezzo: 3, novita: false, esauritoSerata: null },
-  { id: 'vino', categoria: 'bevande', settore: 'bar', nome: 'Vino (calice)', note: '', prezzo: 3, novita: false, esauritoSerata: null },
-  { id: 'torta', categoria: 'dessert', settore: 'cucina', nome: 'Torta di mele', note: 'fatta in casa', prezzo: 3, novita: false, esauritoSerata: null },
+  { id: 'pasta', categoriaId: 'primi', ordine: 0, settore: 'cucina', nome: 'Pasta al ragù', note: 'ragù di manzo, grana', prezzo: 7, novita: false, esauritoSerata: null },
+  { id: 'gnocchi', categoriaId: 'primi', ordine: 10, settore: 'cucina', nome: 'Gnocchi al pomodoro', note: 'pomodoro e basilico', prezzo: 7, novita: true, esauritoSerata: null },
+  { id: 'grigliata', categoriaId: 'secondi', ordine: 0, settore: 'griglia', nome: 'Grigliata mista', note: 'salsiccia, costine, pancetta', prezzo: 10, novita: false, esauritoSerata: null },
+  { id: 'panino', categoriaId: 'secondi', ordine: 10, settore: 'griglia', nome: 'Panino con salsiccia', note: '', prezzo: 5, novita: false, esauritoSerata: null },
+  { id: 'patatine', categoriaId: 'contorni', ordine: 0, settore: 'cucina', nome: 'Patatine fritte', note: '', prezzo: 3, novita: false, esauritoSerata: null },
+  { id: 'acqua', categoriaId: 'bevande', ordine: 0, settore: 'bar', nome: 'Acqua', note: 'naturale o frizzante', prezzo: 1, novita: false, esauritoSerata: null },
+  { id: 'birra', categoriaId: 'bevande', ordine: 10, settore: 'bar', nome: 'Birra', note: 'media, alla spina', prezzo: 3, novita: false, esauritoSerata: null },
+  { id: 'vino', categoriaId: 'bevande', ordine: 20, settore: 'bar', nome: 'Vino (calice)', note: '', prezzo: 3, novita: false, esauritoSerata: null },
+  { id: 'torta', categoriaId: 'dessert', ordine: 0, settore: 'cucina', nome: 'Torta di mele', note: 'fatta in casa', prezzo: 3, novita: false, esauritoSerata: null },
 ];
 
 async function creaUtenteProva({ nomeUtente, nome, amministratore, accessi }) {
@@ -71,6 +82,10 @@ async function main() {
 
   await db.collection('serate').doc(oggi).set({ id: oggi, data: oggi, aperta: true, contatoreOrdini: 0 });
 
+  for (const categoria of CATEGORIE_FITTIZIE) {
+    await db.collection('categorie').doc(categoria.id).set(categoria);
+  }
+
   for (const prodotto of PRODOTTI_FITTIZI) {
     await db.collection('prodotti').doc(prodotto.id).set(prodotto);
   }
@@ -80,7 +95,7 @@ async function main() {
   }
 
   console.log(
-    `Seed completato: serata "${oggi}", ${PRODOTTI_FITTIZI.length} prodotti, utenti di prova ` +
+    `Seed completato: serata "${oggi}", ${CATEGORIE_FITTIZIE.length} portate, ${PRODOTTI_FITTIZI.length} prodotti, utenti di prova ` +
       `${UTENTI_PROVA.map((u) => u.nomeUtente).join(', ')} (password: ${PASSWORD_PROVA}).`
   );
 }

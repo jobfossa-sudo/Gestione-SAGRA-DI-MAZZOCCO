@@ -27,6 +27,12 @@ service cloud.firestore {
       allow write: if amministratore();
     }
 
+    // Portate del menù (Primi, Secondi, ...): stesso trattamento dei piatti.
+    match /categorie/{categoriaId} {
+      allow read: if true;
+      allow write: if amministratore();
+    }
+
     match /serate/{serataId} {
       allow read: if personaleComande();
       allow write: if false;

@@ -24,6 +24,7 @@ async function main() {
     await db.doc('serate/2026-01-01').set({ data: '2026-01-01', aperta: true, contatoreOrdini: 1 });
     await db.doc('serate/2026-01-01/ordini/ordine1').set({ numero: 1, stato: 'bozza' });
     await db.doc('prodotti/panino').set({ nome: 'Panino', prezzo: 5 });
+    await db.doc('categorie/secondi').set({ id: 'secondi', nome: 'Secondi', ordine: 10 });
     await db.doc('utenti/uid-cassa').set({ nomeUtente: 'cassa', amministratore: false, accessi: { comande: ['cassa'] } });
     await db.doc('utenti/uid-altro').set({ nomeUtente: 'altro', amministratore: false, accessi: { comande: ['cucina'] } });
     await db.doc('config/sistema').set({ amministratoreCreato: true });
@@ -57,6 +58,17 @@ async function main() {
   await check('account senza ruolo non modifica il menu', assertFails(senzaRuolo.doc('prodotti/panino').update({ prezzo: 0 })));
   await check('cassa non modifica il menu', assertFails(cassa.doc('prodotti/panino').update({ prezzo: 0 })));
   await check('amministratore modifica il menu', assertSucceeds(admin.doc('prodotti/panino').update({ prezzo: 6 })));
+
+  // Portate del menù
+  await check('chiunque legge le portate (servono al menu QR)', assertSucceeds(anonimo.collection('categorie').get()));
+  await check('cassa non crea portate', assertFails(cassa.doc('categorie/nuova').set({ nome: 'Nuova', ordine: 99 })));
+  await check('cassa non rinomina una portata', assertFails(cassa.doc('categorie/secondi').update({ nome: 'Altro' })));
+  await check('cassa non elimina una portata', assertFails(cassa.doc('categorie/secondi').delete()));
+  await check(
+    'amministratore crea una portata',
+    assertSucceeds(admin.doc('categorie/panini').set({ id: 'panini', nome: 'Panini', ordine: 50 }))
+  );
+  await check('amministratore rinomina una portata', assertSucceeds(admin.doc('categorie/secondi').update({ nome: 'Secondi piatti' })));
 
   // Ordini
   await check('anonimo non legge gli ordini', assertFails(anonimo.doc('serate/2026-01-01/ordini/ordine1').get()));

@@ -19,19 +19,28 @@ export const NOME_SETTORE: Record<Settore, string> = {
   bar: 'Bar',
 };
 
-/** Come il piatto si legge nel menù, anche quello dal QR. */
-export type Categoria = 'primi' | 'secondi' | 'contorni' | 'bevande' | 'dessert';
+/** Le portate del menù, decise dall'amministratore: se ne possono creare di
+ * nuove, rinominarle e cambiarne l'ordine. */
+export interface Categoria {
+  id: string;
+  nome: string;
+  /** Posizione nel menù: il numero più basso compare per primo. */
+  ordine: number;
+}
 
-/** L'ordine dell'elenco è anche quello in cui le portate compaiono nel menù. */
-export const CATEGORIE: Categoria[] = ['primi', 'secondi', 'contorni', 'bevande', 'dessert'];
+/** Le portate con cui parte un impianto nuovo. Da qui in poi le gestisce
+ * l'amministratore dall'app. */
+export const CATEGORIE_INIZIALI: Categoria[] = [
+  { id: 'primi', nome: 'Primi', ordine: 0 },
+  { id: 'secondi', nome: 'Secondi', ordine: 10 },
+  { id: 'contorni', nome: 'Contorni', ordine: 20 },
+  { id: 'bevande', nome: 'Bevande', ordine: 30 },
+  { id: 'dessert', nome: 'Dessert', ordine: 40 },
+];
 
-export const NOME_CATEGORIA: Record<Categoria, string> = {
-  primi: 'Primi',
-  secondi: 'Secondi',
-  contorni: 'Contorni',
-  bevande: 'Bevande',
-  dessert: 'Dessert',
-};
+/** Le posizioni si numerano di dieci in dieci: così spostare una riga in mezzo
+ * a due altre non obbliga a rinumerare tutto. */
+export const PASSO_ORDINE = 10;
 
 export type StatoOrdine =
   | 'bozza'
@@ -91,13 +100,15 @@ export interface SottoOrdine {
 export interface Prodotto {
   id: string;
   /** Portata sotto cui compare nel menù: la vede anche il cliente. */
-  categoria: Categoria;
+  categoriaId: string;
   /** Chi lo prepara: serve solo all'interno, non compare nel menù dal QR. */
   settore: Settore;
   nome: string;
   /** Ingredienti o accompagnamenti, mostrati sotto il nome nel menù. */
   note: string;
   prezzo: number;
+  /** Posizione dentro la propria categoria, decisa trascinando le righe. */
+  ordine: number;
   /** Contrassegnato come novità nel menù dal QR. */
   novita: boolean;
   /** Serata in cui il piatto è finito, così il cliente lo vede barrato senza

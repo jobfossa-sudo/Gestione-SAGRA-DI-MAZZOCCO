@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CATEGORIE, NOME_CATEGORIA } from '@sagra-mazzocco/shared';
-import { useProdotti } from '../hooks';
+import { useCategorie, useProdotti } from '../hooks';
 import { creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { SERATA_ID_OGGI } from '../services/serata';
 
@@ -9,6 +8,7 @@ function euro(valore: number): string {
 }
 
 export function NuovoOrdine() {
+  const categorie = useCategorie();
   const tuttiIProdotti = useProdotti();
   // I piatti finiti restano visibili ma non ordinabili: se ne occupa il C3.
   const prodotti = tuttiIProdotti.filter((p) => p.esauritoSerata !== SERATA_ID_OGGI);
@@ -23,11 +23,13 @@ export function NuovoOrdine() {
   // prepara il piatto qui non serve.
   const prodottiPerCategoria = useMemo(
     () =>
-      CATEGORIE.map((categoria) => ({
-        categoria,
-        lista: prodotti.filter((p) => p.categoria === categoria),
-      })).filter((gruppo) => gruppo.lista.length > 0),
-    [prodotti]
+      categorie
+        .map((categoria) => ({
+          categoria,
+          lista: prodotti.filter((p) => p.categoriaId === categoria.id),
+        }))
+        .filter((gruppo) => gruppo.lista.length > 0),
+    [categorie, prodotti]
   );
 
   const selezionati = useMemo(
@@ -75,11 +77,13 @@ export function NuovoOrdine() {
   return (
     <div className="nuovo-ordine">
       <div className="colonna-menu">
-        {prodottiPerCategoria.map(({ categoria, lista }) => (
-          <div key={categoria} className="gruppo-reparto">
+        {prodottiPerCategoria.map(({ categoria, lista }, indice) => (
+          <div key={categoria.id} className="gruppo-reparto">
             <div className="intestazione-reparto">
-              <span className="pallino" style={{ ['--reparto-colore' as string]: `var(--${categoria})` }} />
-              <h2>{NOME_CATEGORIA[categoria]}</h2>
+              {/* I colori girano a rotazione: le portate le decide
+                  l'amministratore, quindi non si possono fissare a una a una. */}
+              <span className="pallino" style={{ ['--reparto-colore' as string]: `var(--portata-${(indice % 5) + 1})` }} />
+              <h2>{categoria.nome}</h2>
             </div>
             <div className="griglia-prodotti">
               {lista.map((prodotto) => {

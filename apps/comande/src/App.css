@@ -461,125 +461,216 @@
   max-width: 95ch;
 }
 
-.nuovo-piatto {
-  display: grid;
-  grid-template-columns:
-    minmax(120px, 0.8fr) minmax(110px, 0.8fr) minmax(160px, 1.4fr)
-    minmax(160px, 1.6fr) minmax(100px, 0.6fr) auto auto;
-  gap: 12px;
-  align-items: end;
-  margin-top: 12px;
-}
-@media (max-width: 900px) {
-  .nuovo-piatto {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-.nuovo-piatto .riga-flag {
-  flex-direction: row;
+/* ---------- gestione menù ---------- */
+
+.testata-menu {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.nuova-portata {
+  display: flex;
   gap: 8px;
-  font-size: 0.9rem;
-  color: var(--text);
+}
+.nuova-portata input {
+  min-width: 200px;
+}
+.nuova-portata button {
   white-space: nowrap;
-  padding-bottom: 10px;
-}
-.nuovo-piatto .riga-flag input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
-}
-.nuovo-piatto .errore {
-  grid-column: 1 / -1;
 }
 
 .tabella-scroll {
   overflow-x: auto;
 }
+/* Le colonne hanno larghezze in percentuale e non in pixel: le proporzioni
+   restano quelle a ogni livello di zoom e su qualsiasi monitor. Piatto è
+   esattamente un terzo di Note. Sotto la larghezza minima la tabella scorre
+   invece di schiacciarsi. */
 .tabella-menu {
   width: 100%;
+  min-width: 1120px;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.92rem;
 }
-/* Ogni colonna si stringe sul proprio contenuto: lo spazio che avanza va
-   tutto a Piatto e Note, le uniche due dove si scrive davvero. */
+.tabella-menu .col-maniglia {
+  width: 3%;
+}
+.tabella-menu .col-settore {
+  width: 10%;
+}
+.tabella-menu .col-piatto {
+  width: 13%;
+}
+.tabella-menu .col-note {
+  width: 39%;
+}
+.tabella-menu .col-prezzo {
+  width: 7%;
+}
+.tabella-menu .col-novita {
+  width: 4.5%;
+}
+.tabella-menu .col-porzioni {
+  width: 6.5%;
+}
+.tabella-menu .col-esaurito {
+  width: 4.5%;
+}
+.tabella-menu .col-elimina {
+  width: 6%;
+}
+
 .tabella-menu th {
-  width: 1%;
   text-align: left;
   font-size: 0.73rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
   font-weight: 700;
-  padding: 0 8px 10px;
-  white-space: nowrap;
-}
-.tabella-menu th.colonna-piatto,
-.tabella-menu th.colonna-note {
-  width: auto;
+  padding: 0 6px 10px;
 }
 .tabella-menu td {
-  padding: 8px;
+  padding: 8px 6px;
   border-top: 1px solid var(--border);
   vertical-align: middle;
 }
 .tabella-menu .centro {
   text-align: center;
 }
-.tabella-menu td {
-  padding: 8px 6px;
-}
 .tabella-menu input,
 .tabella-menu select {
   padding: 7px 8px;
   width: 100%;
-}
-/* Larghezze pensate per l'ordine delle colonne: categoria, settore, piatto,
-   note, prezzo. Le ultime colonne restano strette. */
-.tabella-menu select {
-  min-width: 106px;
+  min-width: 0;
 }
 .tabella-menu .colonna-piatto input {
-  min-width: 140px;
   font-weight: 600;
 }
-.tabella-menu .colonna-note input {
-  min-width: 150px;
-}
 .tabella-menu input.prezzo {
-  min-width: 78px;
-  max-width: 92px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 .tabella-menu input.porzioni {
-  min-width: 56px;
-  max-width: 72px;
   text-align: center;
-}
-.tabella-menu th.centro {
-  max-width: 116px;
-  white-space: normal;
-}
-/* Larghezza sufficiente perché l'intestazione stia su due righe invece che
-   spezzarsi parola per parola. */
-.tabella-menu th.colonna-porzioni {
-  min-width: 104px;
-}
-.tabella-menu .bottone-annulla {
-  padding: 7px 12px;
-  font-size: 0.85rem;
-  white-space: nowrap;
 }
 .tabella-menu input[type='checkbox'] {
   width: 19px;
   height: 19px;
   accent-color: var(--accent);
 }
+.tabella-menu .bottone-annulla {
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  width: 100%;
+}
 .tabella-menu tr.finito .colonna-piatto input {
   text-decoration: line-through;
   color: var(--text-muted);
 }
+
+/* Intestazione di portata */
+.riga-categoria td {
+  border-top: none;
+  padding: 22px 6px 6px;
+}
+.tabella-menu tbody:first-of-type .riga-categoria td {
+  padding-top: 6px;
+}
+.testata-portata {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 6px;
+}
+.nome-portata {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  width: auto;
+  max-width: 280px;
+}
+.nome-portata:hover:not(:focus) {
+  border-color: var(--border);
+}
+.nome-portata.orfani {
+  color: var(--text-muted);
+}
+.testata-portata .quanti {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.azioni-portata {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+.azioni-portata button {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
+/* Maniglia per trascinare e riga di aggiunta */
+.maniglia {
+  text-align: center;
+  color: var(--text-muted);
+  user-select: none;
+}
+.maniglia span {
+  cursor: grab;
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 1.1rem;
+  line-height: 1;
+  /* Col dito la maniglia trascina la riga, non fa scorrere la pagina. */
+  touch-action: none;
+}
+.maniglia span:active {
+  cursor: grabbing;
+}
+/* Mentre si trascina non si seleziona testo per sbaglio. */
+body.trascinamento-in-corso {
+  user-select: none;
+  cursor: grabbing;
+}
+.tabella-menu tr.in-volo {
+  opacity: 0.4;
+}
+/* Riga su cui si sta per lasciare il piatto trascinato. */
+.tabella-menu tr.bersaglio td {
+  box-shadow: inset 0 3px 0 -1px var(--accent);
+}
+.riga-aggiunta td {
+  background: var(--surface-alt);
+}
+.riga-aggiunta .nota-riga {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.bottone-aggiungi {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.bottone-aggiungi:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
 .conteggio {
   display: flex;
   flex-direction: column;
