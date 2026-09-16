@@ -1,5 +1,6 @@
 import { signOut } from 'firebase/auth';
 import { useState } from 'react';
+import { NOME_RUOLO_COMANDE } from '@sagra-mazzocco/shared';
 import './App.css';
 import { ConfermaBozza } from './components/ConfermaBozza';
 import { FineSerata } from './components/FineSerata';
@@ -19,11 +20,31 @@ const dataSerata = new Date(SERATA_ID_OGGI).toLocaleDateString('it-IT', {
 });
 
 function App() {
-  const { utente, caricato } = useUtenteAutenticato();
+  const { utente, permessi, caricato } = useUtenteAutenticato();
   const [scheda, setScheda] = useState<Scheda>('Nuovo ordine');
 
   if (!caricato) return null;
   if (!utente) return <Login />;
+
+  if (!permessi.amministratore && !permessi.comande) {
+    return (
+      <div className="login">
+        <div className="login-intro">
+          <span className="occhiello">Sagra di Mazzocco</span>
+          <h1>Nessun accesso</h1>
+          <p>
+            Il tuo account non ha un ruolo in Comande. Chiedi all'amministratore di assegnartelo, poi accedi di
+            nuovo.
+          </p>
+        </div>
+        <button type="button" onClick={() => signOut(auth)}>
+          Esci
+        </button>
+      </div>
+    );
+  }
+
+  const nomeRuolo = permessi.amministratore ? 'Amministratore' : NOME_RUOLO_COMANDE[permessi.comande!];
 
   return (
     <div className="app-cassa">
@@ -40,7 +61,9 @@ function App() {
           ))}
         </nav>
         <div className="utente">
-          <span>{utente.email}</span>
+          <span>
+            {utente.displayName} · {nomeRuolo}
+          </span>
           <button type="button" onClick={() => signOut(auth)}>
             Esci
           </button>

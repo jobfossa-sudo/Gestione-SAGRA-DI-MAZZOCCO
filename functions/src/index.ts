@@ -4,14 +4,24 @@
 // qui (i client non possono scrivere direttamente, vedi firestore.rules).
 
 import { initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import {
   getFirestore,
   FieldValue,
   Transaction,
   DocumentReference,
 } from 'firebase-admin/firestore';
+import { defineString } from 'firebase-functions/params';
 import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https';
 import {
+  Accessi,
+  Permessi,
+  RuoloComande,
+  Utente,
+  REGOLA_NOME_UTENTE,
+  emailDaNomeUtente,
+  InizializzaSistemaRichiesta,
+  InizializzaSistemaRisposta,
   Ordine,
   SottoOrdine,
   Prodotto,
@@ -38,14 +48,81 @@ import {
 initializeApp();
 const db = getFirestore();
 
+const CODICE_INIZIALIZZAZIONE = defineString('CODICE_INIZIALIZZAZIONE');
+
 // ---------------------------------------------------------------------------
 // Helper condivisi
 // ---------------------------------------------------------------------------
 
-function richiedeAutenticazione(request: CallableRequest): void {
+/** I permessi sono "custom claims" dell'account, impostabili solo dal server:
+ * il client non può falsificarli. L'amministratore generale può sempre tutto;
+ * senza ruoli ammessi l'operazione è riservata a lui. */
+function richiedeRuoloComande(
+  request: CallableRequest,
+  ...ammessi: RuoloComande[]
+): RuoloComande | 'amministratore' {
   if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Operazione riservata al personale autenticato.');
+    throw new HttpsError('unauthenticated', 'Operazione riservata al personale: effettua l’accesso.');
   }
+  const permessi = request.auth.token as Permessi;
+  if (permessi.amministratore === true) return 'amministratore';
+  if (permessi.comande !== undefined && ammessi.includes(permessi.comande)) return permessi.comande;
+  throw new HttpsError('permission-denied', 'Il tuo ruolo non permette questa operazione.');
+}
+
+function validaTesto(valore: unknown, nomeCampo: string): string {
+  if (typeof valore !== 'string' || !valore.trim()) {
+    throw new HttpsError('invalid-argument', `${nomeCampo} mancante.`);
+  }
+  return valore.trim();
+}
+
+async function creaAccount(dati: {
+  nomeUtente: string;
+  nome: string;
+  password: string;
+  amministratore: boolean;
+  accessi: Accessi;
+}): Promise<string> {
+  const nomeUtente = dati.nomeUtente.trim().toLowerCase();
+  if (!REGOLA_NOME_UTENTE.test(nomeUtente)) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Nome utente non valido: da 3 a 30 caratteri tra lettere minuscole, numeri, punto, trattino e trattino basso.'
+    );
+  }
+  if (dati.password.length < 8) {
+    throw new HttpsError('invalid-argument', 'La password deve avere almeno 8 caratteri.');
+  }
+
+  let uid: string;
+  try {
+    const account = await getAuth().createUser({
+      email: emailDaNomeUtente(nomeUtente),
+      password: dati.password,
+      displayName: dati.nome,
+    });
+    uid = account.uid;
+  } catch (err) {
+    if ((err as { code?: string }).code === 'auth/email-already-exists') {
+      throw new HttpsError('already-exists', `Il nome utente "${nomeUtente}" è già in uso.`);
+    }
+    throw err;
+  }
+
+  const permessi: Permessi = { ...dati.accessi, ...(dati.amministratore ? { amministratore: true } : {}) };
+  await getAuth().setCustomUserClaims(uid, permessi);
+  const utente: Utente = {
+    uid,
+    nomeUtente,
+    nome: dati.nome,
+    amministratore: dati.amministratore,
+    accessi: dati.accessi,
+    attivo: true,
+    createdAt: FieldValue.serverTimestamp() as unknown as Utente['createdAt'],
+  };
+  await db.doc(`utenti/${uid}`).set(utente);
+  return uid;
 }
 
 function validaItemsRichiesti(items: unknown): ItemOrdineRichiesta[] {
@@ -165,13 +242,54 @@ function generaSottoOrdini(
 }
 
 // ---------------------------------------------------------------------------
+// inizializzaSistema — crea il primo amministratore. Funziona una sola volta
+// e solo con il codice segreto configurato sul server (CODICE_INIZIALIZZAZIONE):
+// senza queste due condizioni chiunque potrebbe nominarsi amministratore.
+// ---------------------------------------------------------------------------
+
+export const inizializzaSistema = onCall(
+  async (request: CallableRequest<InizializzaSistemaRichiesta>): Promise<InizializzaSistemaRisposta> => {
+    const { codice, nomeUtente, nome, password } = request.data ?? ({} as InizializzaSistemaRichiesta);
+    const atteso = CODICE_INIZIALIZZAZIONE.value();
+    if (!atteso || codice !== atteso) {
+      throw new HttpsError('permission-denied', 'Codice di inizializzazione non valido.');
+    }
+
+    const configRef = db.doc('config/sistema');
+    await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(configRef);
+      if (snapshot.exists && snapshot.data()?.amministratoreCreato) {
+        throw new HttpsError('failed-precondition', 'Il sistema è già stato inizializzato.');
+      }
+      transaction.set(configRef, { amministratoreCreato: true, inizializzatoAt: FieldValue.serverTimestamp() });
+    });
+
+    try {
+      const uid = await creaAccount({
+        nomeUtente: validaTesto(nomeUtente, 'Nome utente'),
+        nome: validaTesto(nome, 'Nome'),
+        password: typeof password === 'string' ? password : '',
+        amministratore: true,
+        accessi: {},
+      });
+      return { uid };
+    } catch (err) {
+      // Se la creazione fallisce (es. password troppo corta) si libera il
+      // blocco, altrimenti non si potrebbe più riprovare.
+      await configRef.delete();
+      throw err;
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // apriSerata — prepara la serata di una data (contenitore degli ordini, con il
 // contatore che riparte da 1). Va chiamata una volta prima di iniziare a
 // prendere ordini; se la serata esiste già non la sovrascrive.
 // ---------------------------------------------------------------------------
 
 export const apriSerata = onCall(async (request: CallableRequest<ApriSerataRichiesta>): Promise<ApriSerataRisposta> => {
-  richiedeAutenticazione(request);
+  richiedeRuoloComande(request);
   const { data } = request.data ?? ({} as ApriSerataRichiesta);
   if (typeof data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
     throw new HttpsError('invalid-argument', 'Data non valida: attesa nel formato AAAA-MM-GG.');
@@ -239,7 +357,7 @@ export const creaOrdineBozza = onCall(async (request: CallableRequest<CreaOrdine
 // ---------------------------------------------------------------------------
 
 export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdineCassaRichiesta>): Promise<CreaOrdineRisposta> => {
-  richiedeAutenticazione(request);
+  richiedeRuoloComande(request, 'cassa');
   const { serataId, items, tavolo, coperti } = request.data ?? ({} as CreaOrdineCassaRichiesta);
   if (typeof serataId !== 'string' || !serataId) {
     throw new HttpsError('invalid-argument', 'Serata non valida.');
@@ -285,7 +403,7 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
 // ---------------------------------------------------------------------------
 
 export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrdineRichiesta>): Promise<CreaOrdineRisposta> => {
-  richiedeAutenticazione(request);
+  richiedeRuoloComande(request, 'cassa');
   const { serataId, numero } = request.data ?? ({} as ConfermaOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId) {
     throw new HttpsError('invalid-argument', 'Serata non valida.');
@@ -324,7 +442,7 @@ export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrd
 // ---------------------------------------------------------------------------
 
 export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<SegnaSottoOrdineProntoRichiesta>): Promise<SegnaSottoOrdineProntoRisposta> => {
-  richiedeAutenticazione(request);
+  const ruolo = richiedeRuoloComande(request, 'cucina', 'bevande');
   const { serataId, sottoOrdineId } = request.data ?? ({} as SegnaSottoOrdineProntoRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof sottoOrdineId !== 'string' || !sottoOrdineId) {
     throw new HttpsError('invalid-argument', 'Sotto-ordine non valido.');
@@ -338,6 +456,9 @@ export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<Seg
       throw new HttpsError('not-found', 'Sotto-ordine inesistente.');
     }
     const sottoOrdine = snapshot.data() as SottoOrdine;
+    if (ruolo !== 'amministratore' && ruolo !== sottoOrdine.reparto) {
+      throw new HttpsError('permission-denied', `Il sotto-ordine ${sottoOrdine.codice} appartiene a un altro reparto.`);
+    }
     if (sottoOrdine.stato !== 'in_preparazione') {
       throw new HttpsError(
         'failed-precondition',
@@ -357,7 +478,7 @@ export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<Seg
 // ---------------------------------------------------------------------------
 
 export const consegnaSottoOrdine = onCall(async (request: CallableRequest<ConsegnaSottoOrdineRichiesta>): Promise<ConsegnaSottoOrdineRisposta> => {
-  richiedeAutenticazione(request);
+  richiedeRuoloComande(request, 'consegna');
   const { serataId, codice } = request.data ?? ({} as ConsegnaSottoOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof codice !== 'string' || !codice) {
     throw new HttpsError('invalid-argument', 'Codice non valido.');
@@ -401,7 +522,7 @@ export const consegnaSottoOrdine = onCall(async (request: CallableRequest<Conseg
 // ---------------------------------------------------------------------------
 
 export const annullaOrdine = onCall(async (request: CallableRequest<AnnullaOrdineRichiesta>): Promise<AnnullaOrdineRisposta> => {
-  richiedeAutenticazione(request);
+  richiedeRuoloComande(request);
   const { serataId, ordineId } = request.data ?? ({} as AnnullaOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof ordineId !== 'string' || !ordineId) {
     throw new HttpsError('invalid-argument', 'Ordine non valido.');

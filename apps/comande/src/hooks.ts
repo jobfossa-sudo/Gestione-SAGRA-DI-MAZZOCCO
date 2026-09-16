@@ -1,20 +1,29 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import type { Ordine, Prodotto } from '@sagra-mazzocco/shared';
+import type { Ordine, Permessi, Prodotto } from '@sagra-mazzocco/shared';
 import { auth, db } from './services/firebase';
 import { SERATA_ID_OGGI } from './services/serata';
 
-export function useUtenteAutenticato(): { utente: User | null; caricato: boolean } {
-  const [utente, setUtente] = useState<User | null>(null);
-  const [caricato, setCaricato] = useState(false);
+/** I permessi arrivano dalle custom claims del token: servono qui solo per
+ * decidere cosa mostrare. Il controllo vero lo fanno funzioni e regole. */
+export function useUtenteAutenticato(): { utente: User | null; permessi: Permessi; caricato: boolean } {
+  const [stato, setStato] = useState<{ utente: User | null; permessi: Permessi; caricato: boolean }>({
+    utente: null,
+    permessi: {},
+    caricato: false,
+  });
 
-  useEffect(() => onAuthStateChanged(auth, (u) => {
-    setUtente(u);
-    setCaricato(true);
-  }), []);
+  useEffect(
+    () =>
+      onAuthStateChanged(auth, async (utente) => {
+        const permessi = utente ? ((await utente.getIdTokenResult()).claims as Permessi) : {};
+        setStato({ utente, permessi, caricato: true });
+      }),
+    []
+  );
 
-  return { utente, caricato };
+  return stato;
 }
 
 export function useProdottiDisponibili(): Prodotto[] {

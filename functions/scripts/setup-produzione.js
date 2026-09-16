@@ -1,26 +1,24 @@
-// Prepara il progetto Firebase REALE (non l'emulatore) per poter usare l'app:
-// crea l'account del personale di cassa, carica i prodotti del menu e apre la
-// serata di oggi. Da eseguire dalla radice del repo:
+// Prepara il progetto Firebase REALE (non l'emulatore): crea il primo
+// amministratore, carica i prodotti del menu di esempio e apre la serata di
+// oggi. Da eseguire dalla radice del repo, una volta sola:
 //
-//   node functions/scripts/setup-produzione.js <email> <password>
+//   node functions/scripts/setup-produzione.js <codice> <nomeUtente> <password> "<Nome e cognome>"
 //
-// Email e password si passano da riga di comando apposta: non vanno mai
-// scritte dentro un file del progetto (finirebbero su GitHub).
+// <codice> è CODICE_INIZIALIZZAZIONE, configurato per le funzioni in
+// functions/.env.gestione-sagra-mazzocco (file escluso da GitHub) prima del
+// deploy. Codice e password si passano da riga di comando apposta: non vanno
+// mai scritti dentro un file del progetto.
 //
 // ATTENZIONE: questo script scrive sui dati VERI, non sull'emulatore.
 
 const { initializeApp } = require('firebase/app');
-const {
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-} = require('firebase/auth');
+const { getAuth, signInWithEmailAndPassword } = require('firebase/auth');
 const { getFirestore, doc, setDoc } = require('firebase/firestore');
 const { getFunctions, httpsCallable } = require('firebase/functions');
 
-const [email, password] = process.argv.slice(2);
-if (!email || !password) {
-  console.error('Uso: node functions/scripts/setup-produzione.js <email> <password>');
+const [codice, nomeUtente, password, nome] = process.argv.slice(2);
+if (!codice || !nomeUtente || !password || !nome) {
+  console.error('Uso: node functions/scripts/setup-produzione.js <codice> <nomeUtente> <password> "<Nome e cognome>"');
   process.exit(1);
 }
 
@@ -37,8 +35,10 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(app);
 
-// Menu di esempio: va sostituito con il menu vero della sagra quando sarà
-// deciso. I prezzi qui sono quelli che l'app userà per i conti.
+// Stessa conversione di emailDaNomeUtente() in shared/src/index.ts.
+const email = `${nomeUtente.trim().toLowerCase()}@utenti.sagra-mazzocco.invalid`;
+
+// Menu di esempio: va sostituito con il menu vero della sagra.
 const PRODOTTI = [
   { id: 'panino', nome: 'Panino', prezzo: 5, reparto: 'cucina', disponibile: true, categoria: 'Cucina' },
   { id: 'pasta', nome: 'Pasta al ragù', prezzo: 7, reparto: 'cucina', disponibile: true, categoria: 'Cucina' },
@@ -48,19 +48,17 @@ const PRODOTTI = [
   { id: 'vino', nome: 'Vino (calice)', prezzo: 3, reparto: 'bevande', disponibile: true, categoria: 'Bevande' },
 ];
 
-async function accedi() {
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-    console.log(`Accesso eseguito con l'account esistente ${email}.`);
-  } catch (err) {
-    if (err.code !== 'auth/user-not-found' && err.code !== 'auth/invalid-credential') throw err;
-    await createUserWithEmailAndPassword(auth, email, password);
-    console.log(`Creato il nuovo account ${email}.`);
-  }
-}
-
 async function main() {
-  await accedi();
+  const inizializzaSistema = httpsCallable(functions, 'inizializzaSistema');
+  try {
+    await inizializzaSistema({ codice, nomeUtente, nome, password });
+    console.log(`Creato l'amministratore "${nomeUtente}".`);
+  } catch (err) {
+    if (err.code !== 'functions/failed-precondition') throw err;
+    console.log('Sistema già inizializzato: uso l’account indicato, che deve essere un amministratore.');
+  }
+
+  await signInWithEmailAndPassword(auth, email, password);
 
   for (const prodotto of PRODOTTI) {
     await setDoc(doc(db, 'prodotti', prodotto.id), prodotto);
@@ -68,15 +66,10 @@ async function main() {
   console.log(`Caricati ${PRODOTTI.length} prodotti nel menu.`);
 
   const oggi = new Date().toISOString().slice(0, 10);
-  const apriSerata = httpsCallable(functions, 'apriSerata');
-  const risultato = await apriSerata({ data: oggi });
-  console.log(
-    risultato.data.giaEsistente
-      ? `La serata ${oggi} era già aperta.`
-      : `Serata ${oggi} aperta, numerazione ordini che riparte da 1.`
-  );
+  const risultato = await httpsCallable(functions, 'apriSerata')({ data: oggi });
+  console.log(risultato.data.giaEsistente ? `La serata ${oggi} era già aperta.` : `Serata ${oggi} aperta.`);
 
-  console.log('\nSetup completato: il sito pubblicato è pronto all\'uso.');
+  console.log('\nSetup completato.');
   process.exit(0);
 }
 

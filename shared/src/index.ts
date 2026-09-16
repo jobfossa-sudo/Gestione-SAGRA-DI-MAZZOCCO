@@ -80,6 +80,58 @@ export interface Serata {
   contatoreOrdini: number;
 }
 
+// ---------------------------------------------------------------------------
+// Utenti e ruoli
+// ---------------------------------------------------------------------------
+
+/** Un account vale per tutte le app. L'amministratore generale può tutto
+ * ovunque; gli altri hanno al massimo un ruolo per ciascuna app, e nessun
+ * accesso alle app per cui non ne hanno uno. */
+
+/** "cucina" e "bevande" coincidono apposta con i reparti: chi ha quel ruolo
+ * gestisce quel reparto. */
+export type RuoloComande = 'cassa' | 'cucina' | 'bevande' | 'consegna';
+
+export const RUOLI_COMANDE: RuoloComande[] = ['cassa', 'cucina', 'bevande', 'consegna'];
+
+export const NOME_RUOLO_COMANDE: Record<RuoloComande, string> = {
+  cassa: 'Cassa',
+  cucina: 'Cucina',
+  bevande: 'Bevande',
+  consegna: 'Consegna',
+};
+
+/** Una chiave per app. Magazzino e Contabilità si aggiungeranno qui con i
+ * rispettivi ruoli quando verranno costruite. */
+export interface Accessi {
+  comande?: RuoloComande;
+}
+
+/** Forma delle "custom claims" dell'account: impostabili solo dal server,
+ * lette da Cloud Functions e regole di Firestore per decidere i permessi. */
+export interface Permessi extends Accessi {
+  amministratore?: boolean;
+}
+
+export interface Utente {
+  uid: string;
+  nomeUtente: string;
+  nome: string;
+  amministratore: boolean;
+  accessi: Accessi;
+  attivo: boolean;
+  createdAt: FirestoreTimestampLike;
+}
+
+export const REGOLA_NOME_UTENTE = /^[a-z0-9._-]{3,30}$/;
+
+/** Firebase Authentication accetta solo email: ogni nome utente diventa
+ * un'email tecnica su un dominio riservato (.invalid non esiste e non può
+ * ricevere posta), così i volontari non devono fornire la propria. */
+export function emailDaNomeUtente(nomeUtente: string): string {
+  return `${nomeUtente.trim().toLowerCase()}@utenti.sagra-mazzocco.invalid`;
+}
+
 /** Prefisso del codice sotto-ordine per reparto (es. "C" + 025 -> "C025"). */
 export const PREFISSO_REPARTO: Record<Reparto, string> = {
   cucina: 'C',
@@ -95,6 +147,19 @@ export const PREFISSO_REPARTO: Record<Reparto, string> = {
 export interface ItemOrdineRichiesta {
   prodottoId: string;
   quantita: number;
+}
+
+export interface InizializzaSistemaRichiesta {
+  /** Codice segreto configurato sul server: impedisce che uno sconosciuto
+   * si crei da solo il primo account amministratore. */
+  codice: string;
+  nomeUtente: string;
+  nome: string;
+  password: string;
+}
+
+export interface InizializzaSistemaRisposta {
+  uid: string;
 }
 
 export interface ApriSerataRichiesta {

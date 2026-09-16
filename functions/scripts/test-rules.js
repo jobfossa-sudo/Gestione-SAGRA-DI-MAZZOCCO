@@ -17,22 +17,30 @@ async function main() {
     firestore: { host: '127.0.0.1', port: 8080 },
   });
 
-  // Prepara un ordine di esempio bypassando le regole (come farebbe una
-  // Cloud Function con l'Admin SDK), per poter testare la LETTURA.
+  // Dati di partenza scritti bypassando le regole (come farebbe una Cloud
+  // Function con l'Admin SDK), per poter testare le LETTURE.
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
     await db.doc('serate/2026-01-01').set({ data: '2026-01-01', aperta: true, contatoreOrdini: 1 });
     await db.doc('serate/2026-01-01/ordini/ordine1').set({ numero: 1, stato: 'bozza' });
+    await db.doc('prodotti/panino').set({ nome: 'Panino', prezzo: 5 });
+    await db.doc('utenti/uid-cassa').set({ nomeUtente: 'cassa', amministratore: false, accessi: { comande: 'cassa' } });
+    await db.doc('utenti/uid-altro').set({ nomeUtente: 'altro', amministratore: false, accessi: { comande: 'cucina' } });
+    await db.doc('config/sistema').set({ amministratoreCreato: true });
   });
 
   const anonimo = testEnv.unauthenticatedContext().firestore();
-  const staff = testEnv.authenticatedContext('utente-staff-1').firestore();
+  const senzaRuolo = testEnv.authenticatedContext('uid-senza-ruolo').firestore();
+  const cassa = testEnv.authenticatedContext('uid-cassa', { comande: 'cassa' }).firestore();
+  const cucina = testEnv.authenticatedContext('uid-cucina', { comande: 'cucina' }).firestore();
+  const admin = testEnv.authenticatedContext('uid-admin', { amministratore: true }).firestore();
+  // Accesso a un'altra app soltanto: non deve vedere nulla di Comande.
+  const soloAltraApp = testEnv.authenticatedContext('uid-contabile', { contabilita: 'visione' }).firestore();
 
-  let esiti = [];
+  const esiti = [];
 
-  // assertSucceeds/assertFails restituiscono già una promise che si risolve
-  // quando l'esito è quello atteso, e viene rifiutata quando non lo è: basta
-  // un solo helper per entrambi i casi.
+  // assertSucceeds/assertFails si risolvono quando l'esito è quello atteso e
+  // vengono rifiutate altrimenti: basta un solo helper per entrambi i casi.
   function check(nome, promise) {
     return promise.then(
       () => esiti.push({ nome, ok: true }),
@@ -40,19 +48,39 @@ async function main() {
     );
   }
 
-  await check('lettura pubblica prodotti (menu)', assertSucceeds(anonimo.collection('prodotti').get()));
-  await check('scrittura non autenticata su prodotti viene negata', assertFails(anonimo.doc('prodotti/test').set({ nome: 'x' })));
-  await check(
-    'scrittura non autenticata diretta su un ordine viene negata',
-    assertFails(anonimo.doc('serate/2026-01-01/ordini/ordine1').update({ stato: 'completata' }))
-  );
-  await check(
-    'scrittura autenticata diretta su un ordine viene negata (deve passare SOLO dalle Cloud Functions)',
-    assertFails(staff.doc('serate/2026-01-01/ordini/ordine1').update({ stato: 'completata' }))
-  );
-  await check('lettura autenticata di un ordine riesce', assertSucceeds(staff.doc('serate/2026-01-01/ordini/ordine1').get()));
-  await check('lettura non autenticata di un ordine viene negata', assertFails(anonimo.doc('serate/2026-01-01/ordini/ordine1').get()));
+  // Menu
+  await check('chiunque legge il menu (serve alla pagina QR)', assertSucceeds(anonimo.collection('prodotti').get()));
+  await check('anonimo non modifica il menu', assertFails(anonimo.doc('prodotti/panino').update({ prezzo: 0 })));
+  await check('account senza ruolo non modifica il menu', assertFails(senzaRuolo.doc('prodotti/panino').update({ prezzo: 0 })));
+  await check('cassa non modifica il menu', assertFails(cassa.doc('prodotti/panino').update({ prezzo: 0 })));
+  await check('amministratore modifica il menu', assertSucceeds(admin.doc('prodotti/panino').update({ prezzo: 6 })));
 
+  // Ordini
+  await check('anonimo non legge gli ordini', assertFails(anonimo.doc('serate/2026-01-01/ordini/ordine1').get()));
+  await check('account senza ruolo non legge gli ordini', assertFails(senzaRuolo.doc('serate/2026-01-01/ordini/ordine1').get()));
+  await check('cassa legge gli ordini', assertSucceeds(cassa.doc('serate/2026-01-01/ordini/ordine1').get()));
+  await check('cucina legge gli ordini', assertSucceeds(cucina.doc('serate/2026-01-01/ordini/ordine1').get()));
+  await check(
+    'chi ha accesso solo a un’altra app non legge gli ordini di Comande',
+    assertFails(soloAltraApp.doc('serate/2026-01-01/ordini/ordine1').get())
+  );
+  await check(
+    'nemmeno l’amministratore scrive direttamente un ordine (solo tramite Cloud Functions)',
+    assertFails(admin.doc('serate/2026-01-01/ordini/ordine1').update({ stato: 'completata' }))
+  );
+
+  // Utenti
+  await check('un utente legge il proprio profilo', assertSucceeds(cassa.doc('utenti/uid-cassa').get()));
+  await check('un utente non legge il profilo di un altro', assertFails(cassa.doc('utenti/uid-altro').get()));
+  await check('amministratore legge tutti i profili', assertSucceeds(admin.collection('utenti').get()));
+  await check('nessuno si modifica il ruolo da solo', assertFails(cassa.doc('utenti/uid-cassa').update({ amministratore: true })));
+
+  // Configurazione di sistema
+  await check('nemmeno l’amministratore legge la configurazione interna', assertFails(admin.doc('config/sistema').get()));
+
+  // I dati finti usati qui non devono influenzare gli script eseguiti dopo
+  // sullo stesso emulatore (es. config/sistema bloccherebbe inizializzaSistema).
+  await testEnv.clearFirestore();
   await testEnv.cleanup();
 
   console.log('\nRisultati test regole di sicurezza:');
@@ -66,7 +94,7 @@ async function main() {
     console.error('\nAlcuni test sono falliti.');
     process.exit(1);
   }
-  console.log('\nTutti i test sono passati.');
+  console.log(`\nTutti i ${esiti.length} test sono passati.`);
   process.exit(0);
 }
 

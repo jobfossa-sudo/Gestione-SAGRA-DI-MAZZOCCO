@@ -1,10 +1,21 @@
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
+import { emailDaNomeUtente } from '@sagra-mazzocco/shared';
 import { auth } from '../services/firebase';
-import { messaggioErrore } from '../services/callables';
+
+function messaggioAccesso(err: unknown): string {
+  const codice = (err as { code?: string }).code;
+  if (codice === 'auth/invalid-credential' || codice === 'auth/wrong-password' || codice === 'auth/user-not-found') {
+    return 'Nome utente o password errati.';
+  }
+  if (codice === 'auth/user-disabled') return 'Questo account è stato disattivato.';
+  if (codice === 'auth/too-many-requests') return 'Troppi tentativi: riprova tra qualche minuto.';
+  if (codice === 'auth/network-request-failed') return 'Connessione assente: controlla la rete.';
+  return 'Accesso non riuscito.';
+}
 
 export function Login() {
-  const [email, setEmail] = useState('');
+  const [nomeUtente, setNomeUtente] = useState('');
   const [password, setPassword] = useState('');
   const [errore, setErrore] = useState<string | null>(null);
   const [inCorso, setInCorso] = useState(false);
@@ -14,9 +25,9 @@ export function Login() {
     setErrore(null);
     setInCorso(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, emailDaNomeUtente(nomeUtente), password);
     } catch (err) {
-      setErrore(messaggioErrore(err));
+      setErrore(messaggioAccesso(err));
     } finally {
       setInCorso(false);
     }
@@ -26,17 +37,33 @@ export function Login() {
     <div className="login">
       <div className="login-intro">
         <span className="occhiello">Sagra di Mazzocco</span>
-        <h1>Cassa</h1>
-        <p>Accedi con l'account del personale per prendere le comande.</p>
+        <h1>Comande</h1>
+        <p>Accedi con il nome utente e la password che ti ha dato l'amministratore.</p>
       </div>
       <form onSubmit={handleSubmit}>
         <label>
-          Email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+          Nome utente
+          <input
+            type="text"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            autoComplete="username"
+            value={nomeUtente}
+            onChange={(e) => setNomeUtente(e.target.value)}
+            required
+            autoFocus
+          />
         </label>
         <label>
           Password
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </label>
         {errore && <p className="errore">{errore}</p>}
         <button type="submit" className="bottone-principale" disabled={inCorso}>

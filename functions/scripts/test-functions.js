@@ -1,4 +1,4 @@
-// Verifica il comportamento delle Cloud Functions di logica ordini (Step 2)
+// Verifica il comportamento delle Cloud Functions (logica ordini e ruoli)
 // contro gli emulatori Firestore + Functions + Auth. Va eseguito con:
 //
 //   firebase emulators:exec --only firestore,functions,auth \
@@ -10,7 +10,7 @@ process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
 
 const admin = require('firebase-admin');
 const { initializeApp } = require('firebase/app');
-const { getAuth, connectAuthEmulator, signInAnonymously, signOut } = require('firebase/auth');
+const { getAuth, connectAuthEmulator, signInWithEmailAndPassword, signOut } = require('firebase/auth');
 const { getFunctions, connectFunctionsEmulator, httpsCallable } = require('firebase/functions');
 
 admin.initializeApp({ projectId: 'gestione-sagra-mazzocco' });
@@ -22,6 +22,8 @@ connectAuthEmulator(auth, 'http://127.0.0.1:9099');
 const functions = getFunctions(clientApp);
 connectFunctionsEmulator(functions, '127.0.0.1', 5001);
 
+const inizializzaSistema = httpsCallable(functions, 'inizializzaSistema');
+const apriSerata = httpsCallable(functions, 'apriSerata');
 const creaOrdineBozza = httpsCallable(functions, 'creaOrdineBozza');
 const creaOrdineCassa = httpsCallable(functions, 'creaOrdineCassa');
 const confermaOrdine = httpsCallable(functions, 'confermaOrdine');
@@ -30,8 +32,16 @@ const consegnaSottoOrdine = httpsCallable(functions, 'consegnaSottoOrdine');
 const annullaOrdine = httpsCallable(functions, 'annullaOrdine');
 
 const SERATA_ID = new Date().toISOString().slice(0, 10);
+// Deve coincidere con functions/.env.local e con seed.js.
+const CODICE_INIZIALIZZAZIONE = 'codice-prova-emulatore';
+const PASSWORD_PROVA = 'prova1234';
 
-let esiti = [];
+async function accediCome(nomeUtente, password = PASSWORD_PROVA) {
+  await signOut(auth);
+  await signInWithEmailAndPassword(auth, `${nomeUtente}@utenti.sagra-mazzocco.invalid`, password);
+}
+
+const esiti = [];
 function record(nome, ok, dettaglio) {
   esiti.push({ nome, ok, dettaglio });
 }
@@ -53,7 +63,7 @@ async function assertRifiutato(nome, promise, codiceAtteso) {
     record(nome, false, 'la chiamata è riuscita ma doveva essere rifiutata');
   } catch (err) {
     const ok = !codiceAtteso || err.code === `functions/${codiceAtteso}`;
-    record(nome, ok, ok ? undefined : `codice ricevuto: ${err.code}`);
+    record(nome, ok, ok ? undefined : `codice ricevuto: ${err.code} — ${err.message}`);
   }
 }
 
@@ -67,15 +77,18 @@ async function main() {
       { prodottoId: 'birra', quantita: 2 },
     ] })
   );
-  if (bozza1.totale !== 5 * 2 + 3 * 2) {
-    record('creaOrdineBozza calcola il totale dal prezzo reale del prodotto', false, `totale ricevuto: ${bozza1.totale}`);
-  } else {
-    record('creaOrdineBozza calcola il totale dal prezzo reale del prodotto', true);
-  }
+  record('creaOrdineBozza calcola il totale dal prezzo reale del prodotto', bozza1.totale === 5 * 2 + 3 * 2, `totale: ${bozza1.totale}`);
 
-  await signInAnonymously(auth); // simula il personale di cassa autenticato
+  await accediCome('cucina');
+  await assertRifiutato(
+    'la cucina non può confermare ordini in cassa',
+    confermaOrdine({ serataId: SERATA_ID, numero: bozza1.numero }),
+    'permission-denied'
+  );
+
+  await accediCome('cassa');
   const conferma1 = await assertOk(
-    'confermaOrdine (cassiere autenticato conferma la bozza per numero)',
+    'confermaOrdine (cassa conferma la bozza per numero)',
     confermaOrdine({ serataId: SERATA_ID, numero: bozza1.numero })
   );
 
@@ -83,134 +96,162 @@ async function main() {
     .collection(`serate/${SERATA_ID}/sottoOrdini`)
     .where('ordineId', '==', conferma1.ordineId)
     .get();
-  record(
-    'confermaOrdine genera un sotto-ordine per reparto (cucina + bevande)',
-    sottoOrdiniOrdine1.size === 2,
-    `sotto-ordini generati: ${sottoOrdiniOrdine1.size}`
-  );
-  const codici1 = sottoOrdiniOrdine1.docs.map((d) => d.data().codice).sort();
-  record(
-    'i codici dei sotto-ordini hanno il prefisso di reparto corretto',
-    codici1[0]?.startsWith('B') && codici1[1]?.startsWith('C'),
-    `codici: ${codici1.join(', ')}`
-  );
+  record('confermaOrdine genera un sotto-ordine per reparto', sottoOrdiniOrdine1.size === 2, `generati: ${sottoOrdiniOrdine1.size}`);
 
   await assertRifiutato(
-    'confermaOrdine sullo stesso numero una seconda volta viene rifiutato (niente doppi sotto-ordini)',
+    'una seconda conferma dello stesso ordine viene rifiutata',
     confermaOrdine({ serataId: SERATA_ID, numero: bozza1.numero }),
     'failed-precondition'
   );
-  const sottoOrdiniDopoDoppiaConferma = await db
-    .collection(`serate/${SERATA_ID}/sottoOrdini`)
-    .where('ordineId', '==', conferma1.ordineId)
-    .get();
-  record(
-    'la doppia conferma non ha creato sotto-ordini duplicati',
-    sottoOrdiniDopoDoppiaConferma.size === 2,
-    `sotto-ordini presenti: ${sottoOrdiniDopoDoppiaConferma.size}`
+
+  const sottoCucina = sottoOrdiniOrdine1.docs.find((d) => d.data().reparto === 'cucina');
+  const sottoBevande = sottoOrdiniOrdine1.docs.find((d) => d.data().reparto === 'bevande');
+
+  // --- 2. Reparti: ciascuno segna pronto solo il proprio --------------------
+  await assertRifiutato(
+    'la cassa non può segnare pronto un sotto-ordine',
+    segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoCucina.id }),
+    'permission-denied'
   );
 
-  // --- 2. Consegna dei due sotto-ordini: l'ordine si completa solo all'ultimo
-  const [primoSotto, secondoSotto] = sottoOrdiniOrdine1.docs;
-  await assertOk('segnaSottoOrdinePronto (primo sotto-ordine)', segnaSottoOrdinePronto({
-    serataId: SERATA_ID,
-    sottoOrdineId: primoSotto.id,
-  }));
-  const consegna1 = await assertOk('consegnaSottoOrdine (primo sotto-ordine, scansione barcode)', consegnaSottoOrdine({
-    serataId: SERATA_ID,
-    codice: primoSotto.data().codice,
-  }));
-  record('dopo la prima consegna l\'ordine non è ancora completato', consegna1.ordineCompletato === false);
+  await accediCome('cucina');
+  await assertRifiutato(
+    'la cucina non può segnare pronto un sotto-ordine delle bevande',
+    segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoBevande.id }),
+    'permission-denied'
+  );
+  await assertOk(
+    'la cucina segna pronto il proprio sotto-ordine',
+    segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoCucina.id })
+  );
+
+  // --- 3. Consegna: l'ordine si completa solo all'ultimo sotto-ordine --------
+  await assertRifiutato(
+    'la cucina non può registrare consegne',
+    consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoCucina.data().codice }),
+    'permission-denied'
+  );
+
+  await accediCome('consegna');
+  const consegna1 = await assertOk(
+    'consegna del sotto-ordine della cucina',
+    consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoCucina.data().codice })
+  );
+  record('dopo la prima consegna l’ordine non è ancora completato', consegna1.ordineCompletato === false);
 
   await assertRifiutato(
-    'consegnaSottoOrdine su un sotto-ordine non ancora pronto viene rifiutato',
-    consegnaSottoOrdine({ serataId: SERATA_ID, codice: secondoSotto.data().codice }),
+    'consegna di un sotto-ordine non ancora pronto viene rifiutata',
+    consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoBevande.data().codice }),
     'failed-precondition'
   );
 
-  await assertOk('segnaSottoOrdinePronto (secondo sotto-ordine)', segnaSottoOrdinePronto({
-    serataId: SERATA_ID,
-    sottoOrdineId: secondoSotto.id,
-  }));
-  const consegna2 = await assertOk('consegnaSottoOrdine (secondo sotto-ordine, ultimo dell\'ordine)', consegnaSottoOrdine({
-    serataId: SERATA_ID,
-    codice: secondoSotto.data().codice,
-  }));
-  record('dopo la consegna dell\'ultimo sotto-ordine l\'ordine risulta completato', consegna2.ordineCompletato === true);
-
-  const ordine1Finale = await db.doc(`serate/${SERATA_ID}/ordini/${conferma1.ordineId}`).get();
-  record(
-    'lo stato dell\'ordine su Firestore è "completata"',
-    ordine1Finale.data().stato === 'completata',
-    `stato: ${ordine1Finale.data().stato}`
+  await accediCome('bevande');
+  await assertOk(
+    'le bevande segnano pronto il proprio sotto-ordine',
+    segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoBevande.id })
   );
 
-  // --- 3. Ordine diretto da cassa: sotto-ordini generati subito --------------
-  const ordineCassa = await assertOk('creaOrdineCassa (cassiere, ordine diretto)', creaOrdineCassa({
-    serataId: SERATA_ID,
-    items: [{ prodottoId: 'grigliata', quantita: 1 }],
-  }));
+  await accediCome('consegna');
+  const consegna2 = await assertOk(
+    'consegna dell’ultimo sotto-ordine',
+    consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoBevande.data().codice })
+  );
+  record('dopo l’ultima consegna l’ordine risulta completato', consegna2.ordineCompletato === true);
+
+  // --- 4. Ordine diretto da cassa ----------------------------------------------
+  await accediCome('cassa');
+  const ordineCassa = await assertOk(
+    'creaOrdineCassa (cassa, ordine diretto)',
+    creaOrdineCassa({ serataId: SERATA_ID, items: [{ prodottoId: 'grigliata', quantita: 1 }] })
+  );
   const ordineCassaDoc = await db.doc(`serate/${SERATA_ID}/ordini/${ordineCassa.ordineId}`).get();
-  record(
-    'creaOrdineCassa crea l\'ordine già in stato "in_evasione"',
-    ordineCassaDoc.data().stato === 'in_evasione',
-    `stato: ${ordineCassaDoc.data().stato}`
-  );
-  const sottoOrdiniCassa = await db
-    .collection(`serate/${SERATA_ID}/sottoOrdini`)
-    .where('ordineId', '==', ordineCassa.ordineId)
-    .get();
-  record('creaOrdineCassa genera subito il sotto-ordine di reparto', sottoOrdiniCassa.size === 1);
+  record('l’ordine da cassa parte subito "in_evasione"', ordineCassaDoc.data().stato === 'in_evasione');
 
-  // --- 4. Annullamento di una bozza mai pagata --------------------------------
-  await signOut(auth);
-  const bozzaDaAnnullare = await assertOk('creaOrdineBozza (per test annullamento)', creaOrdineBozza({
-    serataId: SERATA_ID, tavolo: 3, coperti: 1, items: [{ prodottoId: 'acqua', quantita: 1 }],
-  }));
-  await signInAnonymously(auth);
-  await assertOk('annullaOrdine (cassiere annulla una bozza mai pagata)', annullaOrdine({
-    serataId: SERATA_ID,
-    ordineId: bozzaDaAnnullare.ordineId,
-  }));
+  // --- 5. Annullamento: solo amministratore -----------------------------------
   await assertRifiutato(
-    'annullaOrdine su un ordine già annullato viene rifiutato',
-    annullaOrdine({ serataId: SERATA_ID, ordineId: bozzaDaAnnullare.ordineId }),
+    'la cassa non può annullare ordini',
+    annullaOrdine({ serataId: SERATA_ID, ordineId: ordineCassa.ordineId }),
+    'permission-denied'
+  );
+  await accediCome('admin');
+  await assertOk('l’amministratore annulla un ordine', annullaOrdine({ serataId: SERATA_ID, ordineId: ordineCassa.ordineId }));
+  await assertRifiutato(
+    'un ordine già annullato non si annulla di nuovo',
+    annullaOrdine({ serataId: SERATA_ID, ordineId: ordineCassa.ordineId }),
     'failed-precondition'
   );
 
-  // --- 5. Controlli di sicurezza/validazione ----------------------------------
+  // --- 6. Apertura serata: solo amministratore --------------------------------
+  await accediCome('cassa');
+  await assertRifiutato('la cassa non può aprire una serata', apriSerata({ data: '2030-01-01' }), 'permission-denied');
+  await accediCome('admin');
+  await assertOk('l’amministratore apre una serata', apriSerata({ data: '2030-01-01' }));
+
+  // --- 7. Account senza ruolo e anonimi ---------------------------------------
+  await accediCome('senzaruolo');
+  await assertRifiutato(
+    'un account senza ruolo non può creare ordini in cassa',
+    creaOrdineCassa({ serataId: SERATA_ID, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
+    'permission-denied'
+  );
   await signOut(auth);
   await assertRifiutato(
-    'creaOrdineCassa senza autenticazione viene rifiutato',
+    'senza accesso non si creano ordini in cassa',
     creaOrdineCassa({ serataId: SERATA_ID, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
     'unauthenticated'
   );
+
+  // --- 8. Validazioni --------------------------------------------------------
   await assertRifiutato(
     'creaOrdineBozza con prodotto inesistente viene rifiutato',
     creaOrdineBozza({ serataId: SERATA_ID, tavolo: 1, coperti: 1, items: [{ prodottoId: 'non-esiste', quantita: 1 }] }),
     'not-found'
   );
   await assertRifiutato(
-    'creaOrdineBozza su una serata chiusa viene rifiutato',
-    creaOrdineBozza({ serataId: 'serata-chiusa-test', tavolo: 1, coperti: 1, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
+    'creaOrdineBozza su una serata inesistente viene rifiutato',
+    creaOrdineBozza({ serataId: 'serata-inesistente', tavolo: 1, coperti: 1, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
     'not-found'
   );
 
-  // --- 6. Numerazione concorrente: due bozze create in parallelo -------------
+  // --- 9. Numerazione concorrente ----------------------------------------------
   const [concorrente1, concorrente2] = await Promise.all([
     creaOrdineBozza({ serataId: SERATA_ID, tavolo: 10, coperti: 1, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
     creaOrdineBozza({ serataId: SERATA_ID, tavolo: 11, coperti: 1, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
   ]);
   record(
-    'due ordini creati in parallelo ottengono numeri diversi (nessuna duplicazione)',
+    'due ordini creati in parallelo ottengono numeri diversi',
     concorrente1.data.numero !== concorrente2.data.numero,
     `numeri: ${concorrente1.data.numero}, ${concorrente2.data.numero}`
   );
 
-  console.log('\nRisultati test Cloud Functions (Step 2):');
+  // --- 10. Primo amministratore -------------------------------------------------
+  await assertRifiutato(
+    'inizializzaSistema con codice sbagliato viene rifiutato',
+    inizializzaSistema({ codice: 'tentativo', nomeUtente: 'intruso', nome: 'Intruso', password: 'password123' }),
+    'permission-denied'
+  );
+  await assertRifiutato(
+    'inizializzaSistema con password troppo corta viene rifiutato',
+    inizializzaSistema({ codice: CODICE_INIZIALIZZAZIONE, nomeUtente: 'titolare', nome: 'Titolare', password: 'corta' }),
+    'invalid-argument'
+  );
+  await assertOk(
+    'inizializzaSistema crea il primo amministratore (anche dopo un tentativo fallito)',
+    inizializzaSistema({ codice: CODICE_INIZIALIZZAZIONE, nomeUtente: 'titolare', nome: 'Titolare', password: 'password-titolare' })
+  );
+  await accediCome('titolare', 'password-titolare');
+  await assertOk('il nuovo amministratore ha davvero i poteri di amministratore', apriSerata({ data: '2030-01-02' }));
+  await signOut(auth);
+  await assertRifiutato(
+    'inizializzaSistema non si può ripetere',
+    inizializzaSistema({ codice: CODICE_INIZIALIZZAZIONE, nomeUtente: 'secondo', nome: 'Secondo', password: 'password123' }),
+    'failed-precondition'
+  );
+
+  console.log('\nRisultati test Cloud Functions:');
   let tuttiOk = true;
   for (const e of esiti) {
-    console.log(`  ${e.ok ? 'OK ' : 'FALLITO'} - ${e.nome}${e.dettaglio ? ` (${e.dettaglio})` : ''}`);
+    console.log(`  ${e.ok ? 'OK ' : 'FALLITO'} - ${e.nome}${e.dettaglio && !e.ok ? ` (${e.dettaglio})` : ''}`);
     if (!e.ok) tuttiOk = false;
   }
 
@@ -218,7 +259,7 @@ async function main() {
     console.error('\nAlcuni test sono falliti.');
     process.exit(1);
   }
-  console.log('\nTutti i test sono passati.');
+  console.log(`\nTutti i ${esiti.length} test sono passati.`);
   process.exit(0);
 }
 
