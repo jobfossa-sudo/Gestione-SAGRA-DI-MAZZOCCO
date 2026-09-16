@@ -27,6 +27,7 @@ async function main() {
     await db.doc('utenti/uid-cassa').set({ nomeUtente: 'cassa', amministratore: false, accessi: { comande: ['cassa'] } });
     await db.doc('utenti/uid-altro').set({ nomeUtente: 'altro', amministratore: false, accessi: { comande: ['cucina'] } });
     await db.doc('config/sistema').set({ amministratoreCreato: true });
+    await db.doc('serate/2026-01-01/disponibilita/panino').set({ prodottoId: 'panino', porzioniMassime: 10, venduti: 4 });
   });
 
   const anonimo = testEnv.unauthenticatedContext().firestore();
@@ -67,6 +68,20 @@ async function main() {
   await check(
     'nemmeno l’amministratore scrive direttamente un ordine (solo tramite Cloud Functions)',
     assertFails(admin.doc('serate/2026-01-01/ordini/ordine1').update({ stato: 'completata' }))
+  );
+
+  // Porzioni: i numeri sono riservati al personale
+  await check(
+    'il personale legge le porzioni rimaste',
+    assertSucceeds(cassa.doc('serate/2026-01-01/disponibilita/panino').get())
+  );
+  await check(
+    'il cliente dal QR non vede quante porzioni restano',
+    assertFails(anonimo.doc('serate/2026-01-01/disponibilita/panino').get())
+  );
+  await check(
+    'nessuno può ritoccare le porzioni vendute a mano',
+    assertFails(admin.doc('serate/2026-01-01/disponibilita/panino').update({ venduti: 0 }))
   );
 
   // Utenti

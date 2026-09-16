@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Reparto } from '@sagra-mazzocco/shared';
-import { useProdottiDisponibili } from '../hooks';
+import { useProdotti } from '../hooks';
 import { creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { SERATA_ID_OGGI } from '../services/serata';
 
@@ -12,7 +12,9 @@ function euro(valore: number): string {
 }
 
 export function NuovoOrdine() {
-  const prodotti = useProdottiDisponibili();
+  const tuttiIProdotti = useProdotti();
+  // I piatti finiti restano visibili ma non ordinabili: se ne occupa il C3.
+  const prodotti = tuttiIProdotti.filter((p) => p.esauritoSerata !== SERATA_ID_OGGI);
   const [carrello, setCarrello] = useState<Record<string, number>>({});
   const [tavolo, setTavolo] = useState('');
   const [coperti, setCoperti] = useState('');

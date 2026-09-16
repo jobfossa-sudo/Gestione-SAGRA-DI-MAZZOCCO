@@ -69,8 +69,23 @@ export interface Prodotto {
   nome: string;
   prezzo: number;
   reparto: Reparto;
-  disponibile: boolean;
+  /** Contrassegnato come novità nel menù dal QR. */
+  novita: boolean;
+  /** Serata in cui il piatto è finito, così il cliente lo vede barrato senza
+   * conoscere i numeri. Riferendosi a una serata precisa si azzera da solo la
+   * sera dopo. Null = disponibile. */
+  esauritoSerata: string | null;
   categoria?: string;
+}
+
+/** Porzioni di un piatto per una singola serata. Sta sotto la serata e non
+ * sotto il prodotto perché ogni sera si riparte da capo. Visibile solo al
+ * personale: il cliente non deve sapere quante ne restano. */
+export interface DisponibilitaProdotto {
+  prodottoId: string;
+  /** Null = nessun limite (es. acqua). */
+  porzioniMassime: number | null;
+  venduti: number;
 }
 
 export interface Serata {
@@ -195,6 +210,23 @@ export interface InizializzaSistemaRichiesta {
 
 export interface InizializzaSistemaRisposta {
   uid: string;
+}
+
+export interface ImpostaPorzioniRichiesta {
+  serataId: string;
+  prodottoId: string;
+  /** Null per togliere il limite. */
+  porzioniMassime: number | null;
+}
+
+export interface SegnaEsauritoRichiesta {
+  serataId: string;
+  prodottoId: string;
+  esaurito: boolean;
+}
+
+export interface ProdottoRisposta {
+  prodottoId: string;
 }
 
 export interface ApriSerataRichiesta {

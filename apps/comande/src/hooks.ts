@@ -1,7 +1,7 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import type { Ordine, Permessi, Prodotto } from '@sagra-mazzocco/shared';
+import type { DisponibilitaProdotto, Ordine, Permessi, Prodotto } from '@sagra-mazzocco/shared';
 import { auth, db } from './services/firebase';
 import { SERATA_ID_OGGI } from './services/serata';
 
@@ -26,17 +26,38 @@ export function useUtenteAutenticato(): { utente: User | null; permessi: Permess
   return stato;
 }
 
-export function useProdottiDisponibili(): Prodotto[] {
+/** Tutto il menù, aggiornato in tempo reale. I piatti finiti restano
+ * nell'elenco: vanno mostrati barrati, non nascosti. */
+export function useProdotti(): Prodotto[] {
   const [prodotti, setProdotti] = useState<Prodotto[]>([]);
 
-  useEffect(() => {
-    const q = query(collection(db, 'prodotti'), where('disponibile', '==', true));
-    return onSnapshot(q, (snapshot) => {
-      setProdotti(snapshot.docs.map((doc) => doc.data() as Prodotto));
-    });
-  }, []);
+  useEffect(
+    () =>
+      onSnapshot(query(collection(db, 'prodotti'), orderBy('nome')), (snapshot) => {
+        setProdotti(snapshot.docs.map((doc) => doc.data() as Prodotto));
+      }),
+    []
+  );
 
   return prodotti;
+}
+
+/** Porzioni massime e vendute della serata di oggi, per prodotto. Leggibile
+ * solo dal personale. */
+export function useDisponibilita(): Map<string, DisponibilitaProdotto> {
+  const [disponibilita, setDisponibilita] = useState(new Map<string, DisponibilitaProdotto>());
+
+  useEffect(
+    () =>
+      onSnapshot(collection(db, `serate/${SERATA_ID_OGGI}/disponibilita`), (snapshot) => {
+        setDisponibilita(
+          new Map(snapshot.docs.map((doc) => [doc.id, doc.data() as DisponibilitaProdotto]))
+        );
+      }),
+    []
+  );
+
+  return disponibilita;
 }
 
 /** Ordini della serata di oggi ancora "aperti": bozze mai confermate e ordini

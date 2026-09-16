@@ -31,12 +31,12 @@ const UTENTI_PROVA = [
 ];
 
 const PRODOTTI_FITTIZI = [
-  { id: 'panino', nome: 'Panino', prezzo: 5, reparto: 'cucina', disponibile: true, categoria: 'Cucina' },
-  { id: 'pasta', nome: 'Pasta al ragù', prezzo: 7, reparto: 'cucina', disponibile: true, categoria: 'Cucina' },
-  { id: 'grigliata', nome: 'Grigliata mista', prezzo: 10, reparto: 'cucina', disponibile: true, categoria: 'Cucina' },
-  { id: 'acqua', nome: 'Acqua', prezzo: 1, reparto: 'bevande', disponibile: true, categoria: 'Bevande' },
-  { id: 'birra', nome: 'Birra', prezzo: 3, reparto: 'bevande', disponibile: true, categoria: 'Bevande' },
-  { id: 'vino', nome: 'Vino (calice)', prezzo: 3, reparto: 'bevande', disponibile: true, categoria: 'Bevande' },
+  { id: 'panino', nome: 'Panino', prezzo: 5, reparto: 'cucina', novita: false, esauritoSerata: null, categoria: 'Cucina' },
+  { id: 'pasta', nome: 'Pasta al ragù', prezzo: 7, reparto: 'cucina', novita: false, esauritoSerata: null, categoria: 'Cucina' },
+  { id: 'grigliata', nome: 'Grigliata mista', prezzo: 10, reparto: 'cucina', novita: false, esauritoSerata: null, categoria: 'Cucina' },
+  { id: 'acqua', nome: 'Acqua', prezzo: 1, reparto: 'bevande', novita: false, esauritoSerata: null, categoria: 'Bevande' },
+  { id: 'birra', nome: 'Birra', prezzo: 3, reparto: 'bevande', novita: false, esauritoSerata: null, categoria: 'Bevande' },
+  { id: 'vino', nome: 'Vino (calice)', prezzo: 3, reparto: 'bevande', novita: false, esauritoSerata: null, categoria: 'Bevande' },
 ];
 
 async function creaUtenteProva({ nomeUtente, nome, amministratore, accessi }) {

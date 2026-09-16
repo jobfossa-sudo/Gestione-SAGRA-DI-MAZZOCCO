@@ -40,6 +40,13 @@ service cloud.firestore {
         allow read: if personaleComande();
         allow write: if false;
       }
+
+      // Porzioni vendute e residue: il cliente dal QR non deve vederle, lui
+      // sa solo se un piatto è finito (campo esauritoSerata del prodotto).
+      match /disponibilita/{prodottoId} {
+        allow read: if personaleComande();
+        allow write: if false;
+      }
     }
 
     // Profilo utente: ognuno legge il proprio, l'amministratore tutti.

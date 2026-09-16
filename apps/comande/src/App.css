@@ -429,3 +429,114 @@
     padding: 10px 8px;
   }
 }
+
+/* ---------- gestione menù ---------- */
+
+.gestione-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.riquadro {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.riquadro h2 {
+  font-size: 1.05rem;
+}
+.riquadro .spiegazione {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  margin: 6px 0 14px;
+}
+
+.nuovo-piatto {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) repeat(2, minmax(110px, 1fr)) auto auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 12px;
+}
+.nuovo-piatto .riga-flag {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--text);
+  white-space: nowrap;
+  padding-bottom: 10px;
+}
+.nuovo-piatto .riga-flag input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+.nuovo-piatto .errore {
+  grid-column: 1 / -1;
+}
+
+.tabella-scroll {
+  overflow-x: auto;
+}
+.tabella-menu {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.tabella-menu th {
+  text-align: left;
+  font-size: 0.73rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+  padding: 0 8px 10px;
+  white-space: nowrap;
+}
+.tabella-menu td {
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+.tabella-menu .centro {
+  text-align: center;
+}
+.tabella-menu .stretta input,
+.tabella-menu .stretta select {
+  min-width: 96px;
+  max-width: 140px;
+}
+.tabella-menu input,
+.tabella-menu select {
+  padding: 7px 9px;
+}
+.tabella-menu input[type='checkbox'] {
+  width: 19px;
+  height: 19px;
+  accent-color: var(--accent);
+}
+.tabella-menu tr.finito .nome-prodotto,
+.tabella-menu tr.finito input[type='text'] {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.conteggio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+}
+.conteggio strong {
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+.conteggio small {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.illimitato {
+  color: var(--text-muted);
+}

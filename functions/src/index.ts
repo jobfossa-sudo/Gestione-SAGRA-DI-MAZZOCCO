@@ -50,6 +50,10 @@ import {
   AnnullaOrdineRisposta,
   ApriSerataRichiesta,
   ApriSerataRisposta,
+  DisponibilitaProdotto,
+  ImpostaPorzioniRichiesta,
+  SegnaEsauritoRichiesta,
+  ProdottoRisposta,
 } from '@sagra-mazzocco/shared';
 
 initializeApp();
@@ -189,15 +193,31 @@ function validaInteroPositivo(valore: unknown, nomeCampo: string): number {
   return valore;
 }
 
+interface RigaDisponibilita {
+  prodottoRef: DocumentReference;
+  disponibilitaRef: DocumentReference;
+  prodotto: Prodotto;
+  disponibilita: DisponibilitaProdotto;
+  quantita: number;
+}
+
+function refDisponibilita(serataId: string, prodottoId: string): DocumentReference {
+  return db.doc(`serate/${serataId}/disponibilita/${prodottoId}`);
+}
+
 /** Legge i prodotti richiesti da Firestore (dentro la transazione) e costruisce
  * gli item dell'ordine usando SEMPRE nome/prezzo/reparto presi dal database:
  * i valori eventualmente inviati dal client per questi campi vengono ignorati,
- * altrimenti chiunque potrebbe alterare i prezzi di un ordine pubblico da QR. */
+ * altrimenti chiunque potrebbe alterare i prezzi di un ordine pubblico da QR.
+ * Verifica anche che le porzioni della serata bastino: non si vendono mezzi
+ * ordini, quindi chi ne chiede più di quante ne restano viene rifiutato. */
 async function costruisciItemsOrdine(
   transaction: Transaction,
+  serataId: string,
   itemsRichiesti: ItemOrdineRichiesta[]
-): Promise<{ items: ItemOrdine[]; totale: number }> {
+): Promise<{ items: ItemOrdine[]; totale: number; righe: RigaDisponibilita[] }> {
   const items: ItemOrdine[] = [];
+  const righe: RigaDisponibilita[] = [];
   let totale = 0;
 
   for (const richiesto of itemsRichiesti) {
@@ -207,9 +227,31 @@ async function costruisciItemsOrdine(
       throw new HttpsError('not-found', `Prodotto inesistente: ${richiesto.prodottoId}.`);
     }
     const prodotto = snapshot.data() as Prodotto;
-    if (!prodotto.disponibile) {
-      throw new HttpsError('failed-precondition', `Prodotto non disponibile: ${prodotto.nome}.`);
+    if (prodotto.esauritoSerata === serataId) {
+      throw new HttpsError('failed-precondition', `Abbiamo appena terminato: ${prodotto.nome}.`);
     }
+
+    const disponibilitaRef = refDisponibilita(serataId, richiesto.prodottoId);
+    const snapshotDisponibilita = await transaction.get(disponibilitaRef);
+    const disponibilita = (snapshotDisponibilita.data() as DisponibilitaProdotto | undefined) ?? {
+      prodottoId: richiesto.prodottoId,
+      porzioniMassime: null,
+      venduti: 0,
+    };
+
+    if (disponibilita.porzioniMassime !== null) {
+      const rimaste = disponibilita.porzioniMassime - disponibilita.venduti;
+      if (rimaste <= 0) {
+        throw new HttpsError('failed-precondition', `Abbiamo appena terminato: ${prodotto.nome}.`);
+      }
+      if (richiesto.quantita > rimaste) {
+        throw new HttpsError(
+          'failed-precondition',
+          `Di ${prodotto.nome} ${rimaste === 1 ? 'resta solo 1 porzione' : `restano solo ${rimaste} porzioni`}.`
+        );
+      }
+    }
+
     items.push({
       prodottoId: richiesto.prodottoId,
       nome: prodotto.nome,
@@ -217,10 +259,26 @@ async function costruisciItemsOrdine(
       prezzo: prodotto.prezzo,
       quantita: richiesto.quantita,
     });
+    righe.push({ prodottoRef, disponibilitaRef, prodotto, disponibilita, quantita: richiesto.quantita });
     totale += prodotto.prezzo * richiesto.quantita;
   }
 
-  return { items, totale };
+  return { items, totale, righe };
+}
+
+/** Scala le porzioni: si fa al pagamento, non quando il cliente invia la
+ * bozza dal tavolo, altrimenti le bozze mai pagate terrebbero bloccate
+ * porzioni vendibili. Al raggiungimento del massimo il piatto risulta finito
+ * per la serata. */
+function scalaPorzioni(transaction: Transaction, serataId: string, righe: RigaDisponibilita[]): void {
+  for (const riga of righe) {
+    const venduti = riga.disponibilita.venduti + riga.quantita;
+    const aggiornata: DisponibilitaProdotto = { ...riga.disponibilita, venduti };
+    transaction.set(riga.disponibilitaRef, aggiornata);
+    if (riga.disponibilita.porzioniMassime !== null && venduti >= riga.disponibilita.porzioniMassime) {
+      transaction.update(riga.prodottoRef, { esauritoSerata: serataId });
+    }
+  }
 }
 
 /** Legge la serata (dentro la transazione) e verifica che sia aperta. Non
@@ -430,6 +488,49 @@ export const apriSerata = onCall(async (request: CallableRequest<ApriSerataRichi
 });
 
 // ---------------------------------------------------------------------------
+// Porzioni della serata — quante se ne possono vendere stasera e quando un
+// piatto è finito. Il conteggio passa dal server: il numero venduto non deve
+// poter essere ritoccato dal client.
+// ---------------------------------------------------------------------------
+
+export const impostaPorzioni = onCall(
+  async (request: CallableRequest<ImpostaPorzioniRichiesta>): Promise<ProdottoRisposta> => {
+    richiedeAmministratore(request);
+    const { serataId, prodottoId, porzioniMassime } = request.data ?? ({} as ImpostaPorzioniRichiesta);
+    validaTesto(serataId, 'Serata');
+    validaTesto(prodottoId, 'Prodotto');
+    if (porzioniMassime !== null && (!Number.isInteger(porzioniMassime) || porzioniMassime < 0)) {
+      throw new HttpsError('invalid-argument', 'Le porzioni devono essere un numero intero, oppure vuoto per nessun limite.');
+    }
+
+    const ref = refDisponibilita(serataId, prodottoId);
+    await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      const venduti = (snapshot.data() as DisponibilitaProdotto | undefined)?.venduti ?? 0;
+      const disponibilita: DisponibilitaProdotto = { prodottoId, porzioniMassime, venduti };
+      transaction.set(ref, disponibilita);
+      // Se il nuovo limite è già stato superato il piatto risulta finito,
+      // altrimenti torna vendibile.
+      const finito = porzioniMassime !== null && venduti >= porzioniMassime;
+      transaction.update(db.doc(`prodotti/${prodottoId}`), { esauritoSerata: finito ? serataId : null });
+    });
+
+    return { prodottoId };
+  }
+);
+
+export const segnaEsaurito = onCall(
+  async (request: CallableRequest<SegnaEsauritoRichiesta>): Promise<ProdottoRisposta> => {
+    richiedeAmministratore(request);
+    const { serataId, prodottoId, esaurito } = request.data ?? ({} as SegnaEsauritoRichiesta);
+    validaTesto(serataId, 'Serata');
+    validaTesto(prodottoId, 'Prodotto');
+    await db.doc(`prodotti/${prodottoId}`).update({ esauritoSerata: esaurito === true ? serataId : null });
+    return { prodottoId };
+  }
+);
+
+// ---------------------------------------------------------------------------
 // creaOrdineBozza — cliente da QR: crea un ordine in stato "bozza", non ancora
 // pagato né inviato ai reparti. Non richiede autenticazione (flusso pubblico).
 // ---------------------------------------------------------------------------
@@ -445,7 +546,9 @@ export const creaOrdineBozza = onCall(async (request: CallableRequest<CreaOrdine
 
   return db.runTransaction(async (transaction) => {
     const serata = await leggiSerataAperta(transaction, serataId);
-    const { items: itemsOrdine, totale } = await costruisciItemsOrdine(transaction, itemsRichiesti);
+    // La bozza controlla la disponibilità ma non scala nulla: le porzioni si
+    // scalano al pagamento.
+    const { items: itemsOrdine, totale } = await costruisciItemsOrdine(transaction, serataId, itemsRichiesti);
 
     const numero = serata.contatoreOrdini + 1;
     transaction.update(serata.ref, { contatoreOrdini: numero });
@@ -489,10 +592,11 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
 
   return db.runTransaction(async (transaction) => {
     const serata = await leggiSerataAperta(transaction, serataId);
-    const { items: itemsOrdine, totale } = await costruisciItemsOrdine(transaction, itemsRichiesti);
+    const { items: itemsOrdine, totale, righe } = await costruisciItemsOrdine(transaction, serataId, itemsRichiesti);
 
     const numero = serata.contatoreOrdini + 1;
     transaction.update(serata.ref, { contatoreOrdini: numero });
+    scalaPorzioni(transaction, serataId, righe);
 
     const ordineRef = db.collection(`serate/${serataId}/ordini`).doc();
     const adesso = FieldValue.serverTimestamp() as unknown as Ordine['createdAt'];
@@ -547,10 +651,19 @@ export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrd
       );
     }
 
+    // Tra l'invio dal tavolo e il pagamento qualcosa può essere finito: si
+    // ricontrolla la disponibilità e solo ora si scalano le porzioni.
+    const { righe } = await costruisciItemsOrdine(
+      transaction,
+      serataId,
+      ordine.items.map((item) => ({ prodottoId: item.prodottoId, quantita: item.quantita }))
+    );
+
     transaction.update(ordineDoc.ref, {
       stato: 'in_evasione',
       confirmedAt: FieldValue.serverTimestamp(),
     });
+    scalaPorzioni(transaction, serataId, righe);
     generaSottoOrdini(transaction, serataId, ordineDoc.id, numero, ordine.items);
 
     return { ordineId: ordineDoc.id, numero, totale: ordine.totale };
@@ -663,7 +776,29 @@ export const annullaOrdine = onCall(async (request: CallableRequest<AnnullaOrdin
         `L'ordine ${ordine.numero} non può essere annullato (stato attuale: ${ordine.stato}).`
       );
     }
+
+    // Un ordine pagato aveva già scalato le porzioni: annullandolo tornano
+    // vendibili. Una bozza non aveva scalato nulla.
+    const daRestituire: { ref: DocumentReference; prodottoRef: DocumentReference; venduti: number }[] = [];
+    if (ordine.stato !== 'bozza') {
+      for (const item of ordine.items) {
+        const ref = refDisponibilita(serataId, item.prodottoId);
+        const snapshotDisponibilita = await transaction.get(ref);
+        const disponibilita = snapshotDisponibilita.data() as DisponibilitaProdotto | undefined;
+        if (!disponibilita) continue;
+        daRestituire.push({
+          ref,
+          prodottoRef: db.doc(`prodotti/${item.prodottoId}`),
+          venduti: Math.max(0, disponibilita.venduti - item.quantita),
+        });
+      }
+    }
+
     transaction.update(ordineRef, { stato: 'annullata', cancelledAt: FieldValue.serverTimestamp() });
+    for (const riga of daRestituire) {
+      transaction.update(riga.ref, { venduti: riga.venduti });
+      transaction.update(riga.prodottoRef, { esauritoSerata: null });
+    }
   });
 
   return { ordineId };

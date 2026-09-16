@@ -28,6 +28,8 @@ const aggiornaPermessi = httpsCallable(functions, 'aggiornaPermessi');
 const reimpostaPassword = httpsCallable(functions, 'reimpostaPassword');
 const impostaAttivo = httpsCallable(functions, 'impostaAttivo');
 const eliminaUtente = httpsCallable(functions, 'eliminaUtente');
+const impostaPorzioni = httpsCallable(functions, 'impostaPorzioni');
+const segnaEsaurito = httpsCallable(functions, 'segnaEsaurito');
 const apriSerata = httpsCallable(functions, 'apriSerata');
 const creaOrdineBozza = httpsCallable(functions, 'creaOrdineBozza');
 const creaOrdineCassa = httpsCallable(functions, 'creaOrdineCassa');
@@ -378,6 +380,64 @@ async function main() {
     accessoImpossibile = err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found';
   }
   record('chi è stato eliminato non riesce più ad accedere', accessoImpossibile);
+
+  // --- 13. Porzioni della serata -----------------------------------------------
+  await accediCome('cassa');
+  await assertRifiutato(
+    'la cassa non può impostare le porzioni',
+    impostaPorzioni({ serataId: SERATA_ID, prodottoId: 'vino', porzioniMassime: 100 }),
+    'permission-denied'
+  );
+
+  await accediCome('admin');
+  await assertOk(
+    'l’amministratore imposta 3 porzioni di vino per stasera',
+    impostaPorzioni({ serataId: SERATA_ID, prodottoId: 'vino', porzioniMassime: 3 })
+  );
+
+  await accediCome('cassa');
+  await assertRifiutato(
+    'non si possono ordinare più porzioni di quante ne restano',
+    creaOrdineCassa({ serataId: SERATA_ID, items: [{ prodottoId: 'vino', quantita: 4 }] }),
+    'failed-precondition'
+  );
+  const ordineVino = await assertOk(
+    'si possono ordinare esattamente le porzioni rimaste',
+    creaOrdineCassa({ serataId: SERATA_ID, items: [{ prodottoId: 'vino', quantita: 3 }] })
+  );
+
+  const dopoVendita = (await db.doc(`serate/${SERATA_ID}/disponibilita/vino`).get()).data();
+  record('le porzioni vendute vengono contate', dopoVendita.venduti === 3, `venduti: ${dopoVendita?.venduti}`);
+  const vinoFinito = (await db.doc('prodotti/vino').get()).data();
+  record('al raggiungimento del massimo il piatto risulta finito', vinoFinito.esauritoSerata === SERATA_ID);
+
+  await assertRifiutato(
+    'a porzioni finite l’ordine viene rifiutato con il messaggio giusto',
+    creaOrdineCassa({ serataId: SERATA_ID, items: [{ prodottoId: 'vino', quantita: 1 }] }),
+    'failed-precondition'
+  );
+
+  await accediCome('admin');
+  await assertOk('annullando l’ordine le porzioni tornano vendibili', annullaOrdine({ serataId: SERATA_ID, ordineId: ordineVino.ordineId }));
+  const dopoAnnullamento = (await db.doc(`serate/${SERATA_ID}/disponibilita/vino`).get()).data();
+  record('il contatore torna indietro', dopoAnnullamento.venduti === 0, `venduti: ${dopoAnnullamento?.venduti}`);
+
+  await assertOk(
+    'l’amministratore può segnare un piatto esaurito a mano',
+    segnaEsaurito({ serataId: SERATA_ID, prodottoId: 'pasta', esaurito: true })
+  );
+  await accediCome('cassa');
+  await assertRifiutato(
+    'un piatto segnato esaurito non si può ordinare',
+    creaOrdineCassa({ serataId: SERATA_ID, items: [{ prodottoId: 'pasta', quantita: 1 }] }),
+    'failed-precondition'
+  );
+  await signOut(auth);
+  await assertRifiutato(
+    'nemmeno il cliente dal QR può ordinare un piatto finito',
+    creaOrdineBozza({ serataId: SERATA_ID, tavolo: 5, coperti: 1, items: [{ prodottoId: 'pasta', quantita: 1 }] }),
+    'failed-precondition'
+  );
 
   console.log('\nRisultati test Cloud Functions:');
   let tuttiOk = true;
