@@ -7,7 +7,7 @@ export function NuovoUtente() {
   const [nomeUtente, setNomeUtente] = useState('');
   const [password, setPassword] = useState('');
   const [amministratore, setAmministratore] = useState(false);
-  const [comande, setComande] = useState('');
+  const [comande, setComande] = useState<RuoloComande[]>([]);
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [successo, setSuccesso] = useState<string | null>(null);
@@ -23,14 +23,14 @@ export function NuovoUtente() {
         nome,
         password,
         amministratore,
-        accessi: comande ? { comande: comande as RuoloComande } : {},
+        accessi: comande.length > 0 ? { comande } : {},
       });
       setSuccesso(`Creato l'account "${nomeUtente}". Comunica a ${nome} il nome utente e la password.`);
       setNome('');
       setNomeUtente('');
       setPassword('');
       setAmministratore(false);
-      setComande('');
+      setComande([]);
     } catch (err) {
       setErrore(messaggioErrore(err));
     } finally {
@@ -69,17 +69,25 @@ export function NuovoUtente() {
             required
           />
         </label>
-        <label>
-          Ruolo in Comande
-          <select value={comande} disabled={amministratore} onChange={(e) => setComande(e.target.value)}>
-            <option value="">nessun accesso</option>
-            {RUOLI_COMANDE.map((ruolo) => (
-              <option key={ruolo} value={ruolo}>
-                {NOME_RUOLO_COMANDE[ruolo]}
-              </option>
-            ))}
-          </select>
-        </label>
+      </div>
+
+      <div className="scelta-ruoli">
+        <span className="titolo-ruoli">Ruoli in Comande</span>
+        <div className="caselle-ruoli">
+          {RUOLI_COMANDE.map((ruolo) => (
+            <label key={ruolo}>
+              <input
+                type="checkbox"
+                checked={comande.includes(ruolo)}
+                disabled={amministratore}
+                onChange={(e) =>
+                  setComande((prec) => (e.target.checked ? [...prec, ruolo] : prec.filter((r) => r !== ruolo)))
+                }
+              />
+              {NOME_RUOLO_COMANDE[ruolo]}
+            </label>
+          ))}
+        </div>
       </div>
 
       <label className="riga-flag">

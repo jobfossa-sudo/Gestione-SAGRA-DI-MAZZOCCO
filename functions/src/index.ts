@@ -66,13 +66,14 @@ const CODICE_INIZIALIZZAZIONE = defineString('CODICE_INIZIALIZZAZIONE');
 function richiedeRuoloComande(
   request: CallableRequest,
   ...ammessi: RuoloComande[]
-): RuoloComande | 'amministratore' {
+): { amministratore: boolean; ruoli: RuoloComande[] } {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Operazione riservata al personale: effettua l’accesso.');
   }
   const permessi = request.auth.token as Permessi;
-  if (permessi.amministratore === true) return 'amministratore';
-  if (permessi.comande !== undefined && ammessi.includes(permessi.comande)) return permessi.comande;
+  const ruoli = Array.isArray(permessi.comande) ? permessi.comande : [];
+  if (permessi.amministratore === true) return { amministratore: true, ruoli };
+  if (ruoli.some((ruolo) => ammessi.includes(ruolo))) return { amministratore: false, ruoli };
   throw new HttpsError('permission-denied', 'Il tuo ruolo non permette questa operazione.');
 }
 
@@ -96,10 +97,17 @@ function vietaAutoBlocco(uidRichiedente: string, uidBersaglio: string, azione: s
 
 function validaAccessi(valore: unknown): Accessi {
   const accessi = (valore ?? {}) as Accessi;
-  if (accessi.comande !== undefined && !RUOLI_COMANDE.includes(accessi.comande)) {
-    throw new HttpsError('invalid-argument', `Ruolo non valido per Comande: ${accessi.comande}.`);
+  if (accessi.comande === undefined) return {};
+  if (!Array.isArray(accessi.comande)) {
+    throw new HttpsError('invalid-argument', 'I ruoli in Comande devono essere un elenco.');
   }
-  return accessi.comande !== undefined ? { comande: accessi.comande } : {};
+  for (const ruolo of accessi.comande) {
+    if (!RUOLI_COMANDE.includes(ruolo)) {
+      throw new HttpsError('invalid-argument', `Ruolo non valido per Comande: ${ruolo}.`);
+    }
+  }
+  const ruoli = RUOLI_COMANDE.filter((ruolo) => accessi.comande!.includes(ruolo));
+  return ruoli.length > 0 ? { comande: ruoli } : {};
 }
 
 function validaTesto(valore: unknown, nomeCampo: string): string {
@@ -538,7 +546,7 @@ export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrd
 // ---------------------------------------------------------------------------
 
 export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<SegnaSottoOrdineProntoRichiesta>): Promise<SegnaSottoOrdineProntoRisposta> => {
-  const ruolo = richiedeRuoloComande(request, 'cucina', 'bevande');
+  const permessi = richiedeRuoloComande(request, 'cucina', 'bevande');
   const { serataId, sottoOrdineId } = request.data ?? ({} as SegnaSottoOrdineProntoRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof sottoOrdineId !== 'string' || !sottoOrdineId) {
     throw new HttpsError('invalid-argument', 'Sotto-ordine non valido.');
@@ -552,7 +560,7 @@ export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<Seg
       throw new HttpsError('not-found', 'Sotto-ordine inesistente.');
     }
     const sottoOrdine = snapshot.data() as SottoOrdine;
-    if (ruolo !== 'amministratore' && ruolo !== sottoOrdine.reparto) {
+    if (!permessi.amministratore && !permessi.ruoli.includes(sottoOrdine.reparto)) {
       throw new HttpsError('permission-denied', `Il sotto-ordine ${sottoOrdine.codice} appartiene a un altro reparto.`);
     }
     if (sottoOrdine.stato !== 'in_preparazione') {

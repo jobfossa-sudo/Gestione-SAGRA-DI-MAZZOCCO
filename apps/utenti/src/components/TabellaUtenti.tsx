@@ -27,14 +27,17 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
   const cambiaAmministratore = (amministratore: boolean) =>
     esegui(() => aggiornaPermessi({ uid: utente.uid, amministratore, accessi: utente.accessi }));
 
-  const cambiaComande = (valore: string) =>
-    esegui(() =>
+  const cambiaComande = (ruolo: RuoloComande, spuntato: boolean) => {
+    const attuali = utente.accessi.comande ?? [];
+    const nuovi = spuntato ? [...attuali, ruolo] : attuali.filter((r) => r !== ruolo);
+    return esegui(() =>
       aggiornaPermessi({
         uid: utente.uid,
         amministratore: utente.amministratore,
-        accessi: valore ? { comande: valore as RuoloComande } : {},
+        accessi: nuovi.length > 0 ? { comande: nuovi } : {},
       })
     );
+  };
 
   const cambiaAttivo = (attivo: boolean) => esegui(() => impostaAttivo({ uid: utente.uid, attivo }));
 
@@ -76,19 +79,20 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
           {utente.amministratore ? (
             <span className="tutto">tutto</span>
           ) : (
-            <select
-              value={utente.accessi.comande ?? ''}
-              disabled={inCorso}
-              onChange={(e) => cambiaComande(e.target.value)}
-              aria-label={`Ruolo in Comande: ${utente.nome}`}
-            >
-              <option value="">nessun accesso</option>
+            <div className="caselle-ruoli">
               {RUOLI_COMANDE.map((ruolo) => (
-                <option key={ruolo} value={ruolo}>
+                <label key={ruolo}>
+                  <input
+                    type="checkbox"
+                    checked={(utente.accessi.comande ?? []).includes(ruolo)}
+                    disabled={inCorso}
+                    onChange={(e) => cambiaComande(ruolo, e.target.checked)}
+                    aria-label={`${NOME_RUOLO_COMANDE[ruolo]} in Comande: ${utente.nome}`}
+                  />
                   {NOME_RUOLO_COMANDE[ruolo]}
-                </option>
+                </label>
               ))}
-            </select>
+            </div>
           )}
         </td>
         {APP_FUTURE.map((app) => (

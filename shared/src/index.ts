@@ -101,10 +101,12 @@ export const NOME_RUOLO_COMANDE: Record<RuoloComande, string> = {
   consegna: 'Consegna',
 };
 
-/** Una chiave per app. Magazzino e Contabilità si aggiungeranno qui con i
- * rispettivi ruoli quando verranno costruite. */
+/** Una chiave per app, con i ruoli che la persona ricopre in quell'app: alla
+ * sagra i volontari si danno il cambio tra postazioni, quindi possono averne
+ * più di uno. Chiave assente o elenco vuoto = nessun accesso a quell'app.
+ * Magazzino e Contabilità si aggiungeranno qui quando verranno costruite. */
 export interface Accessi {
-  comande?: RuoloComande;
+  comande?: RuoloComande[];
 }
 
 /** Forma delle "custom claims" dell'account: impostabili solo dal server,

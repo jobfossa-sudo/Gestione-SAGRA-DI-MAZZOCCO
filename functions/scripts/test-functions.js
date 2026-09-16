@@ -171,7 +171,33 @@ async function main() {
   const ordineCassaDoc = await db.doc(`serate/${SERATA_ID}/ordini/${ordineCassa.ordineId}`).get();
   record('l’ordine da cassa parte subito "in_evasione"', ordineCassaDoc.data().stato === 'in_evasione');
 
+  // --- 4bis. Volontaria con due ruoli: fa entrambe le cose ---------------------
+  await accediCome('jolly');
+  const ordineJolly = await assertOk(
+    'chi ha i ruoli cassa e consegna può incassare',
+    creaOrdineCassa({ serataId: SERATA_ID, items: [{ prodottoId: 'birra', quantita: 1 }] })
+  );
+  const sottoJolly = (
+    await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', ordineJolly.ordineId).get()
+  ).docs[0];
+  await assertRifiutato(
+    'ma non può segnare pronto un sotto-ordine (non è un ruolo di reparto)',
+    segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoJolly.id }),
+    'permission-denied'
+  );
+  await accediCome('bevande');
+  await assertOk(
+    'il reparto bevande segna pronto',
+    segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoJolly.id })
+  );
+  await accediCome('jolly');
+  await assertOk(
+    'e con l’altro ruolo la stessa persona registra la consegna',
+    consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoJolly.data().codice })
+  );
+
   // --- 5. Annullamento: solo amministratore -----------------------------------
+  await accediCome('cassa');
   await assertRifiutato(
     'la cassa non può annullare ordini',
     annullaOrdine({ serataId: SERATA_ID, ordineId: ordineCassa.ordineId }),
@@ -263,7 +289,7 @@ async function main() {
   await accediCome('admin');
   const mario = await assertOk(
     'l’amministratore crea un utente con ruolo in Comande',
-    creaUtente({ nomeUtente: 'mario', nome: 'Mario Rossi', password: 'password-mario', amministratore: false, accessi: { comande: 'cassa' } })
+    creaUtente({ nomeUtente: 'mario', nome: 'Mario Rossi', password: 'password-mario', amministratore: false, accessi: { comande: ['cassa'] } })
   );
   await assertRifiutato(
     'non si può creare un utente con un nome già in uso',
@@ -272,7 +298,7 @@ async function main() {
   );
   await assertRifiutato(
     'non si può assegnare un ruolo inesistente',
-    creaUtente({ nomeUtente: 'strano', nome: 'Strano', password: 'password123', amministratore: false, accessi: { comande: 'sindaco' } }),
+    creaUtente({ nomeUtente: 'strano', nome: 'Strano', password: 'password123', amministratore: false, accessi: { comande: ['sindaco'] } }),
     'invalid-argument'
   );
 
@@ -291,7 +317,7 @@ async function main() {
   );
   await assertOk(
     'l’amministratore sposta l’utente in cucina',
-    aggiornaPermessi({ uid: mario.uid, amministratore: false, accessi: { comande: 'cucina' } })
+    aggiornaPermessi({ uid: mario.uid, amministratore: false, accessi: { comande: ['cucina'] } })
   );
 
   await accediCome('mario', 'password-mario');

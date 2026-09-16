@@ -26,7 +26,9 @@ function App() {
   if (!caricato) return null;
   if (!utente) return <Login />;
 
-  if (!permessi.amministratore && !permessi.comande) {
+  const ruoli = permessi.comande ?? [];
+
+  if (!permessi.amministratore && ruoli.length === 0) {
     return (
       <div className="login">
         <div className="login-intro">
@@ -44,7 +46,9 @@ function App() {
     );
   }
 
-  const nomeRuolo = permessi.amministratore ? 'Amministratore' : NOME_RUOLO_COMANDE[permessi.comande!];
+  const nomeRuolo = permessi.amministratore
+    ? 'Amministratore'
+    : ruoli.map((ruolo) => NOME_RUOLO_COMANDE[ruolo]).join(' · ');
 
   return (
     <div className="app-cassa">

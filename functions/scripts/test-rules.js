@@ -24,18 +24,18 @@ async function main() {
     await db.doc('serate/2026-01-01').set({ data: '2026-01-01', aperta: true, contatoreOrdini: 1 });
     await db.doc('serate/2026-01-01/ordini/ordine1').set({ numero: 1, stato: 'bozza' });
     await db.doc('prodotti/panino').set({ nome: 'Panino', prezzo: 5 });
-    await db.doc('utenti/uid-cassa').set({ nomeUtente: 'cassa', amministratore: false, accessi: { comande: 'cassa' } });
-    await db.doc('utenti/uid-altro').set({ nomeUtente: 'altro', amministratore: false, accessi: { comande: 'cucina' } });
+    await db.doc('utenti/uid-cassa').set({ nomeUtente: 'cassa', amministratore: false, accessi: { comande: ['cassa'] } });
+    await db.doc('utenti/uid-altro').set({ nomeUtente: 'altro', amministratore: false, accessi: { comande: ['cucina'] } });
     await db.doc('config/sistema').set({ amministratoreCreato: true });
   });
 
   const anonimo = testEnv.unauthenticatedContext().firestore();
   const senzaRuolo = testEnv.authenticatedContext('uid-senza-ruolo').firestore();
-  const cassa = testEnv.authenticatedContext('uid-cassa', { comande: 'cassa' }).firestore();
-  const cucina = testEnv.authenticatedContext('uid-cucina', { comande: 'cucina' }).firestore();
+  const cassa = testEnv.authenticatedContext('uid-cassa', { comande: ['cassa'] }).firestore();
+  const cucina = testEnv.authenticatedContext('uid-cucina', { comande: ['cucina'] }).firestore();
   const admin = testEnv.authenticatedContext('uid-admin', { amministratore: true }).firestore();
   // Accesso a un'altra app soltanto: non deve vedere nulla di Comande.
-  const soloAltraApp = testEnv.authenticatedContext('uid-contabile', { contabilita: 'visione' }).firestore();
+  const soloAltraApp = testEnv.authenticatedContext('uid-contabile', { contabilita: ['visione'] }).firestore();
 
   const esiti = [];
 

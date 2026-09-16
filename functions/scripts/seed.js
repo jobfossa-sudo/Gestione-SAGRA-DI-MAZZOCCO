@@ -21,10 +21,12 @@ const PASSWORD_PROVA = 'prova1234';
 // possa fare nulla (come un account che qualcuno si fosse registrato da solo).
 const UTENTI_PROVA = [
   { nomeUtente: 'admin', nome: 'Amministratore di prova', amministratore: true, accessi: {} },
-  { nomeUtente: 'cassa', nome: 'Cassiera di prova', amministratore: false, accessi: { comande: 'cassa' } },
-  { nomeUtente: 'cucina', nome: 'Cuoco di prova', amministratore: false, accessi: { comande: 'cucina' } },
-  { nomeUtente: 'bevande', nome: 'Barista di prova', amministratore: false, accessi: { comande: 'bevande' } },
-  { nomeUtente: 'consegna', nome: 'Inserviente di prova', amministratore: false, accessi: { comande: 'consegna' } },
+  { nomeUtente: 'cassa', nome: 'Cassiera di prova', amministratore: false, accessi: { comande: ['cassa'] } },
+  { nomeUtente: 'cucina', nome: 'Cuoco di prova', amministratore: false, accessi: { comande: ['cucina'] } },
+  { nomeUtente: 'bevande', nome: 'Barista di prova', amministratore: false, accessi: { comande: ['bevande'] } },
+  { nomeUtente: 'consegna', nome: 'Inserviente di prova', amministratore: false, accessi: { comande: ['consegna'] } },
+  // Volontaria con due postazioni: verifica il caso dei ruoli multipli.
+  { nomeUtente: 'jolly', nome: 'Volontaria tuttofare', amministratore: false, accessi: { comande: ['cassa', 'consegna'] } },
   { nomeUtente: 'senzaruolo', nome: 'Account senza accessi', amministratore: false, accessi: {} },
 ];
 
