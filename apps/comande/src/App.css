@@ -149,10 +149,10 @@
    larghezze sono in percentuale: le proporzioni tengono a ogni zoom. */
 .tabella-ordine {
   width: 100%;
-  min-width: 620px;
+  min-width: 37rem;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -178,7 +178,7 @@
 }
 .tabella-ordine th {
   text-align: left;
-  font-size: 0.73rem;
+  font-size: 0.75rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -620,7 +620,7 @@
   }
 }
 
-/* ---------- gestione menù ---------- */
+/* ---------- riquadri (usati anche fuori da Gestione menù) ---------- */
 
 .gestione-menu {
   display: flex;
@@ -675,22 +675,25 @@
    invece di schiacciarsi. */
 .tabella-menu {
   width: 100%;
-  min-width: 1120px;
+  /* In rem e non in pixel: se si alza la misura del testo la tabella cresce
+     con lui, invece di stringere le colonne finché il testo non ci sta. */
+  min-width: 66rem;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
 }
 .tabella-menu .col-maniglia {
   width: 3%;
 }
 .tabella-menu .col-settore {
-  width: 10%;
+  width: 9.5%;
 }
+/* Piatto è sempre esattamente un terzo di Note. */
 .tabella-menu .col-piatto {
-  width: 13%;
+  width: 12.75%;
 }
 .tabella-menu .col-note {
-  width: 39%;
+  width: 38.25%;
 }
 .tabella-menu .col-prezzo {
   width: 7%;
@@ -705,12 +708,12 @@
   width: 4.5%;
 }
 .tabella-menu .col-elimina {
-  width: 6%;
+  width: 7.5%;
 }
 
 .tabella-menu th {
   text-align: left;
-  font-size: 0.73rem;
+  font-size: 0.75rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
