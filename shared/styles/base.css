@@ -26,12 +26,13 @@
   --bar: #0e7490;
 
   /* Portate del menù: un giro di colori, assegnati per posizione, visto che
-     le portate se le crea l'amministratore. */
-  --portata-1: #b45309;
-  --portata-2: #9f1239;
-  --portata-3: #4d7c0f;
-  --portata-4: #0e7490;
-  --portata-5: #7e22ce;
+     le portate se le crea l'amministratore. Sono tinte scure apposta: fanno
+     da testo su fondo chiaro e devono restare leggibili. */
+  --portata-1: #a16207; /* giallo */
+  --portata-2: #b91c1c; /* rosso */
+  --portata-3: #4d7c0f; /* verde */
+  --portata-4: #0e7490; /* blu */
+  --portata-5: #7e22ce; /* viola */
 
   --radius: 12px;
   --radius-lg: 18px;

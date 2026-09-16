@@ -389,6 +389,7 @@ function RigaNuovoPiatto({
 
 function RigaCategoria({
   categoria,
+  colore,
   quantiPiatti,
   primaDellElenco,
   ultimaDellElenco,
@@ -396,6 +397,7 @@ function RigaCategoria({
   onElimina,
 }: {
   categoria: Categoria;
+  colore: string;
   quantiPiatti: number;
   primaDellElenco: boolean;
   ultimaDellElenco: boolean;
@@ -407,7 +409,7 @@ function RigaCategoria({
   return (
     <tr className="riga-categoria">
       <td colSpan={COLONNE}>
-        <div className="testata-portata">
+        <div className="testata-portata" style={{ ['--portata-colore' as string]: colore }}>
           {modificabile ? (
             <input
               type="text"
@@ -421,7 +423,7 @@ function RigaCategoria({
               aria-label={`Nome della portata ${categoria.nome}`}
             />
           ) : (
-            <span className="nome-portata orfani">{categoria.nome}</span>
+            <span className="nome-portata">{categoria.nome}</span>
           )}
           <span className="quanti">{quantiPiatti === 1 ? '1 piatto' : `${quantiPiatti} piatti`}</span>
           {modificabile && (
@@ -702,6 +704,13 @@ export function GestioneMenu() {
                 <tbody key={categoria.id}>
                   <RigaCategoria
                     categoria={categoria}
+                    // I colori girano a rotazione: le portate le crea
+                    // l'amministratore, non si possono fissare a una a una.
+                    colore={
+                      categoria.id === SENZA_PORTATA
+                        ? 'var(--text-muted)'
+                        : `var(--portata-${(indice % 5) + 1})`
+                    }
                     quantiPiatti={piatti.length}
                     primaDellElenco={indice === 0}
                     ultimaDellElenco={indice === categorie.length - 1}

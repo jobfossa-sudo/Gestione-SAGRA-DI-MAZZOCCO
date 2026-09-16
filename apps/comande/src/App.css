@@ -145,14 +145,6 @@
   align-items: start;
 }
 
-.pallino {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--reparto-colore);
-  flex: none;
-}
-
 /* Elenco dei piatti, raggruppato per portata come in Gestione menù. Le
    larghezze sono in percentuale: le proporzioni tengono a ogni zoom. */
 .tabella-ordine {
@@ -773,19 +765,26 @@
 .tabella-menu tbody:first-of-type .riga-categoria td {
   padding-top: 6px;
 }
+/* Ogni portata si riconosce dal colore: una fascia tinta con la sua tinta,
+   più marcata sul bordo. Il colore arriva da --portata-colore, impostato
+   riga per riga secondo la posizione della portata nel menù. */
 .testata-portata {
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 2px solid var(--accent);
-  padding-bottom: 6px;
+  --colore: var(--portata-colore, var(--accent));
+  background: color-mix(in srgb, var(--colore) 12%, transparent);
+  border-left: 4px solid var(--colore);
+  border-bottom: 2px solid var(--colore);
+  border-radius: 7px 7px 0 0;
+  padding: 6px 10px;
 }
 .nome-portata {
   font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--colore);
   background: transparent;
   border: 1px solid transparent;
   padding: 4px 8px;
@@ -794,9 +793,6 @@
 }
 .nome-portata:hover:not(:focus) {
   border-color: var(--border);
-}
-.nome-portata.orfani {
-  color: var(--text-muted);
 }
 .testata-portata .quanti {
   font-size: 0.8rem;

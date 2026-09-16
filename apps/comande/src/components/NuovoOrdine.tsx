@@ -136,13 +136,12 @@ export function NuovoOrdine() {
                 <tbody key={categoria.id}>
                   <tr className="riga-categoria">
                     <td colSpan={COLONNE}>
-                      <div className="testata-portata">
-                        {/* I colori girano a rotazione: le portate le decide
-                            l'amministratore, non si possono fissare a una a una. */}
-                        <span
-                          className="pallino"
-                          style={{ ['--reparto-colore' as string]: `var(--portata-${(indice % 5) + 1})` }}
-                        />
+                      {/* I colori girano a rotazione: le portate le decide
+                          l'amministratore, non si possono fissare a una a una. */}
+                      <div
+                        className="testata-portata"
+                        style={{ ['--portata-colore' as string]: `var(--portata-${(indice % 5) + 1})` }}
+                      >
                         <span className="nome-portata">{categoria.nome}</span>
                       </div>
                     </td>
