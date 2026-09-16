@@ -3,6 +3,10 @@ import { useCategorie, useDisponibilita, useProdotti } from '../hooks';
 import { creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { SERATA_ID_OGGI } from '../services/serata';
 
+/** Colonne della tabella: serve alle intestazioni di portata, che occupano
+ * un'unica cella a tutta larghezza. */
+const COLONNE = 6;
+
 function euro(valore: number): string {
   return valore.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
 }
@@ -105,70 +109,109 @@ export function NuovoOrdine() {
   return (
     <div className="nuovo-ordine">
       <div className="colonna-menu">
-        {prodottiPerCategoria.map(({ categoria, lista }, indice) => (
-          <div key={categoria.id} className="gruppo-reparto">
-            <div className="intestazione-reparto">
-              {/* I colori girano a rotazione: le portate le decide
-                  l'amministratore, quindi non si possono fissare a una a una. */}
-              <span className="pallino" style={{ ['--reparto-colore' as string]: `var(--portata-${(indice % 5) + 1})` }} />
-              <h2>{categoria.nome}</h2>
-            </div>
-            <div className="griglia-prodotti">
-              {lista.map((prodotto) => {
-                const quantita = carrello[prodotto.id] ?? 0;
-                const rimaste = porzioniRimaste(prodotto.id);
-                const finito = prodotto.esauritoSerata === SERATA_ID_OGGI || rimaste === 0;
-                // Non si vendono porzioni che non ci sono: il "+" si ferma da
-                // solo, così l'ordine non viene rifiutato dopo averlo battuto.
-                const alMassimo = rimaste !== null && quantita >= rimaste;
-                return (
-                  <div
-                    key={prodotto.id}
-                    className={`riga-prodotto${quantita > 0 ? ' selezionato' : ''}${finito ? ' esaurito' : ''}`}
-                  >
-                    <span className="nome-prodotto">
-                      <span className="titolo-prodotto">{prodotto.nome}</span>
-                      <small>
-                        {euro(prodotto.prezzo)}
-                        {prodotto.note && <span className="note-prodotto"> · {prodotto.note}</span>}
-                      </small>
-                      {finito ? (
-                        <span className="targhetta-esaurito">esaurito</span>
-                      ) : (
-                        rimaste !== null && (
-                          <small className={`rimaste${rimaste <= 3 ? ' poche' : ''}`}>
-                            {rimaste === 1 ? 'resta 1 porzione' : `restano ${rimaste} porzioni`}
-                          </small>
-                        )
-                      )}
-                    </span>
-                    <div className="controlli-quantita">
-                      <button
-                        type="button"
-                        aria-label={`Togli ${prodotto.nome}`}
-                        disabled={quantita === 0}
-                        onClick={() => cambiaQuantita(prodotto.id, -1)}
+        {prodotti.length === 0 ? (
+          <p className="vuoto">Nessun prodotto disponibile.</p>
+        ) : (
+          <div className="tabella-scroll">
+            <table className="tabella-ordine">
+              <colgroup>
+                <col className="col-piatto" />
+                <col className="col-note" />
+                <col className="col-prezzo" />
+                <col className="col-rimaste" />
+                <col className="col-quantita" />
+                <col className="col-totale" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Piatto</th>
+                  <th>Note</th>
+                  <th className="destra">Prezzo</th>
+                  <th className="centro">Rimaste</th>
+                  <th className="centro">Quantità</th>
+                  <th className="destra">Totale</th>
+                </tr>
+              </thead>
+              {prodottiPerCategoria.map(({ categoria, lista }, indice) => (
+                <tbody key={categoria.id}>
+                  <tr className="riga-categoria">
+                    <td colSpan={COLONNE}>
+                      <div className="testata-portata">
+                        {/* I colori girano a rotazione: le portate le decide
+                            l'amministratore, non si possono fissare a una a una. */}
+                        <span
+                          className="pallino"
+                          style={{ ['--reparto-colore' as string]: `var(--portata-${(indice % 5) + 1})` }}
+                        />
+                        <span className="nome-portata">{categoria.nome}</span>
+                      </div>
+                    </td>
+                  </tr>
+                  {lista.map((prodotto) => {
+                    const quantita = carrello[prodotto.id] ?? 0;
+                    const rimaste = porzioniRimaste(prodotto.id);
+                    const finito = prodotto.esauritoSerata === SERATA_ID_OGGI || rimaste === 0;
+                    // Non si vendono porzioni che non ci sono: il "+" si ferma
+                    // da solo, così l'ordine non viene rifiutato dopo averlo
+                    // battuto.
+                    const alMassimo = rimaste !== null && quantita >= rimaste;
+                    return (
+                      <tr
+                        key={prodotto.id}
+                        className={`${quantita > 0 ? 'selezionato' : ''}${finito ? ' esaurito' : ''}`.trim() || undefined}
                       >
-                        −
-                      </button>
-                      <span>{quantita}</span>
-                      <button
-                        type="button"
-                        aria-label={`Aggiungi ${prodotto.nome}`}
-                        disabled={finito || alMassimo}
-                        title={alMassimo && !finito ? 'Non ci sono altre porzioni' : undefined}
-                        onClick={() => cambiaQuantita(prodotto.id, 1)}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                        <td className="colonna-piatto">
+                          <span className="titolo-prodotto" title={prodotto.nome}>
+                            {prodotto.nome}
+                          </span>
+                          {finito && <span className="targhetta-esaurito">esaurito</span>}
+                        </td>
+                        <td className="colonna-note" title={prodotto.note || undefined}>
+                          {prodotto.note}
+                        </td>
+                        <td className="destra prezzo">{euro(prodotto.prezzo)}</td>
+                        <td className="centro">
+                          {finito ? (
+                            <span className="illimitato">0</span>
+                          ) : rimaste === null ? (
+                            <span className="illimitato">—</span>
+                          ) : (
+                            <span className={`rimaste${rimaste <= 3 ? ' poche' : ''}`}>{rimaste}</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="controlli-quantita">
+                            <button
+                              type="button"
+                              aria-label={`Togli ${prodotto.nome}`}
+                              disabled={quantita === 0}
+                              onClick={() => cambiaQuantita(prodotto.id, -1)}
+                            >
+                              −
+                            </button>
+                            <span>{quantita}</span>
+                            <button
+                              type="button"
+                              aria-label={`Aggiungi ${prodotto.nome}`}
+                              disabled={finito || alMassimo}
+                              title={alMassimo && !finito ? 'Non ci sono altre porzioni' : undefined}
+                              onClick={() => cambiaQuantita(prodotto.id, 1)}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td className="destra prezzo">
+                          {quantita > 0 ? <strong>{euro(prodotto.prezzo * quantita)}</strong> : <span className="illimitato">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              ))}
+            </table>
           </div>
-        ))}
-        {prodotti.length === 0 && <p className="vuoto">Nessun prodotto disponibile.</p>}
+        )}
       </div>
 
       <div className="colonna-riepilogo">

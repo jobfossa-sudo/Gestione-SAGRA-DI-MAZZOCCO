@@ -145,73 +145,121 @@
   align-items: start;
 }
 
-.gruppo-reparto + .gruppo-reparto {
-  margin-top: 26px;
-}
-.intestazione-reparto {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 10px;
-}
-.intestazione-reparto h2 {
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
 .pallino {
   width: 9px;
   height: 9px;
   border-radius: 50%;
   background: var(--reparto-colore);
+  flex: none;
 }
 
-.griglia-prodotti {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 8px;
-}
-
-.riga-prodotto {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+/* Elenco dei piatti, raggruppato per portata come in Gestione menù. Le
+   larghezze sono in percentuale: le proporzioni tengono a ogni zoom. */
+.tabella-ordine {
+  width: 100%;
+  min-width: 620px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.92rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  transition: border-color 0.12s ease, background 0.12s ease;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
 }
-.riga-prodotto.selezionato {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+.tabella-ordine .col-piatto {
+  width: 24%;
 }
-.nome-prodotto {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.tabella-ordine .col-note {
+  width: 28%;
+}
+.tabella-ordine .col-prezzo {
+  width: 11%;
+}
+.tabella-ordine .col-rimaste {
+  width: 10%;
+}
+.tabella-ordine .col-quantita {
+  width: 16%;
+}
+.tabella-ordine .col-totale {
+  width: 11%;
+}
+.tabella-ordine th {
+  text-align: left;
+  font-size: 0.73rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+  padding: 14px 10px 10px;
+}
+.tabella-ordine td {
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+/* Un po' d'aria ai bordi: il riquadro ha una cornice, il testo non ci si
+   appoggia sopra. */
+.tabella-ordine th:first-child,
+.tabella-ordine td:first-child {
+  padding-left: 16px;
+}
+.tabella-ordine th:last-child,
+.tabella-ordine td:last-child {
+  padding-right: 16px;
+}
+.tabella-ordine .centro {
+  text-align: center;
+}
+.tabella-ordine .destra {
+  text-align: right;
+}
+.tabella-ordine .prezzo {
+  font-variant-numeric: tabular-nums;
+}
+.tabella-ordine .colonna-piatto {
   font-weight: 600;
 }
-.nome-prodotto small {
-  font-weight: 500;
-  font-size: 0.85rem;
+.tabella-ordine .colonna-note {
   color: var(--text-muted);
+  font-size: 0.86rem;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tabella-ordine tr.selezionato td {
+  background: var(--accent-soft);
+}
+.tabella-ordine tr.esaurito td {
+  color: var(--text-muted);
+}
+.tabella-ordine tr.esaurito .titolo-prodotto {
+  text-decoration: line-through;
+}
+.tabella-ordine .riga-categoria td {
+  background: none;
+  padding: 18px 10px 4px;
+}
+.tabella-ordine tbody:first-of-type .riga-categoria td {
+  padding-top: 6px;
 }
 
 .controlli-quantita {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 4px;
+  padding: 3px;
+  width: fit-content;
+  margin: 0 auto;
 }
 .controlli-quantita button {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -309,20 +357,9 @@
 
 /* ---------- piatti finiti e porzioni residue (cassa) ---------- */
 
-.riga-prodotto.esaurito {
-  background: var(--surface-alt);
-  border-style: dashed;
-}
-.riga-prodotto.esaurito .titolo-prodotto,
-.riga-prodotto.esaurito small {
-  color: var(--text-muted);
-}
-.riga-prodotto.esaurito .titolo-prodotto {
-  text-decoration: line-through;
-}
 .targhetta-esaurito {
-  align-self: flex-start;
-  margin-top: 2px;
+  display: inline-block;
+  margin-left: 8px;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -331,9 +368,6 @@
   border-radius: 999px;
   background: var(--danger-soft);
   color: var(--danger);
-}
-.note-prodotto {
-  font-style: italic;
 }
 /* Quante ne restano: lo legge solo chi sta in cassa. */
 .rimaste {
