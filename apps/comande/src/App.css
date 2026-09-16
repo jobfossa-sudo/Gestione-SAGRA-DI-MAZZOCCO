@@ -75,6 +75,11 @@
   width: 100%;
   margin: 0 auto;
 }
+/* Le schermate da compilare usano tutto lo schermo: lo spazio in più va alle
+   colonne che ne hanno bisogno, non a distanziare quelle che ci sono già. */
+.app-cassa main.larga {
+  max-width: none;
+}
 
 /* ---------- aree e sotto-schede ---------- */
 
@@ -451,6 +456,9 @@
   font-size: 0.86rem;
   color: var(--text-muted);
   margin: 6px 0 14px;
+  /* Anche a schermo intero il testo resta su righe corte: una riga lunga
+     tutto il monitor si perde di vista. */
+  max-width: 95ch;
 }
 
 .nuovo-piatto {
@@ -493,7 +501,10 @@
   border-collapse: collapse;
   font-size: 0.92rem;
 }
+/* Ogni colonna si stringe sul proprio contenuto: lo spazio che avanza va
+   tutto a Piatto e Note, le uniche due dove si scrive davvero. */
 .tabella-menu th {
+  width: 1%;
   text-align: left;
   font-size: 0.73rem;
   letter-spacing: 0.06em;
@@ -502,6 +513,10 @@
   font-weight: 700;
   padding: 0 8px 10px;
   white-space: nowrap;
+}
+.tabella-menu th.colonna-piatto,
+.tabella-menu th.colonna-note {
+  width: auto;
 }
 .tabella-menu td {
   padding: 8px;
@@ -522,7 +537,7 @@
 /* Larghezze pensate per l'ordine delle colonne: categoria, settore, piatto,
    note, prezzo. Le ultime colonne restano strette. */
 .tabella-menu select {
-  min-width: 92px;
+  min-width: 106px;
 }
 .tabella-menu .colonna-piatto input {
   min-width: 140px;
@@ -543,8 +558,13 @@
   text-align: center;
 }
 .tabella-menu th.centro {
-  max-width: 84px;
+  max-width: 116px;
   white-space: normal;
+}
+/* Larghezza sufficiente perché l'intestazione stia su due righe invece che
+   spezzarsi parola per parola. */
+.tabella-menu th.colonna-porzioni {
+  min-width: 104px;
 }
 .tabella-menu .bottone-annulla {
   padding: 7px 12px;

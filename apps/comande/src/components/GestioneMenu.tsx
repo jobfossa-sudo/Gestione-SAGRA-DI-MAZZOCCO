@@ -330,12 +330,12 @@ export function GestioneMenu() {
                 <tr>
                   <th>Categoria</th>
                   <th>Settore</th>
-                  <th>Piatto</th>
-                  <th>Note</th>
+                  <th className="colonna-piatto">Piatto</th>
+                  <th className="colonna-note">Note</th>
                   <th>Prezzo</th>
                   <th className="centro">Novità</th>
-                  <th className="centro">Porzioni di serata</th>
-                  <th className="centro">Porzioni residue</th>
+                  <th className="centro colonna-porzioni">Porzioni di serata</th>
+                  <th className="centro colonna-porzioni">Porzioni residue</th>
                   <th className="centro">Esaurito</th>
                   <th></th>
                 </tr>

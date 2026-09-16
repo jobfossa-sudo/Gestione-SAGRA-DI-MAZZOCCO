@@ -12,12 +12,14 @@ import { auth } from './services/firebase';
 import { SERATA_ID_OGGI } from './services/serata';
 
 /** Ogni area è visibile a chi ha uno dei ruoli indicati; l'amministratore
- * le vede tutte. */
+ * le vede tutte. "larga" toglie il limite di larghezza: serve solo dove si
+ * compila una tabella fitta di colonne, mentre le schermate che si leggono di
+ * corsa restano centrate e strette, che si seguono meglio con l'occhio. */
 const AREE = [
-  { nome: 'Gestione menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: GestioneMenu },
-  { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa },
-  { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli },
-  { nome: 'Consegna', ruoli: ['consegna'] as RuoloComande[], soloAmministratore: false, contenuto: Consegna },
+  { nome: 'Gestione menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: GestioneMenu, larga: true },
+  { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa, larga: false },
+  { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli, larga: false },
+  { nome: 'Consegna', ruoli: ['consegna'] as RuoloComande[], soloAmministratore: false, contenuto: Consegna, larga: false },
 ];
 
 const dataSerata = new Date(SERATA_ID_OGGI).toLocaleDateString('it-IT', {
@@ -95,7 +97,7 @@ function App() {
           </button>
         </div>
       </header>
-      <main>
+      <main className={area.larga ? 'larga' : undefined}>
         <Contenuto amministratore={amministratore} />
       </main>
     </div>
