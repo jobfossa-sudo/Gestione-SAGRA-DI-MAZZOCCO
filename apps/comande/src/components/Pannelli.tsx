@@ -2,7 +2,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { NOME_SETTORE, SETTORI, type FirestoreTimestampLike, type Settore, type SottoOrdine } from '@sagra-mazzocco/shared';
 import { useSottoOrdiniDaEvadere, useUtenteAutenticato } from '../hooks';
 import { messaggioErrore, segnaSottoOrdinePronto } from '../services/callables';
+import { quantitaInTesto } from '../services/quantita';
 import { SERATA_ID_OGGI } from '../services/serata';
+
+/** Cosa preparare per una comanda. Le comande create prima delle composizioni
+ * non hanno l'elenco dei componenti: per loro valgono i piatti così come sono. */
+function partiDaPreparare(sottoOrdine: SottoOrdine): { id: string; nome: string; quantita: number }[] {
+  return sottoOrdine.componenti?.length
+    ? sottoOrdine.componenti
+    : sottoOrdine.items.map((i) => ({ id: i.prodottoId, nome: i.nome, quantita: i.quantita }));
+}
+
+/** true se la comanda contiene almeno un piatto scomposto: solo allora serve
+ * ricordare sotto per quali piatti si stanno preparando quei componenti. */
+function haComposizioni(sottoOrdine: SottoOrdine): boolean {
+  const piatti = new Set(sottoOrdine.items.map((i) => i.prodottoId));
+  return (sottoOrdine.componenti ?? []).some((c) => !piatti.has(c.id));
+}
 
 /** Da quanto è arrivata la comanda, in parole. Serve a capire al volo chi
  * aspetta da troppo, senza far conti sull'orologio. */
@@ -39,13 +55,16 @@ function ComandaPronta({ sottoOrdine, adesso }: { sottoOrdine: SottoOrdine; ades
         <span className="quando">{daQuanto(sottoOrdine.createdAt, adesso)}</span>
       </header>
       <ul className="voci-comanda">
-        {sottoOrdine.items.map((item) => (
-          <li key={item.prodottoId}>
-            <span className="quantita">{item.quantita}×</span>
-            <span>{item.nome}</span>
+        {partiDaPreparare(sottoOrdine).map((parte) => (
+          <li key={parte.id}>
+            <span className="quantita">{quantitaInTesto(parte.quantita)}×</span>
+            <span>{parte.nome}</span>
           </li>
         ))}
       </ul>
+      {haComposizioni(sottoOrdine) && (
+        <p className="per-piatti">per {sottoOrdine.items.map((i) => `${i.quantita}× ${i.nome}`).join(', ')}</p>
+      )}
       {errore && <p className="errore">{errore}</p>}
       <button type="button" className="bottone-principale" disabled={inCorso} onClick={segnaPronta}>
         {inCorso ? 'Un momento…' : 'Pronta'}
@@ -82,21 +101,23 @@ export function Pannelli() {
     [sottoOrdini, settore]
   );
 
-  /** Il totale di ogni piatto da preparare, sommando tutte le comande in coda:
-   * serve a chi cuoce, che ragiona per quantità e non per singolo ordine.
-   * Qui arriveranno le composizioni dei piatti, quando ci saranno: al posto
-   * dei piatti si sommeranno i loro ingredienti (due piatti di pollo e tre
-   * grigliate fanno quattro polli sulla griglia). */
+  /** Il totale di ogni componente da preparare, sommando tutte le comande in
+   * coda: chi cuoce ragiona per quantità, non per singolo ordine. Si somma il
+   * valore esatto e si arrotonda per eccesso solo alla fine — due piatti di
+   * pollo e tre grigliate da mezzo pollo fanno 3,5 polli, cioè 4 da mettere
+   * sulla griglia. */
   const totali = useMemo(() => {
     const somma = new Map<string, { nome: string; quantita: number }>();
     for (const comanda of daPreparare) {
-      for (const item of comanda.items) {
-        const riga = somma.get(item.prodottoId) ?? { nome: item.nome, quantita: 0 };
-        riga.quantita += item.quantita;
-        somma.set(item.prodottoId, riga);
+      for (const parte of partiDaPreparare(comanda)) {
+        const riga = somma.get(parte.id) ?? { nome: parte.nome, quantita: 0 };
+        riga.quantita += parte.quantita;
+        somma.set(parte.id, riga);
       }
     }
-    return [...somma.values()].sort((a, b) => b.quantita - a.quantita || a.nome.localeCompare(b.nome, 'it'));
+    return [...somma.values()]
+      .map((r) => ({ nome: r.nome, esatta: Math.round(r.quantita * 1000) / 1000, daFare: Math.ceil(r.quantita - 1e-9) }))
+      .sort((a, b) => b.daFare - a.daFare || a.nome.localeCompare(b.nome, 'it'));
   }, [daPreparare]);
 
   if (!settore) {
@@ -134,8 +155,11 @@ export function Pannelli() {
           <ul className="totali">
             {totali.map((riga) => (
               <li key={riga.nome}>
-                <span className="quantita-grande">{riga.quantita}</span>
-                <span>{riga.nome}</span>
+                <span className="quantita-grande">{riga.daFare}</span>
+                <span className="nome-totale">
+                  {riga.nome}
+                  {riga.esatta !== riga.daFare && <small>servono {quantitaInTesto(riga.esatta)}</small>}
+                </span>
               </li>
             ))}
           </ul>

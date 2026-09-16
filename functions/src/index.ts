@@ -35,6 +35,8 @@ import {
   Serata,
   ItemOrdine,
   ItemSottoOrdine,
+  Componente,
+  ComponenteSottoOrdine,
   Settore,
   PREFISSO_SETTORE,
   ItemOrdineRichiesta,
@@ -305,23 +307,72 @@ function formattaCodice(settore: Settore, numero: number): string {
   return `${PREFISSO_SETTORE[settore]}${numero.toString().padStart(3, '0')}`;
 }
 
-/** Raggruppa gli item dell'ordine per settore e crea, dentro la transazione,
- * un sotto-ordine per ciascun settore coinvolto. */
+/** Legge tutti i componenti (dentro la transazione, prima di ogni scrittura):
+ * servono a sapere quale settore prepara ciascuna parte di un piatto. Sono
+ * poche decine di documenti. */
+async function leggiComponenti(transaction: Transaction): Promise<Map<string, Componente>> {
+  const snapshot = await transaction.get(db.collection('componenti'));
+  return new Map(snapshot.docs.map((doc) => [doc.id, doc.data() as Componente]));
+}
+
+/** Evita code come 1.5000000000000002 dovute ai conti con i decimali. */
+function arrotondaQuantita(valore: number): number {
+  return Math.round(valore * 1000) / 1000;
+}
+
+interface LavoroSettore {
+  piatti: Map<string, ItemSottoOrdine>;
+  componenti: Map<string, ComponenteSottoOrdine>;
+}
+
+/** Scompone l'ordine nel lavoro di ciascun settore e crea, dentro la
+ * transazione, un sotto-ordine per ogni settore coinvolto.
+ *
+ * Un piatto con composizione dà lavoro ai settori dei suoi componenti (una
+ * grigliata con patatine va sia alla griglia sia in cucina); un piatto senza
+ * composizione resta un pezzo unico nel settore assegnato al piatto. */
 function generaSottoOrdini(
   transaction: Transaction,
   serataId: string,
   ordineId: string,
   numero: number,
-  items: ItemOrdine[]
+  righe: RigaDisponibilita[],
+  componenti: Map<string, Componente>
 ): void {
-  const perSettore = new Map<Settore, ItemSottoOrdine[]>();
-  for (const item of items) {
-    const lista = perSettore.get(item.settore) ?? [];
-    lista.push({ prodottoId: item.prodottoId, nome: item.nome, quantita: item.quantita });
-    perSettore.set(item.settore, lista);
+  const perSettore = new Map<Settore, LavoroSettore>();
+
+  function aggiungi(settore: Settore, prodotto: Prodotto, quantitaPiatti: number, parte: ComponenteSottoOrdine) {
+    const lavoro = perSettore.get(settore) ?? { piatti: new Map(), componenti: new Map() };
+    perSettore.set(settore, lavoro);
+    // Il piatto compare una volta sola per settore, anche se ci manda più
+    // componenti (costicine e salsiccia vanno entrambe alla griglia).
+    if (!lavoro.piatti.has(prodotto.id)) {
+      lavoro.piatti.set(prodotto.id, { prodottoId: prodotto.id, nome: prodotto.nome, quantita: quantitaPiatti });
+    }
+    const esistente = lavoro.componenti.get(parte.id);
+    lavoro.componenti.set(parte.id, {
+      ...parte,
+      quantita: arrotondaQuantita((esistente?.quantita ?? 0) + parte.quantita),
+    });
   }
 
-  for (const [settore, itemsSettore] of perSettore) {
+  for (const { prodotto, quantita } of righe) {
+    const composizione = (prodotto.composizione ?? []).filter((voce) => componenti.has(voce.componenteId));
+    if (composizione.length === 0) {
+      aggiungi(prodotto.settore, prodotto, quantita, { id: prodotto.id, nome: prodotto.nome, quantita });
+      continue;
+    }
+    for (const voce of composizione) {
+      const componente = componenti.get(voce.componenteId)!;
+      aggiungi(componente.settore, prodotto, quantita, {
+        id: componente.id,
+        nome: componente.nome,
+        quantita: arrotondaQuantita(voce.quantita * quantita),
+      });
+    }
+  }
+
+  for (const [settore, lavoro] of perSettore) {
     const sottoOrdineRef = db.collection(`serate/${serataId}/sottoOrdini`).doc();
     const sottoOrdine: SottoOrdine = {
       id: sottoOrdineRef.id,
@@ -331,7 +382,8 @@ function generaSottoOrdini(
       numeroOrdine: numero,
       settore,
       stato: 'in_preparazione',
-      items: itemsSettore,
+      items: [...lavoro.piatti.values()],
+      componenti: [...lavoro.componenti.values()],
       createdAt: FieldValue.serverTimestamp() as unknown as SottoOrdine['createdAt'],
       readyAt: null,
       deliveredAt: null,
@@ -594,6 +646,7 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
   return db.runTransaction(async (transaction) => {
     const serata = await leggiSerataAperta(transaction, serataId);
     const { items: itemsOrdine, totale, righe } = await costruisciItemsOrdine(transaction, serataId, itemsRichiesti);
+    const componenti = await leggiComponenti(transaction);
 
     const numero = serata.contatoreOrdini + 1;
     transaction.update(serata.ref, { contatoreOrdini: numero });
@@ -617,7 +670,7 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
       cancelledAt: null,
     };
     transaction.set(ordineRef, ordine);
-    generaSottoOrdini(transaction, serataId, ordineRef.id, numero, itemsOrdine);
+    generaSottoOrdini(transaction, serataId, ordineRef.id, numero, righe, componenti);
 
     return { ordineId: ordineRef.id, numero, totale };
   });
@@ -659,13 +712,16 @@ export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrd
       serataId,
       ordine.items.map((item) => ({ prodottoId: item.prodottoId, quantita: item.quantita }))
     );
+    const componenti = await leggiComponenti(transaction);
 
     transaction.update(ordineDoc.ref, {
       stato: 'in_evasione',
       confirmedAt: FieldValue.serverTimestamp(),
     });
     scalaPorzioni(transaction, serataId, righe);
-    generaSottoOrdini(transaction, serataId, ordineDoc.id, numero, ordine.items);
+    // La composizione si legge adesso e non al momento della bozza: conta
+    // quella in vigore quando l'ordine parte davvero verso i settori.
+    generaSottoOrdini(transaction, serataId, ordineDoc.id, numero, righe, componenti);
 
     return { ordineId: ordineDoc.id, numero, totale: ordine.totale };
   });

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { NOME_RUOLO_COMANDE, type RuoloComande } from '@sagra-mazzocco/shared';
 import './App.css';
 import { AreaCassa } from './components/AreaCassa';
+import { Composizioni } from './components/Composizioni';
 import { GestioneMenu } from './components/GestioneMenu';
 import { Login } from './components/Login';
 import { Pannelli } from './components/Pannelli';
@@ -18,6 +19,7 @@ import { SERATA_ID_OGGI } from './services/serata';
  * corsa restano centrate e strette, che si seguono meglio con l'occhio. */
 const AREE = [
   { nome: 'Gestione menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: GestioneMenu, larga: true },
+  { nome: 'Composizioni', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Composizioni, larga: true },
   { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa, larga: false },
   { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli, larga: false },
   { nome: 'Consegna', ruoli: ['consegna'] as RuoloComande[], soloAmministratore: false, contenuto: Consegna, larga: false },

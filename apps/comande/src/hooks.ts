@@ -3,6 +3,7 @@ import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestor
 import { useEffect, useState } from 'react';
 import type {
   Categoria,
+  Componente,
   DisponibilitaProdotto,
   Ordine,
   Permessi,
@@ -46,6 +47,23 @@ export function useCategorie(): Categoria[] {
   );
 
   return categorie;
+}
+
+/** I componenti dei piatti, in ordine alfabetico. */
+export function useComponenti(): Componente[] {
+  const [componenti, setComponenti] = useState<Componente[]>([]);
+
+  useEffect(
+    () =>
+      onSnapshot(collection(db, 'componenti'), (snapshot) => {
+        const elenco = snapshot.docs.map((doc) => doc.data() as Componente);
+        elenco.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+        setComponenti(elenco);
+      }),
+    []
+  );
+
+  return componenti;
 }
 
 /** Tutto il menù, aggiornato in tempo reale e nell'ordine in cui è stato

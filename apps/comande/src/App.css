@@ -6,7 +6,9 @@
   min-height: 100svh;
 }
 
-.app-cassa header {
+/* ">" apposta: solo la barra in cima alla pagina, non le intestazioni dei
+   riquadri (comande, composizioni) che usano anch'esse <header>. */
+.app-cassa > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -732,7 +734,7 @@
 /* ---------- schermi stretti (tablet in verticale, telefono) ---------- */
 
 @media (max-width: 860px) {
-  .app-cassa header {
+  .app-cassa > header {
     padding: 12px 16px;
   }
   .app-cassa main {
@@ -1012,5 +1014,179 @@ body.trascinamento-in-corso {
   color: var(--text-muted);
 }
 .illimitato {
+  color: var(--text-muted);
+}
+
+/* ---------- composizioni ---------- */
+
+.composizioni {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tabella-componenti {
+  width: 100%;
+  max-width: 60rem;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.tabella-componenti th {
+  text-align: left;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+  padding: 0 6px 10px;
+}
+.tabella-componenti td {
+  padding: 6px;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+.tabella-componenti td:first-child {
+  width: 30%;
+}
+.tabella-componenti td:nth-child(2) {
+  width: 18%;
+}
+.tabella-componenti .usato-in {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+.tabella-componenti td:last-child {
+  width: 8rem;
+}
+.tabella-componenti button {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+}
+
+.gruppo-composizioni + .gruppo-composizioni {
+  margin-top: 22px;
+}
+.griglia-composizioni {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/* Un piatto con le sue parti. */
+.composizione-piatto {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  padding: 14px;
+}
+.composizione-piatto header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.composizione-piatto h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+.settori-al-lavoro {
+  display: flex;
+  gap: 4px;
+}
+.targhetta-settore {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--settore-colore);
+  background: color-mix(in srgb, var(--settore-colore) 14%, transparent);
+}
+.settore-cucina {
+  --settore-colore: var(--cucina);
+}
+.settore-griglia {
+  --settore-colore: var(--griglia);
+}
+.settore-bar {
+  --settore-colore: var(--bar);
+}
+.pezzo-unico {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
+}
+.voci-composizione {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.voci-composizione li,
+.aggiungi-componente {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.quantita-composizione {
+  width: 4.5rem !important;
+  flex: none;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 6px !important;
+}
+.nome-componente {
+  flex: 1;
+  font-weight: 600;
+}
+.settore-componente {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.togli {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 4px 8px;
+}
+.togli:hover:not(:disabled) {
+  color: var(--danger);
+}
+.aggiungi-componente {
+  border-top: 1px dashed var(--border-strong);
+  padding-top: 10px;
+}
+.aggiungi-componente select {
+  flex: 1;
+  min-width: 0;
+}
+.aggiungi-componente .bottone-aggiungi {
+  width: auto;
+}
+
+/* Pannello: i componenti ricordano per quali piatti si preparano. */
+.per-piatti {
+  margin: -4px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.nome-totale {
+  display: flex;
+  flex-direction: column;
+}
+.nome-totale small {
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--text-muted);
 }

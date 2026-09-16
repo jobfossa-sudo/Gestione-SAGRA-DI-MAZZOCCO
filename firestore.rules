@@ -33,6 +33,13 @@ service cloud.firestore {
       allow write: if amministratore();
     }
 
+    // Componenti dei piatti (pollo, salsiccia...) e il settore che li prepara:
+    // servono al personale, non al cliente del QR.
+    match /componenti/{componenteId} {
+      allow read: if personaleComande();
+      allow write: if amministratore();
+    }
+
     match /serate/{serataId} {
       allow read: if personaleComande();
       allow write: if false;

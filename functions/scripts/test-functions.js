@@ -461,6 +461,77 @@ async function main() {
     'failed-precondition'
   );
 
+  // --- 14. Composizioni dei piatti -----------------------------------------
+  // L'esempio del comitato: grigliata mista = 2 costicine + 1/2 pollo +
+  // 1 salsiccia; piatto di salsicce = 3 salsicce. Tre piatti di salsicce e
+  // due grigliate devono chiedere alla griglia 11 salsicce, 4 costicine e
+  // 1 pollo, in un'unica comanda.
+  const componente = (id, nome, settore) => db.doc(`componenti/${id}`).set({ id, nome, settore });
+  await componente('pollo', 'Pollo', 'griglia');
+  await componente('salsiccia', 'Salsiccia', 'griglia');
+  await componente('costicina', 'Costicina', 'griglia');
+  await componente('patatine-porzione', 'Porzione di patatine', 'cucina');
+
+  const piatto = (id, nome, composizione) =>
+    db.doc(`prodotti/${id}`).set({
+      id, nome, composizione,
+      categoriaId: 'secondi', settore: 'griglia', note: '', prezzo: 10, novita: false, esauritoSerata: null, ordine: 90,
+    });
+  await piatto('grigliata-test', 'Grigliata mista', [
+    { componenteId: 'costicina', quantita: 2 },
+    { componenteId: 'pollo', quantita: 0.5 },
+    { componenteId: 'salsiccia', quantita: 1 },
+  ]);
+  await piatto('piatto-salsicce', 'Piatto di salsicce', [{ componenteId: 'salsiccia', quantita: 3 }]);
+  // Un piatto che fa lavorare due settori insieme.
+  await piatto('grigliata-patatine', 'Grigliata con patatine', [
+    { componenteId: 'costicina', quantita: 2 },
+    { componenteId: 'patatine-porzione', quantita: 1 },
+  ]);
+
+  await accediCome('cassa');
+  const ordineComposto = await assertOk(
+    'ordine con piatti scomposti',
+    creaOrdineCassa({ serataId: SERATA_ID, items: [
+      { prodottoId: 'piatto-salsicce', quantita: 3 },
+      { prodottoId: 'grigliata-test', quantita: 2 },
+    ] })
+  );
+  const comandeComposte = (
+    await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', ordineComposto.ordineId).get()
+  ).docs.map((d) => d.data());
+  record('i componenti tutti della griglia fanno una comanda sola', comandeComposte.length === 1, `comande: ${comandeComposte.length}`);
+  const perComponente = Object.fromEntries((comandeComposte[0]?.componenti ?? []).map((c) => [c.id, c.quantita]));
+  record('11 salsicce (3×3 + 2×1)', perComponente.salsiccia === 11, `salsicce: ${perComponente.salsiccia}`);
+  record('4 costicine (2×2)', perComponente.costicina === 4, `costicine: ${perComponente.costicina}`);
+  record('1 pollo (2×½)', perComponente.pollo === 1, `pollo: ${perComponente.pollo}`);
+  record(
+    'la comanda ricorda anche i piatti ordinati',
+    (comandeComposte[0]?.items ?? []).length === 2,
+    JSON.stringify(comandeComposte[0]?.items)
+  );
+
+  const ordineMisto = await assertOk(
+    'ordine con un piatto che fa lavorare due settori',
+    creaOrdineCassa({ serataId: SERATA_ID, items: [{ prodottoId: 'grigliata-patatine', quantita: 1 }] })
+  );
+  const comandeMiste = (
+    await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', ordineMisto.ordineId).get()
+  ).docs.map((d) => d.data());
+  const allaGriglia = comandeMiste.find((c) => c.settore === 'griglia');
+  const inCucina = comandeMiste.find((c) => c.settore === 'cucina');
+  record('lo stesso piatto genera una comanda per ciascun settore', comandeMiste.length === 2, `comande: ${comandeMiste.length}`);
+  record(
+    'alla griglia vanno solo le costicine',
+    allaGriglia?.componenti.length === 1 && allaGriglia.componenti[0].id === 'costicina' && allaGriglia.componenti[0].quantita === 2,
+    JSON.stringify(allaGriglia?.componenti)
+  );
+  record(
+    'in cucina va solo la porzione di patatine',
+    inCucina?.componenti.length === 1 && inCucina.componenti[0].id === 'patatine-porzione',
+    JSON.stringify(inCucina?.componenti)
+  );
+
   console.log('\nRisultati test Cloud Functions:');
   let tuttiOk = true;
   for (const e of esiti) {

@@ -83,6 +83,17 @@ export interface ItemSottoOrdine {
   quantita: number;
 }
 
+/** Quello che il settore deve materialmente mettere sul fuoco: non il piatto
+ * ordinato ma le sue parti. La quantità può essere frazionaria (mezzo pollo in
+ * una grigliata) e si arrotonda per eccesso solo sul totale del pannello, mai
+ * comanda per comanda: due mezzi polli fanno un pollo, non due. */
+export interface ComponenteSottoOrdine {
+  /** Id del componente, oppure del piatto stesso quando non ha composizione. */
+  id: string;
+  nome: string;
+  quantita: number;
+}
+
 export interface SottoOrdine {
   id: string;
   codice: string;
@@ -91,7 +102,11 @@ export interface SottoOrdine {
   numeroOrdine: number;
   settore: Settore;
   stato: StatoSottoOrdine;
+  /** I piatti ordinati che danno lavoro a questo settore. */
   items: ItemSottoOrdine[];
+  /** Cosa preparare, componente per componente, per quei piatti. Assente
+   * nelle comande create prima delle composizioni. */
+  componenti?: ComponenteSottoOrdine[];
   createdAt: FirestoreTimestampLike;
   readyAt: FirestoreTimestampLike | null;
   deliveredAt: FirestoreTimestampLike | null;
@@ -109,12 +124,31 @@ export interface Prodotto {
   prezzo: number;
   /** Posizione dentro la propria categoria, decisa trascinando le righe. */
   ordine: number;
+  /** Di cosa è fatto il piatto e quale settore prepara ciascuna parte. Vuota
+   * o assente = il piatto è un pezzo unico, preparato dal suo settore. */
+  composizione?: RigaComposizione[];
   /** Contrassegnato come novità nel menù dal QR. */
   novita: boolean;
   /** Serata in cui il piatto è finito, così il cliente lo vede barrato senza
    * conoscere i numeri. Riferendosi a una serata precisa si azzera da solo la
    * sera dopo. Null = disponibile. */
   esauritoSerata: string | null;
+}
+
+/** Un'unità che un settore prepara davvero: un pollo sulla griglia, una
+ * salsiccia, una porzione di patatine. È il componente a dire chi lo prepara,
+ * così un piatto può far lavorare più settori insieme. */
+export interface Componente {
+  id: string;
+  nome: string;
+  settore: Settore;
+}
+
+/** Quanto di un componente serve per un piatto. Può essere frazionario:
+ * mezzo pollo in una grigliata mista. */
+export interface RigaComposizione {
+  componenteId: string;
+  quantita: number;
 }
 
 /** Porzioni di un piatto per una singola serata. Sta sotto la serata e non

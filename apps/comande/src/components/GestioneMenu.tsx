@@ -12,6 +12,7 @@ import {
 import { useCategorie, useDisponibilita, useProdotti } from '../hooks';
 import { impostaPorzioni, messaggioErrore, segnaEsaurito } from '../services/callables';
 import { db } from '../services/firebase';
+import { idLibero } from '../services/identificativi';
 import { SERATA_ID_OGGI } from '../services/serata';
 
 /** Numero di colonne della tabella: serve alle righe che ne occupano una sola
@@ -35,28 +36,6 @@ function prezzoDaTesto(testo: string): number | null {
   const numero = Number(pulito);
   if (pulito === '' || Number.isNaN(numero) || numero < 0) return null;
   return Math.round(numero * 100) / 100;
-}
-
-function idDaNome(nome: string): string {
-  return nome
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 40);
-}
-
-/** Aggiunge un numero in coda finché l'id non è libero: due piatti possono
- * chiamarsi uguale, i loro identificativi no. */
-function idLibero(nome: string, presi: Set<string>): string {
-  const base = idDaNome(nome);
-  if (!base) throw new Error('Nome non valido.');
-  if (!presi.has(base)) return base;
-  for (let n = 2; ; n++) {
-    const tentativo = `${base}-${n}`;
-    if (!presi.has(tentativo)) return tentativo;
-  }
 }
 
 // ---------------------------------------------------------------------------

@@ -70,6 +70,15 @@ async function main() {
   );
   await check('amministratore rinomina una portata', assertSucceeds(admin.doc('categorie/secondi').update({ nome: 'Secondi piatti' })));
 
+  // Componenti dei piatti: roba da personale, non da cliente
+  await check(
+    'amministratore crea un componente',
+    assertSucceeds(admin.doc('componenti/pollo').set({ id: 'pollo', nome: 'Pollo', settore: 'griglia' }))
+  );
+  await check('la cucina legge i componenti', assertSucceeds(cucina.collection('componenti').get()));
+  await check('il cliente dal QR non legge i componenti', assertFails(anonimo.collection('componenti').get()));
+  await check('la cassa non modifica i componenti', assertFails(cassa.doc('componenti/pollo').update({ settore: 'bar' })));
+
   // Ordini
   await check('anonimo non legge gli ordini', assertFails(anonimo.doc('serate/2026-01-01/ordini/ordine1').get()));
   await check('account senza ruolo non legge gli ordini', assertFails(senzaRuolo.doc('serate/2026-01-01/ordini/ordine1').get()));
