@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useCategorie, useDisponibilita, useProdotti } from '../hooks';
+import { useCategorie, useDisponibilita, useLetteraCassa, useProdotti, useUtenteAutenticato } from '../hooks';
 import { creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { SERATA_ID_OGGI } from '../services/serata';
 
@@ -17,6 +17,8 @@ export function NuovoOrdine() {
   // al cliente "quello è finito" invece di cercare un piatto scomparso.
   const prodotti = useProdotti();
   const disponibilita = useDisponibilita();
+  const { utente } = useUtenteAutenticato();
+  const letteraCassa = useLetteraCassa(utente?.uid);
   const [carrello, setCarrello] = useState<Record<string, number>>({});
   const [tavolo, setTavolo] = useState('');
   const [coperti, setCoperti] = useState('');
@@ -52,6 +54,11 @@ export function NuovoOrdine() {
 
   const totale = selezionati.reduce((somma, p) => somma + p.prezzo * carrello[p.id], 0);
   const numeroArticoli = Object.values(carrello).reduce((s, q) => s + q, 0);
+  // Tavolo e coperti finiscono sulla copia cucina: senza, l'inserviente non
+  // sa dove portare il vassoio.
+  const tavoloValido = Number.isInteger(Number(tavolo)) && Number(tavolo) > 0;
+  const copertiValidi = Number.isInteger(Number(coperti)) && Number(coperti) > 0;
+  const mancaTavolo = numeroArticoli > 0 && (!tavoloValido || !copertiValidi);
 
   /** Un piatto può finire mentre è già nel carrello, per mano di un'altra
    * cassa: meglio dirlo qui che vedersi rifiutare l'ordine dopo averlo
@@ -90,11 +97,11 @@ export function NuovoOrdine() {
       const risultato = await creaOrdineCassa({
         serataId: SERATA_ID_OGGI,
         items,
-        tavolo: tavolo ? Number(tavolo) : null,
-        coperti: coperti ? Number(coperti) : null,
+        tavolo: Number(tavolo),
+        coperti: Number(coperti),
       });
       setMessaggioSuccesso(
-        `Ordine n. ${risultato.data.numero} inviato ai reparti — ${euro(risultato.data.totale)}`
+        `Ordine ${risultato.data.codice} inviato ai reparti — ${euro(risultato.data.totale)}`
       );
       setCarrello({});
       setTavolo('');
@@ -214,7 +221,16 @@ export function NuovoOrdine() {
       </div>
 
       <div className="colonna-riepilogo">
-        <h2>Riepilogo ordine</h2>
+        <div className="testata-riepilogo">
+          <h2>Riepilogo ordine</h2>
+          {letteraCassa && <span className="targhetta-cassa">Cassa {letteraCassa}</span>}
+        </div>
+        {letteraCassa === null && (
+          <p className="errore">
+            Al tuo account non è stata assegnata la lettera della cassa (A, B…): chiedi all'amministratore di
+            impostarla nell'app Utenti, altrimenti gli ordini non partono.
+          </p>
+        )}
 
         {selezionati.length === 0 ? (
           <p className="carrello-vuoto">Tocca i prodotti per aggiungerli all'ordine.</p>
@@ -242,11 +258,11 @@ export function NuovoOrdine() {
         <div className="campi-tavolo">
           <label>
             Tavolo
-            <input type="number" min="1" placeholder="—" value={tavolo} onChange={(e) => setTavolo(e.target.value)} />
+            <input type="number" min="1" placeholder="—" required aria-invalid={mancaTavolo && !tavoloValido} value={tavolo} onChange={(e) => setTavolo(e.target.value)} />
           </label>
           <label>
             Coperti
-            <input type="number" min="1" placeholder="—" value={coperti} onChange={(e) => setCoperti(e.target.value)} />
+            <input type="number" min="1" placeholder="—" required aria-invalid={mancaTavolo && !copertiValidi} value={coperti} onChange={(e) => setCoperti(e.target.value)} />
           </label>
         </div>
 
@@ -254,13 +270,14 @@ export function NuovoOrdine() {
           Totale <strong>{euro(totale)}</strong>
         </p>
 
+        {mancaTavolo && <p className="avviso-campi">Scrivi il tavolo e i coperti prima di confermare.</p>}
         {errore && <p className="errore">{errore}</p>}
         {messaggioSuccesso && <p className="successo">{messaggioSuccesso}</p>}
 
         <button
           type="button"
           className="bottone-principale"
-          disabled={numeroArticoli === 0 || inCorso || avvisoPorzioni !== null}
+          disabled={numeroArticoli === 0 || inCorso || avvisoPorzioni !== null || mancaTavolo || !letteraCassa}
           onClick={inviaOrdine}
         >
           {inCorso ? 'Invio in corso…' : 'Conferma e invia'}

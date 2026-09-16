@@ -1,5 +1,5 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import type {
   Categoria,
@@ -9,6 +9,7 @@ import type {
   Permessi,
   Prodotto,
   SottoOrdine,
+  Utente,
 } from '@sagra-mazzocco/shared';
 import { auth, db } from './services/firebase';
 import { SERATA_ID_OGGI } from './services/serata';
@@ -32,6 +33,24 @@ export function useUtenteAutenticato(): { utente: User | null; permessi: Permess
   );
 
   return stato;
+}
+
+/** La lettera di cassa di chi è collegato, dal suo profilo: undefined finché
+ * non arriva, null se non ne ha una. Si aggiorna da sola se l'amministratore
+ * la cambia. */
+export function useLetteraCassa(uid: string | undefined): string | null | undefined {
+  const [lettera, setLettera] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!uid) return;
+    return onSnapshot(
+      doc(db, 'utenti', uid),
+      (snapshot) => setLettera((snapshot.data() as Utente | undefined)?.letteraCassa ?? null),
+      () => setLettera(null)
+    );
+  }, [uid]);
+
+  return lettera;
 }
 
 /** Le portate del menù, nell'ordine deciso dall'amministratore. */

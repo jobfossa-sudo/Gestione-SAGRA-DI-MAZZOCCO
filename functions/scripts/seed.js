@@ -20,14 +20,14 @@ const PASSWORD_PROVA = 'prova1234';
 // Un account per ruolo, più uno senza alcun accesso per verificare che non
 // possa fare nulla (come un account che qualcuno si fosse registrato da solo).
 const UTENTI_PROVA = [
-  { nomeUtente: 'admin', nome: 'Amministratore di prova', amministratore: true, accessi: {} },
-  { nomeUtente: 'cassa', nome: 'Cassiera di prova', amministratore: false, accessi: { comande: ['cassa'] } },
+  { nomeUtente: 'admin', nome: 'Amministratore di prova', amministratore: true, accessi: {}, letteraCassa: 'A' },
+  { nomeUtente: 'cassa', nome: 'Cassiera di prova', amministratore: false, accessi: { comande: ['cassa'] }, letteraCassa: 'A' },
   { nomeUtente: 'cucina', nome: 'Cuoco di prova', amministratore: false, accessi: { comande: ['cucina'] } },
   { nomeUtente: 'griglia', nome: 'Grigliere di prova', amministratore: false, accessi: { comande: ['griglia'] } },
   { nomeUtente: 'bar', nome: 'Barista di prova', amministratore: false, accessi: { comande: ['bar'] } },
   { nomeUtente: 'consegna', nome: 'Inserviente di prova', amministratore: false, accessi: { comande: ['consegna'] } },
   // Volontaria con due postazioni: verifica il caso dei ruoli multipli.
-  { nomeUtente: 'jolly', nome: 'Volontaria tuttofare', amministratore: false, accessi: { comande: ['cassa', 'consegna'] } },
+  { nomeUtente: 'jolly', nome: 'Volontaria tuttofare', amministratore: false, accessi: { comande: ['cassa', 'consegna'] }, letteraCassa: 'B' },
   { nomeUtente: 'senzaruolo', nome: 'Account senza accessi', amministratore: false, accessi: {} },
 ];
 
@@ -73,7 +73,7 @@ const PRODOTTI_FITTIZI = [
   { id: 'torta', categoriaId: 'dessert', ordine: 0, settore: 'cucina', nome: 'Torta di mele', note: 'fatta in casa', prezzo: 3, novita: false, esauritoSerata: null },
 ];
 
-async function creaUtenteProva({ nomeUtente, nome, amministratore, accessi }) {
+async function creaUtenteProva({ nomeUtente, nome, amministratore, accessi, letteraCassa = null }) {
   const email = emailDaNomeUtente(nomeUtente);
   let uid;
   try {
@@ -90,6 +90,7 @@ async function creaUtenteProva({ nomeUtente, nome, amministratore, accessi }) {
     nome,
     amministratore,
     accessi,
+    letteraCassa,
     attivo: true,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
@@ -98,7 +99,7 @@ async function creaUtenteProva({ nomeUtente, nome, amministratore, accessi }) {
 async function main() {
   const oggi = new Date().toISOString().slice(0, 10);
 
-  await db.collection('serate').doc(oggi).set({ id: oggi, data: oggi, aperta: true, contatoreOrdini: 0 });
+  await db.collection('serate').doc(oggi).set({ id: oggi, data: oggi, aperta: true, contatoreOrdini: 0, contatoriCassa: {} });
 
   for (const categoria of CATEGORIE_FITTIZIE) {
     await db.collection('categorie').doc(categoria.id).set(categoria);

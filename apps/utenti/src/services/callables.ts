@@ -4,6 +4,7 @@ import type {
   CreaUtenteRichiesta,
   EliminaUtenteRichiesta,
   ImpostaAttivoRichiesta,
+  ImpostaLetteraCassaRichiesta,
   ReimpostaPasswordRichiesta,
   UtenteRisposta,
 } from '@sagra-mazzocco/shared';
@@ -13,6 +14,7 @@ export const creaUtente = httpsCallable<CreaUtenteRichiesta, UtenteRisposta>(fun
 export const aggiornaPermessi = httpsCallable<AggiornaPermessiRichiesta, UtenteRisposta>(functions, 'aggiornaPermessi');
 export const reimpostaPassword = httpsCallable<ReimpostaPasswordRichiesta, UtenteRisposta>(functions, 'reimpostaPassword');
 export const impostaAttivo = httpsCallable<ImpostaAttivoRichiesta, UtenteRisposta>(functions, 'impostaAttivo');
+export const impostaLetteraCassa = httpsCallable<ImpostaLetteraCassaRichiesta, UtenteRisposta>(functions, 'impostaLetteraCassa');
 export const eliminaUtente = httpsCallable<EliminaUtenteRichiesta, UtenteRisposta>(functions, 'eliminaUtente');
 
 export function messaggioErrore(err: unknown): string {

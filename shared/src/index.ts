@@ -64,7 +64,17 @@ export interface ItemOrdine {
 export interface Ordine {
   id: string;
   serataId: string;
+  /** Progressivo della serata: per la cassa è quello della sua lettera (A0007
+   * ha numero 7); per un ordine dal QR è il numero mostrato al cliente. */
   numero: number;
+  /** Lettera della cassa che ha preso l'ordine. Null finché un ordine dal QR
+   * non passa in cassa; assente negli ordini creati prima delle casse A/B. */
+  cassa?: string | null;
+  /** Numero di comanda, lettera della cassa + progressivo (es. "A0001"). */
+  codice?: string | null;
+  /** Contenuto del codice a barre stampato: codice, data, ora e cassa, solo
+   * lettere e cifre (es. "A0001202609162130A"). */
+  codiceBarre?: string | null;
   stato: StatoOrdine;
   tipo: TipoOrdine;
   tavolo: number | null;
@@ -165,7 +175,28 @@ export interface Serata {
   id: string;
   data: string;
   aperta: boolean;
+  /** Progressivo degli ordini dal QR. */
   contatoreOrdini: number;
+  /** Progressivo di ciascuna cassa: { A: 12, B: 9 }. Riparte ogni serata. */
+  contatoriCassa?: Record<string, number>;
+}
+
+/** La lettera che identifica una cassa: una sola lettera maiuscola. */
+export const REGOLA_LETTERA_CASSA = /^[A-Z]$/;
+
+export const LETTERE_CASSA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+/** "A" + 1 -> "A0001". */
+export function formattaCodiceOrdine(lettera: string, numero: number): string {
+  return `${lettera}${numero.toString().padStart(4, '0')}`;
+}
+
+/** Il testo dentro il codice a barre: numero di comanda, data (AAAAMMGG), ora
+ * (HHMM) e cassa, attaccati a posizioni fisse. Solo lettere e cifre: trattini,
+ * virgole e due punti possono uscire sbagliati se il lettore è impostato su
+ * una tastiera diversa da quella del computer. */
+export function componiCodiceBarre(codice: string, dataOra: { data: string; ora: string }, lettera: string): string {
+  return `${codice}${dataOra.data}${dataOra.ora}${lettera}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -210,6 +241,9 @@ export interface Utente {
   nome: string;
   amministratore: boolean;
   accessi: Accessi;
+  /** Lettera della cassa di questa persona (A, B…): tutti i suoi ordini prendono
+   * quella lettera, a qualunque computer si sieda. Null = nessuna. */
+  letteraCassa?: string | null;
   attivo: boolean;
   createdAt: FirestoreTimestampLike;
 }
@@ -223,7 +257,7 @@ export function emailDaNomeUtente(nomeUtente: string): string {
   return `${nomeUtente.trim().toLowerCase()}@utenti.sagra-mazzocco.invalid`;
 }
 
-/** Prefisso del codice sotto-ordine per settore (es. "C" + 025 -> "C025"). */
+/** Prefisso del codice sotto-ordine per settore (es. "G" + "A0001" -> "GA0001"). */
 export const PREFISSO_SETTORE: Record<Settore, string> = {
   cucina: 'C',
   griglia: 'G',
@@ -247,6 +281,13 @@ export interface CreaUtenteRichiesta {
   password: string;
   amministratore: boolean;
   accessi: Accessi;
+  letteraCassa?: string | null;
+}
+
+export interface ImpostaLetteraCassaRichiesta {
+  uid: string;
+  /** Null per toglierla. */
+  letteraCassa: string | null;
 }
 
 export interface AggiornaPermessiRichiesta {
@@ -317,6 +358,8 @@ export interface ApriSerataRisposta {
 export interface CreaOrdineRisposta {
   ordineId: string;
   numero: number;
+  /** Numero di comanda (es. "A0001"): assente per le bozze dal QR. */
+  codice?: string;
   totale: number;
 }
 
@@ -330,8 +373,10 @@ export interface CreaOrdineBozzaRichiesta {
 export interface CreaOrdineCassaRichiesta {
   serataId: string;
   items: ItemOrdineRichiesta[];
-  tavolo?: number | null;
-  coperti?: number | null;
+  /** Obbligatori: finiscono sulla copia cucina, l'inserviente deve sapere dove
+   * portare il vassoio. */
+  tavolo: number;
+  coperti: number;
 }
 
 export interface ConfermaOrdineRichiesta {

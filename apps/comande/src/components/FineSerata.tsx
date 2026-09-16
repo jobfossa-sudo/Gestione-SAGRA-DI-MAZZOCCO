@@ -13,7 +13,7 @@ function RigaOrdine({ ordine, amministratore }: { ordine: Ordine; amministratore
   const [errore, setErrore] = useState<string | null>(null);
 
   async function handleAnnulla() {
-    if (!window.confirm(`Annullare l'ordine n. ${ordine.numero} (${euro(ordine.totale)})?`)) return;
+    if (!window.confirm(`Annullare l'ordine ${ordine.codice ?? `n. ${ordine.numero}`} (${euro(ordine.totale)})?`)) return;
     setErrore(null);
     setInCorso(true);
     try {
@@ -29,7 +29,7 @@ function RigaOrdine({ ordine, amministratore }: { ordine: Ordine; amministratore
 
   return (
     <li className="riga-ordine-aperto">
-      <span className="numero">n. {ordine.numero}</span>
+      <span className="numero">{ordine.codice ?? `n. ${ordine.numero}`}</span>
       <span className="dettagli">
         <span>
           {ordine.tipo === 'qr' ? `Tavolo ${ordine.tavolo}` : 'Cassa'} · {articoli} articoli

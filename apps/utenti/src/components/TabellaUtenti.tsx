@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { NOME_RUOLO_COMANDE, RUOLI_COMANDE, type RuoloComande, type Utente } from '@sagra-mazzocco/shared';
 import { useUtenti } from '../hooks';
+import { SceltaLetteraCassa } from './SceltaLetteraCassa';
 import {
   aggiornaPermessi,
   eliminaUtente,
   impostaAttivo,
+  impostaLetteraCassa,
   messaggioErrore,
   reimpostaPassword,
 } from '../services/callables';
@@ -44,6 +46,10 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
       })
     );
   };
+
+  const cambiaLettera = (letteraCassa: string | null) =>
+    esegui(() => impostaLetteraCassa({ uid: utente.uid, letteraCassa }));
+  const puoIncassare = utente.amministratore || (utente.accessi.comande ?? []).includes('cassa');
 
   const cambiaAttivo = (attivo: boolean) => esegui(() => impostaAttivo({ uid: utente.uid, attivo }));
 
@@ -109,6 +115,17 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
                 </label>
               ))}
             </div>
+          )}
+          {puoIncassare && (
+            <label className="lettera-in-tabella">
+              Cassa
+              <SceltaLetteraCassa
+                valore={utente.letteraCassa ?? null}
+                disabled={inCorso}
+                onChange={cambiaLettera}
+                ariaLabel={`Lettera della cassa: ${utente.nome}`}
+              />
+            </label>
           )}
         </td>
         {APP_FUTURE.map((app) => (

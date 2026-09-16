@@ -100,7 +100,7 @@ export function ConfermaBozza() {
     try {
       const risultato = await confermaOrdine({ serataId: SERATA_ID_OGGI, numero: daConfermare.numero });
       setMessaggioSuccesso(
-        `Ordine n. ${risultato.data.numero} confermato e inviato ai reparti — ${euro(risultato.data.totale)}`
+        `Ordine ${risultato.data.codice} confermato e inviato ai reparti — ${euro(risultato.data.totale)}`
       );
       setDaConfermare(null);
       setNumero('');

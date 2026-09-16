@@ -56,6 +56,10 @@ import {
   ImpostaPorzioniRichiesta,
   SegnaEsauritoRichiesta,
   ProdottoRisposta,
+  ImpostaLetteraCassaRichiesta,
+  REGOLA_LETTERA_CASSA,
+  formattaCodiceOrdine,
+  componiCodiceBarre,
 } from '@sagra-mazzocco/shared';
 
 initializeApp();
@@ -117,6 +121,16 @@ function validaAccessi(valore: unknown): Accessi {
   return ruoli.length > 0 ? { comande: ruoli } : {};
 }
 
+/** Vuoto = nessuna lettera. Le minuscole si accettano e si alzano. */
+function validaLetteraCassa(valore: unknown): string | null {
+  if (valore === null || valore === undefined || valore === '') return null;
+  const lettera = typeof valore === 'string' ? valore.trim().toUpperCase() : '';
+  if (!REGOLA_LETTERA_CASSA.test(lettera)) {
+    throw new HttpsError('invalid-argument', 'La lettera della cassa deve essere una sola lettera, dalla A alla Z.');
+  }
+  return lettera;
+}
+
 function validaTesto(valore: unknown, nomeCampo: string): string {
   if (typeof valore !== 'string' || !valore.trim()) {
     throw new HttpsError('invalid-argument', `${nomeCampo} mancante.`);
@@ -130,6 +144,7 @@ async function creaAccount(dati: {
   password: string;
   amministratore: boolean;
   accessi: Accessi;
+  letteraCassa?: string | null;
 }): Promise<string> {
   const nomeUtente = dati.nomeUtente.trim().toLowerCase();
   if (!REGOLA_NOME_UTENTE.test(nomeUtente)) {
@@ -165,6 +180,7 @@ async function creaAccount(dati: {
     nome: dati.nome,
     amministratore: dati.amministratore,
     accessi: dati.accessi,
+    letteraCassa: dati.letteraCassa ?? null,
     attivo: true,
     createdAt: FieldValue.serverTimestamp() as unknown as Utente['createdAt'],
   };
@@ -290,7 +306,7 @@ function scalaPorzioni(transaction: Transaction, serataId: string, righe: RigaDi
 async function leggiSerataAperta(
   transaction: Transaction,
   serataId: string
-): Promise<{ ref: DocumentReference; contatoreOrdini: number }> {
+): Promise<{ ref: DocumentReference; contatoreOrdini: number; contatoriCassa: Record<string, number> }> {
   const ref = db.collection('serate').doc(serataId);
   const snapshot = await transaction.get(ref);
   if (!snapshot.exists) {
@@ -300,11 +316,58 @@ async function leggiSerataAperta(
   if (!serata.aperta) {
     throw new HttpsError('failed-precondition', 'La serata è chiusa.');
   }
-  return { ref, contatoreOrdini: serata.contatoreOrdini };
+  return { ref, contatoreOrdini: serata.contatoreOrdini, contatoriCassa: serata.contatoriCassa ?? {} };
 }
 
-function formattaCodice(settore: Settore, numero: number): string {
-  return `${PREFISSO_SETTORE[settore]}${numero.toString().padStart(3, '0')}`;
+/** La lettera di cassa di chi sta battendo l'ordine, letta dal suo profilo
+ * (dentro la transazione, prima di ogni scrittura). Senza lettera l'ordine non
+ * si può numerare, quindi si rifiuta con un messaggio che dice cosa fare. */
+async function leggiLetteraCassa(transaction: Transaction, uid: string): Promise<string> {
+  const snapshot = await transaction.get(db.doc(`utenti/${uid}`));
+  const lettera = (snapshot.data() as Utente | undefined)?.letteraCassa;
+  if (!lettera) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Al tuo account non è stata assegnata la lettera della cassa (A, B…): chiedi all’amministratore di impostarla nell’app Utenti.'
+    );
+  }
+  return lettera;
+}
+
+/** Il prossimo numero di comanda della cassa. Va chiamata dopo tutte le letture
+ * della transazione: scrive il contatore aggiornato. */
+function prossimoCodiceOrdine(
+  transaction: Transaction,
+  serata: { ref: DocumentReference; contatoriCassa: Record<string, number> },
+  lettera: string
+): { numero: number; codice: string; codiceBarre: string } {
+  const numero = (serata.contatoriCassa[lettera] ?? 0) + 1;
+  transaction.update(serata.ref, { [`contatoriCassa.${lettera}`]: numero });
+  const codice = formattaCodiceOrdine(lettera, numero);
+  return { numero, codice, codiceBarre: componiCodiceBarre(codice, dataOraItaliana(new Date()), lettera) };
+}
+
+/** Data (AAAAMMGG) e ora (HHMM) come le legge chi è alla sagra: il server
+ * gira sull'ora di Greenwich, il foglio deve riportare quella italiana. */
+function dataOraItaliana(istante: Date): { data: string; ora: string } {
+  const parti = Object.fromEntries(
+    new Intl.DateTimeFormat('it-IT', {
+      timeZone: 'Europe/Rome',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(istante)
+      .map((p) => [p.type, p.value])
+  );
+  return { data: `${parti.year}${parti.month}${parti.day}`, ora: `${parti.hour}${parti.minute}` };
+}
+
+function formattaCodice(settore: Settore, codiceOrdine: string): string {
+  return `${PREFISSO_SETTORE[settore]}${codiceOrdine}`;
 }
 
 /** Legge tutti i componenti (dentro la transazione, prima di ogni scrittura):
@@ -336,6 +399,7 @@ function generaSottoOrdini(
   serataId: string,
   ordineId: string,
   numero: number,
+  codiceOrdine: string,
   righe: RigaDisponibilita[],
   componenti: Map<string, Componente>
 ): void {
@@ -376,7 +440,7 @@ function generaSottoOrdini(
     const sottoOrdineRef = db.collection(`serate/${serataId}/sottoOrdini`).doc();
     const sottoOrdine: SottoOrdine = {
       id: sottoOrdineRef.id,
-      codice: formattaCodice(settore, numero),
+      codice: formattaCodice(settore, codiceOrdine),
       ordineId,
       serataId,
       numeroOrdine: numero,
@@ -449,9 +513,23 @@ export const creaUtente = onCall(async (request: CallableRequest<CreaUtenteRichi
     password: typeof dati.password === 'string' ? dati.password : '',
     amministratore: dati.amministratore === true,
     accessi: validaAccessi(dati.accessi),
+    letteraCassa: validaLetteraCassa(dati.letteraCassa),
   });
   return { uid };
 });
+
+/** La lettera non è un permesso: non cambia cosa la persona può fare, solo
+ * come si numerano i suoi ordini. Per questo non serve farla rientrare. */
+export const impostaLetteraCassa = onCall(
+  async (request: CallableRequest<ImpostaLetteraCassaRichiesta>): Promise<UtenteRisposta> => {
+    richiedeAmministratore(request);
+    const { uid } = request.data ?? ({} as ImpostaLetteraCassaRichiesta);
+    validaTesto(uid, 'Utente');
+    const letteraCassa = validaLetteraCassa(request.data?.letteraCassa);
+    await db.doc(`utenti/${uid}`).update({ letteraCassa });
+    return { uid };
+  }
+);
 
 export const aggiornaPermessi = onCall(
   async (request: CallableRequest<AggiornaPermessiRichiesta>): Promise<UtenteRisposta> => {
@@ -610,6 +688,9 @@ export const creaOrdineBozza = onCall(async (request: CallableRequest<CreaOrdine
       id: ordineRef.id,
       serataId,
       numero,
+      cassa: null,
+      codice: null,
+      codiceBarre: null,
       stato: 'bozza',
       tipo: 'qr',
       tavolo: tavoloValidato,
@@ -640,16 +721,17 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
     throw new HttpsError('invalid-argument', 'Serata non valida.');
   }
   const itemsRichiesti = validaItemsRichiesti(items);
-  const tavoloValidato = tavolo != null ? validaInteroPositivo(tavolo, 'Numero tavolo') : null;
-  const copertiValidati = coperti != null ? validaInteroPositivo(coperti, 'Numero coperti') : null;
+  const tavoloValidato = validaInteroPositivo(tavolo, 'Numero tavolo');
+  const copertiValidati = validaInteroPositivo(coperti, 'Numero coperti');
+  const uid = request.auth!.uid;
 
   return db.runTransaction(async (transaction) => {
     const serata = await leggiSerataAperta(transaction, serataId);
+    const lettera = await leggiLetteraCassa(transaction, uid);
     const { items: itemsOrdine, totale, righe } = await costruisciItemsOrdine(transaction, serataId, itemsRichiesti);
     const componenti = await leggiComponenti(transaction);
 
-    const numero = serata.contatoreOrdini + 1;
-    transaction.update(serata.ref, { contatoreOrdini: numero });
+    const { numero, codice, codiceBarre } = prossimoCodiceOrdine(transaction, serata, lettera);
     scalaPorzioni(transaction, serataId, righe);
 
     const ordineRef = db.collection(`serate/${serataId}/ordini`).doc();
@@ -658,6 +740,9 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
       id: ordineRef.id,
       serataId,
       numero,
+      cassa: lettera,
+      codice,
+      codiceBarre,
       stato: 'in_evasione',
       tipo: 'cassa',
       tavolo: tavoloValidato,
@@ -670,9 +755,9 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
       cancelledAt: null,
     };
     transaction.set(ordineRef, ordine);
-    generaSottoOrdini(transaction, serataId, ordineRef.id, numero, righe, componenti);
+    generaSottoOrdini(transaction, serataId, ordineRef.id, numero, codice, righe, componenti);
 
-    return { ordineId: ordineRef.id, numero, totale };
+    return { ordineId: ordineRef.id, numero, codice, totale };
   });
 });
 
@@ -688,10 +773,14 @@ export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrd
     throw new HttpsError('invalid-argument', 'Serata non valida.');
   }
   validaInteroPositivo(numero, 'Numero ordine');
+  const uid = request.auth!.uid;
 
   return db.runTransaction(async (transaction) => {
+    const serata = await leggiSerataAperta(transaction, serataId);
+    const lettera = await leggiLetteraCassa(transaction, uid);
+    // Solo tra gli ordini dal QR: anche la cassa A ha il suo ordine numero 7.
     const querySnapshot = await transaction.get(
-      db.collection(`serate/${serataId}/ordini`).where('numero', '==', numero).limit(1)
+      db.collection(`serate/${serataId}/ordini`).where('tipo', '==', 'qr').where('numero', '==', numero).limit(1)
     );
     if (querySnapshot.empty) {
       throw new HttpsError('not-found', `Nessun ordine con numero ${numero} in questa serata.`);
@@ -714,16 +803,22 @@ export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrd
     );
     const componenti = await leggiComponenti(transaction);
 
+    // Il numero di comanda lo dà la cassa che incassa, come per gli ordini
+    // battuti al banco.
+    const { codice, codiceBarre } = prossimoCodiceOrdine(transaction, serata, lettera);
     transaction.update(ordineDoc.ref, {
       stato: 'in_evasione',
+      cassa: lettera,
+      codice,
+      codiceBarre,
       confirmedAt: FieldValue.serverTimestamp(),
     });
     scalaPorzioni(transaction, serataId, righe);
     // La composizione si legge adesso e non al momento della bozza: conta
     // quella in vigore quando l'ordine parte davvero verso i settori.
-    generaSottoOrdini(transaction, serataId, ordineDoc.id, numero, righe, componenti);
+    generaSottoOrdini(transaction, serataId, ordineDoc.id, numero, codice, righe, componenti);
 
-    return { ordineId: ordineDoc.id, numero, totale: ordine.totale };
+    return { ordineId: ordineDoc.id, numero, codice, totale: ordine.totale };
   });
 });
 
@@ -830,7 +925,7 @@ export const annullaOrdine = onCall(async (request: CallableRequest<AnnullaOrdin
     if (ordine.stato === 'completata' || ordine.stato === 'annullata') {
       throw new HttpsError(
         'failed-precondition',
-        `L'ordine ${ordine.numero} non può essere annullato (stato attuale: ${ordine.stato}).`
+        `L'ordine ${ordine.codice ?? ordine.numero} non può essere annullato (stato attuale: ${ordine.stato}).`
       );
     }
 

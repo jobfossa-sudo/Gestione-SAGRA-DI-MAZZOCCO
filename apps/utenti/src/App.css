@@ -78,6 +78,34 @@
   height: 18px;
   accent-color: var(--accent);
 }
+/* Lettera della cassa: una tendina stretta, basta una lettera. */
+.riga-lettera {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  font-size: 0.9rem;
+  color: var(--text);
+  font-weight: 500;
+}
+.scelta-lettera {
+  width: auto;
+  min-width: 4.5rem;
+  padding: 6px 8px;
+  font-weight: 700;
+}
+.spiegazione-lettera {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.lettera-in-tabella {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
 .nuovo-utente .bottone-principale {
   align-self: flex-start;
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NOME_RUOLO_COMANDE, RUOLI_COMANDE, type RuoloComande } from '@sagra-mazzocco/shared';
+import { SceltaLetteraCassa } from './SceltaLetteraCassa';
 import { creaUtente, messaggioErrore } from '../services/callables';
 
 export function NuovoUtente() {
@@ -8,6 +9,9 @@ export function NuovoUtente() {
   const [password, setPassword] = useState('');
   const [amministratore, setAmministratore] = useState(false);
   const [comande, setComande] = useState<RuoloComande[]>([]);
+  const [letteraCassa, setLetteraCassa] = useState<string | null>(null);
+  // La lettera serve solo a chi batte ordini in cassa.
+  const puoIncassare = amministratore || comande.includes('cassa');
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [successo, setSuccesso] = useState<string | null>(null);
@@ -24,6 +28,7 @@ export function NuovoUtente() {
         password,
         amministratore,
         accessi: comande.length > 0 ? { comande } : {},
+        letteraCassa: puoIncassare ? letteraCassa : null,
       });
       setSuccesso(`Creato l'account "${nomeUtente}". Comunica a ${nome} il nome utente e la password.`);
       setNome('');
@@ -31,6 +36,7 @@ export function NuovoUtente() {
       setPassword('');
       setAmministratore(false);
       setComande([]);
+      setLetteraCassa(null);
     } catch (err) {
       setErrore(messaggioErrore(err));
     } finally {
@@ -89,6 +95,14 @@ export function NuovoUtente() {
           ))}
         </div>
       </div>
+
+      {puoIncassare && (
+        <label className="riga-lettera">
+          Lettera della cassa
+          <SceltaLetteraCassa valore={letteraCassa} onChange={setLetteraCassa} />
+          <span className="spiegazione-lettera">I suoi ordini si numerano con questa lettera: A0001, A0002…</span>
+        </label>
+      )}
 
       <label className="riga-flag">
         <input type="checkbox" checked={amministratore} onChange={(e) => setAmministratore(e.target.checked)} />
