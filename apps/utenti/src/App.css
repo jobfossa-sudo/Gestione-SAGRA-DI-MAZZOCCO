@@ -173,9 +173,8 @@
 }
 /* Il nome utente è quello che la persona digita per entrare: va letto a
    colpo d'occhio quando si detta a un volontario. */
-.mono {
+.nome-utente {
   display: inline-block;
-  font-family: ui-monospace, Consolas, monospace;
   font-weight: 600;
   color: var(--accent);
   background: var(--accent-soft);

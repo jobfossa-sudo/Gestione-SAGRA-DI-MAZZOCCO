@@ -70,7 +70,9 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
           <span className="nome">{utente.nome}</span>
           {sonoIo && <span className="etichetta-io">tu</span>}
         </td>
-        <td className="mono">{utente.nomeUtente}</td>
+        <td>
+          <span className="nome-utente">{utente.nomeUtente}</span>
+        </td>
         <td className="centro">
           <input
             type="checkbox"
