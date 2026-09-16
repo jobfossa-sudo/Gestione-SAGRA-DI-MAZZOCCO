@@ -1,6 +1,7 @@
+/* Aspetto di base condiviso da tutte le app della sagra: colori, caratteri e
+   controlli. Ogni app aggiunge poi il proprio foglio di stile. */
+
 :root {
-  /* Tavolozza calda da sagra paesana, pensata per essere leggibile
-     anche di sera su un tablet con luminosità alta. */
   --bg: #f6f2ec;
   --surface: #ffffff;
   --surface-alt: #fbf8f4;
@@ -114,7 +115,8 @@ button:disabled {
   cursor: not-allowed;
 }
 
-input {
+input,
+select {
   font: inherit;
   color: var(--text);
   background: var(--surface);
@@ -124,7 +126,8 @@ input {
   width: 100%;
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
   border-color: transparent;
@@ -137,4 +140,80 @@ label {
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-muted);
+}
+
+/* Messaggi di esito, usati da tutte le app. */
+.errore,
+.successo {
+  font-size: 0.9rem;
+  font-weight: 550;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+}
+.errore {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 25%, transparent);
+}
+.successo {
+  color: var(--success);
+  background: var(--success-soft);
+  border-color: color-mix(in srgb, var(--success) 25%, transparent);
+}
+
+/* Schermata di accesso, uguale in tutte le app. */
+.login {
+  max-width: 380px;
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+}
+.login-intro {
+  text-align: center;
+  margin-bottom: 6px;
+}
+.login-intro .occhiello {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.login-intro h1 {
+  font-size: 1.6rem;
+  margin-top: 6px;
+}
+.login-intro p {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  margin-top: 6px;
+}
+.login form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.bottone-principale {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 650;
+  font-size: 1rem;
+  padding: 14px 20px;
+}
+.bottone-principale:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
 }

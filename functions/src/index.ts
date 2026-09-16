@@ -22,6 +22,12 @@ import {
   emailDaNomeUtente,
   InizializzaSistemaRichiesta,
   InizializzaSistemaRisposta,
+  CreaUtenteRichiesta,
+  AggiornaPermessiRichiesta,
+  ReimpostaPasswordRichiesta,
+  ImpostaAttivoRichiesta,
+  UtenteRisposta,
+  RUOLI_COMANDE,
   Ordine,
   SottoOrdine,
   Prodotto,
@@ -68,6 +74,32 @@ function richiedeRuoloComande(
   if (permessi.amministratore === true) return 'amministratore';
   if (permessi.comande !== undefined && ammessi.includes(permessi.comande)) return permessi.comande;
   throw new HttpsError('permission-denied', 'Il tuo ruolo non permette questa operazione.');
+}
+
+function richiedeAmministratore(request: CallableRequest): string {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Operazione riservata: effettua l’accesso.');
+  }
+  if ((request.auth.token as Permessi).amministratore !== true) {
+    throw new HttpsError('permission-denied', 'Operazione riservata all’amministratore.');
+  }
+  return request.auth.uid;
+}
+
+/** Impedisce all'unico amministratore di togliersi i permessi o di
+ * disattivarsi, lasciando il sistema senza nessuno che possa gestirlo. */
+function vietaAutoBlocco(uidRichiedente: string, uidBersaglio: string, azione: string): void {
+  if (uidRichiedente === uidBersaglio) {
+    throw new HttpsError('failed-precondition', `Non puoi ${azione} sul tuo stesso account.`);
+  }
+}
+
+function validaAccessi(valore: unknown): Accessi {
+  const accessi = (valore ?? {}) as Accessi;
+  if (accessi.comande !== undefined && !RUOLI_COMANDE.includes(accessi.comande)) {
+    throw new HttpsError('invalid-argument', `Ruolo non valido per Comande: ${accessi.comande}.`);
+  }
+  return accessi.comande !== undefined ? { comande: accessi.comande } : {};
 }
 
 function validaTesto(valore: unknown, nomeCampo: string): string {
@@ -279,6 +311,70 @@ export const inizializzaSistema = onCall(
       await configRef.delete();
       throw err;
     }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Gestione utenti (app "Utenti") — tutto riservato all'amministratore.
+// Dopo ogni cambio di permessi, password o attivazione le sessioni aperte
+// vengono invalidate: chi è collegato deve rientrare e riceve i permessi
+// aggiornati, senza aspettare la scadenza del token.
+// ---------------------------------------------------------------------------
+
+export const creaUtente = onCall(async (request: CallableRequest<CreaUtenteRichiesta>): Promise<UtenteRisposta> => {
+  richiedeAmministratore(request);
+  const dati = request.data ?? ({} as CreaUtenteRichiesta);
+  const uid = await creaAccount({
+    nomeUtente: validaTesto(dati.nomeUtente, 'Nome utente'),
+    nome: validaTesto(dati.nome, 'Nome'),
+    password: typeof dati.password === 'string' ? dati.password : '',
+    amministratore: dati.amministratore === true,
+    accessi: validaAccessi(dati.accessi),
+  });
+  return { uid };
+});
+
+export const aggiornaPermessi = onCall(
+  async (request: CallableRequest<AggiornaPermessiRichiesta>): Promise<UtenteRisposta> => {
+    const uidRichiedente = richiedeAmministratore(request);
+    const { uid, amministratore } = request.data ?? ({} as AggiornaPermessiRichiesta);
+    validaTesto(uid, 'Utente');
+    vietaAutoBlocco(uidRichiedente, uid, 'cambiare i permessi');
+
+    const accessi = validaAccessi(request.data?.accessi);
+    const permessi: Permessi = { ...accessi, ...(amministratore === true ? { amministratore: true } : {}) };
+    await getAuth().setCustomUserClaims(uid, permessi);
+    await db.doc(`utenti/${uid}`).update({ amministratore: amministratore === true, accessi });
+    await getAuth().revokeRefreshTokens(uid);
+    return { uid };
+  }
+);
+
+export const reimpostaPassword = onCall(
+  async (request: CallableRequest<ReimpostaPasswordRichiesta>): Promise<UtenteRisposta> => {
+    richiedeAmministratore(request);
+    const { uid, password } = request.data ?? ({} as ReimpostaPasswordRichiesta);
+    validaTesto(uid, 'Utente');
+    if (typeof password !== 'string' || password.length < 8) {
+      throw new HttpsError('invalid-argument', 'La password deve avere almeno 8 caratteri.');
+    }
+    await getAuth().updateUser(uid, { password });
+    await getAuth().revokeRefreshTokens(uid);
+    return { uid };
+  }
+);
+
+export const impostaAttivo = onCall(
+  async (request: CallableRequest<ImpostaAttivoRichiesta>): Promise<UtenteRisposta> => {
+    const uidRichiedente = richiedeAmministratore(request);
+    const { uid, attivo } = request.data ?? ({} as ImpostaAttivoRichiesta);
+    validaTesto(uid, 'Utente');
+    vietaAutoBlocco(uidRichiedente, uid, 'cambiare l’attivazione');
+
+    await getAuth().updateUser(uid, { disabled: attivo !== true });
+    await db.doc(`utenti/${uid}`).update({ attivo: attivo === true });
+    await getAuth().revokeRefreshTokens(uid);
+    return { uid };
   }
 );
 

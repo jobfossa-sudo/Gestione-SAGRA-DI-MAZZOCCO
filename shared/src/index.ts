@@ -149,6 +149,35 @@ export interface ItemOrdineRichiesta {
   quantita: number;
 }
 
+export interface CreaUtenteRichiesta {
+  nomeUtente: string;
+  nome: string;
+  password: string;
+  amministratore: boolean;
+  accessi: Accessi;
+}
+
+export interface AggiornaPermessiRichiesta {
+  uid: string;
+  amministratore: boolean;
+  accessi: Accessi;
+}
+
+export interface ReimpostaPasswordRichiesta {
+  uid: string;
+  password: string;
+}
+
+export interface ImpostaAttivoRichiesta {
+  uid: string;
+  attivo: boolean;
+}
+
+/** Risposta comune delle operazioni sugli utenti. */
+export interface UtenteRisposta {
+  uid: string;
+}
+
 export interface InizializzaSistemaRichiesta {
   /** Codice segreto configurato sul server: impedisce che uno sconosciuto
    * si crei da solo il primo account amministratore. */

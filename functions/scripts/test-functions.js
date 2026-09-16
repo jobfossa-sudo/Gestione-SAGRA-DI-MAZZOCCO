@@ -23,6 +23,10 @@ const functions = getFunctions(clientApp);
 connectFunctionsEmulator(functions, '127.0.0.1', 5001);
 
 const inizializzaSistema = httpsCallable(functions, 'inizializzaSistema');
+const creaUtente = httpsCallable(functions, 'creaUtente');
+const aggiornaPermessi = httpsCallable(functions, 'aggiornaPermessi');
+const reimpostaPassword = httpsCallable(functions, 'reimpostaPassword');
+const impostaAttivo = httpsCallable(functions, 'impostaAttivo');
 const apriSerata = httpsCallable(functions, 'apriSerata');
 const creaOrdineBozza = httpsCallable(functions, 'creaOrdineBozza');
 const creaOrdineCassa = httpsCallable(functions, 'creaOrdineCassa');
@@ -247,6 +251,75 @@ async function main() {
     inizializzaSistema({ codice: CODICE_INIZIALIZZAZIONE, nomeUtente: 'secondo', nome: 'Secondo', password: 'password123' }),
     'failed-precondition'
   );
+
+  // --- 11. Gestione utenti (app "Utenti") --------------------------------------
+  await accediCome('cassa');
+  await assertRifiutato(
+    'la cassa non può creare utenti',
+    creaUtente({ nomeUtente: 'abusivo', nome: 'Abusivo', password: 'password123', amministratore: true, accessi: {} }),
+    'permission-denied'
+  );
+
+  await accediCome('admin');
+  const mario = await assertOk(
+    'l’amministratore crea un utente con ruolo in Comande',
+    creaUtente({ nomeUtente: 'mario', nome: 'Mario Rossi', password: 'password-mario', amministratore: false, accessi: { comande: 'cassa' } })
+  );
+  await assertRifiutato(
+    'non si può creare un utente con un nome già in uso',
+    creaUtente({ nomeUtente: 'mario', nome: 'Altro Mario', password: 'password123', amministratore: false, accessi: {} }),
+    'already-exists'
+  );
+  await assertRifiutato(
+    'non si può assegnare un ruolo inesistente',
+    creaUtente({ nomeUtente: 'strano', nome: 'Strano', password: 'password123', amministratore: false, accessi: { comande: 'sindaco' } }),
+    'invalid-argument'
+  );
+
+  await accediCome('mario', 'password-mario');
+  const ordineMario = await assertOk(
+    'il nuovo utente lavora subito con il ruolo assegnato',
+    creaOrdineCassa({ serataId: SERATA_ID, items: [{ prodottoId: 'acqua', quantita: 1 }] })
+  );
+  record('l’ordine del nuovo utente è stato creato', typeof ordineMario.numero === 'number');
+
+  await accediCome('admin');
+  await assertRifiutato(
+    'l’amministratore non può togliere i permessi a sé stesso',
+    aggiornaPermessi({ uid: (await admin.auth().getUserByEmail('admin@utenti.sagra-mazzocco.invalid')).uid, amministratore: false, accessi: {} }),
+    'failed-precondition'
+  );
+  await assertOk(
+    'l’amministratore sposta l’utente in cucina',
+    aggiornaPermessi({ uid: mario.uid, amministratore: false, accessi: { comande: 'cucina' } })
+  );
+
+  await accediCome('mario', 'password-mario');
+  await assertRifiutato(
+    'dopo il cambio di ruolo l’utente non può più incassare',
+    creaOrdineCassa({ serataId: SERATA_ID, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
+    'permission-denied'
+  );
+
+  await accediCome('admin');
+  await assertOk('l’amministratore reimposta la password', reimpostaPassword({ uid: mario.uid, password: 'password-nuova' }));
+  await accediCome('mario', 'password-nuova');
+  record('l’utente entra con la nuova password', true);
+
+  await accediCome('admin');
+  await assertOk('l’amministratore disattiva l’utente', impostaAttivo({ uid: mario.uid, attivo: false }));
+  let accessoNegato = false;
+  try {
+    await accediCome('mario', 'password-nuova');
+  } catch (err) {
+    accessoNegato = err.code === 'auth/user-disabled';
+  }
+  record('un utente disattivato non riesce più ad accedere', accessoNegato);
+
+  await accediCome('admin');
+  await assertOk('l’amministratore riattiva l’utente', impostaAttivo({ uid: mario.uid, attivo: true }));
+  await accediCome('mario', 'password-nuova');
+  record('l’utente riattivato rientra', true);
 
   console.log('\nRisultati test Cloud Functions:');
   let tuttiOk = true;

@@ -1,0 +1,179 @@
+.app-utenti {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+
+.app-utenti header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.marchio h1 {
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+.marchio p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.utente {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.utente button {
+  padding: 7px 14px;
+  font-size: 0.85rem;
+}
+
+.app-utenti main {
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ---------- nuovo utente ---------- */
+
+.nuovo-utente,
+.elenco {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.nuovo-utente {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.nuovo-utente .campi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+.riga-flag {
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.9rem;
+  color: var(--text);
+  font-weight: 500;
+}
+.riga-flag input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+.nuovo-utente .bottone-principale {
+  align-self: flex-start;
+}
+
+/* ---------- elenco utenti ---------- */
+
+.elenco h2 {
+  font-size: 1.05rem;
+}
+.spiegazione {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  margin: 6px 0 14px;
+}
+.vuoto {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.tabella-scroll {
+  overflow-x: auto;
+}
+.tabella-utenti {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.tabella-utenti th {
+  text-align: left;
+  font-size: 0.75rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+  padding: 0 10px 10px;
+  white-space: nowrap;
+}
+.tabella-utenti td {
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+.tabella-utenti tr.disattivato td {
+  opacity: 0.5;
+}
+.tabella-utenti .centro {
+  text-align: center;
+}
+.tabella-utenti input[type='checkbox'] {
+  width: 19px;
+  height: 19px;
+  accent-color: var(--accent);
+}
+.tabella-utenti select {
+  padding: 7px 9px;
+  min-width: 150px;
+}
+.tabella-utenti button {
+  padding: 7px 12px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.tabella-utenti .nome {
+  font-weight: 600;
+}
+.mono {
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-muted);
+}
+.etichetta-io {
+  margin-left: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tutto {
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+.colonna-futura,
+.non-disponibile {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+.cambio-password {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.cambio-password input {
+  min-width: 160px;
+  padding: 7px 9px;
+}
