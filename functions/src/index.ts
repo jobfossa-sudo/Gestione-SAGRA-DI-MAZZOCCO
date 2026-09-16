@@ -26,6 +26,7 @@ import {
   AggiornaPermessiRichiesta,
   ReimpostaPasswordRichiesta,
   ImpostaAttivoRichiesta,
+  EliminaUtenteRichiesta,
   UtenteRisposta,
   RUOLI_COMANDE,
   Ordine,
@@ -382,6 +383,22 @@ export const impostaAttivo = onCall(
     await getAuth().updateUser(uid, { disabled: attivo !== true });
     await db.doc(`utenti/${uid}`).update({ attivo: attivo === true });
     await getAuth().revokeRefreshTokens(uid);
+    return { uid };
+  }
+);
+
+/** Cancellazione definitiva: l'account sparisce da Authentication e il suo
+ * profilo da Firestore. Gli ordini già registrati non ne contengono
+ * riferimenti, quindi lo storico resta integro. */
+export const eliminaUtente = onCall(
+  async (request: CallableRequest<EliminaUtenteRichiesta>): Promise<UtenteRisposta> => {
+    const uidRichiedente = richiedeAmministratore(request);
+    const { uid } = request.data ?? ({} as EliminaUtenteRichiesta);
+    validaTesto(uid, 'Utente');
+    vietaAutoBlocco(uidRichiedente, uid, 'eliminare');
+
+    await getAuth().deleteUser(uid);
+    await db.doc(`utenti/${uid}`).delete();
     return { uid };
   }
 );

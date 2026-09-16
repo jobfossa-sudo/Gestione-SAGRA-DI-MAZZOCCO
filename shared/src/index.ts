@@ -175,6 +175,10 @@ export interface ImpostaAttivoRichiesta {
   attivo: boolean;
 }
 
+export interface EliminaUtenteRichiesta {
+  uid: string;
+}
+
 /** Risposta comune delle operazioni sugli utenti. */
 export interface UtenteRisposta {
   uid: string;

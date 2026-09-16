@@ -196,6 +196,17 @@
   color: var(--text-muted);
   opacity: 0.6;
 }
+.azioni {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.bottone-elimina:hover:not(:disabled) {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
 .cambio-password {
   display: flex;
   gap: 6px;

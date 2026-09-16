@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { NOME_RUOLO_COMANDE, RUOLI_COMANDE, type RuoloComande, type Utente } from '@sagra-mazzocco/shared';
 import { useUtenti } from '../hooks';
-import { aggiornaPermessi, impostaAttivo, messaggioErrore, reimpostaPassword } from '../services/callables';
+import {
+  aggiornaPermessi,
+  eliminaUtente,
+  impostaAttivo,
+  messaggioErrore,
+  reimpostaPassword,
+} from '../services/callables';
 
 /** Le app ancora da costruire compaiono già in tabella, ma disattivate:
  * i loro ruoli si definiranno quando verranno realizzate. */
@@ -40,6 +46,20 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
   };
 
   const cambiaAttivo = (attivo: boolean) => esegui(() => impostaAttivo({ uid: utente.uid, attivo }));
+
+  async function elimina() {
+    const conferma = window.prompt(
+      `Eliminare definitivamente l'account di ${utente.nome} (${utente.nomeUtente})?\n` +
+        `L'operazione non si può annullare. Se ti serve solo impedirgli l'accesso, togli la spunta da "Attivo".\n\n` +
+        `Per confermare scrivi il nome utente:`
+    );
+    if (conferma === null) return;
+    if (conferma.trim() !== utente.nomeUtente) {
+      setErrore('Nome utente non corrispondente: eliminazione annullata.');
+      return;
+    }
+    await esegui(() => eliminaUtente({ uid: utente.uid }));
+  }
 
   async function salvaPassword() {
     if (!nuovaPassword) return;
@@ -102,11 +122,18 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
             </span>
           </td>
         ))}
-        <td>
+        <td className="azioni">
           {nuovaPassword === null ? (
-            <button type="button" disabled={inCorso} onClick={() => setNuovaPassword('')}>
-              Cambia password
-            </button>
+            <>
+              <button type="button" disabled={inCorso} onClick={() => setNuovaPassword('')}>
+                Cambia password
+              </button>
+              {!sonoIo && (
+                <button type="button" className="bottone-elimina" disabled={inCorso} onClick={elimina}>
+                  Elimina
+                </button>
+              )}
+            </>
           ) : (
             <span className="cambio-password">
               <input
@@ -128,7 +155,7 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
       </tr>
       {errore && (
         <tr>
-          <td colSpan={7}>
+          <td colSpan={7 + APP_FUTURE.length}>
             <p className="errore">{errore}</p>
           </td>
         </tr>
@@ -162,7 +189,7 @@ export function TabellaUtenti({ uidCorrente }: { uidCorrente: string }) {
                 {app}
               </th>
             ))}
-            <th>Password</th>
+            <th>Azioni</th>
           </tr>
         </thead>
         <tbody>

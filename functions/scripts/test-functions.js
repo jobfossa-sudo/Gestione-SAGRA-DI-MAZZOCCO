@@ -27,6 +27,7 @@ const creaUtente = httpsCallable(functions, 'creaUtente');
 const aggiornaPermessi = httpsCallable(functions, 'aggiornaPermessi');
 const reimpostaPassword = httpsCallable(functions, 'reimpostaPassword');
 const impostaAttivo = httpsCallable(functions, 'impostaAttivo');
+const eliminaUtente = httpsCallable(functions, 'eliminaUtente');
 const apriSerata = httpsCallable(functions, 'apriSerata');
 const creaOrdineBozza = httpsCallable(functions, 'creaOrdineBozza');
 const creaOrdineCassa = httpsCallable(functions, 'creaOrdineCassa');
@@ -346,6 +347,37 @@ async function main() {
   await assertOk('l’amministratore riattiva l’utente', impostaAttivo({ uid: mario.uid, attivo: true }));
   await accediCome('mario', 'password-nuova');
   record('l’utente riattivato rientra', true);
+
+  // --- 12. Eliminazione definitiva di un'utenza --------------------------------
+  await accediCome('cassa');
+  await assertRifiutato('la cassa non può eliminare utenti', eliminaUtente({ uid: mario.uid }), 'permission-denied');
+
+  await accediCome('admin');
+  const uidAdmin = (await admin.auth().getUserByEmail('admin@utenti.sagra-mazzocco.invalid')).uid;
+  await assertRifiutato(
+    'l’amministratore non può eliminare sé stesso',
+    eliminaUtente({ uid: uidAdmin }),
+    'failed-precondition'
+  );
+  await assertOk('l’amministratore elimina un’utenza', eliminaUtente({ uid: mario.uid }));
+
+  const profiloEliminato = await db.doc(`utenti/${mario.uid}`).get();
+  record('il profilo eliminato sparisce da Firestore', profiloEliminato.exists === false);
+  let accountEliminato = false;
+  try {
+    await admin.auth().getUser(mario.uid);
+  } catch (err) {
+    accountEliminato = err.code === 'auth/user-not-found';
+  }
+  record('l’account eliminato sparisce da Authentication', accountEliminato);
+
+  let accessoImpossibile = false;
+  try {
+    await accediCome('mario', 'password-nuova');
+  } catch (err) {
+    accessoImpossibile = err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found';
+  }
+  record('chi è stato eliminato non riesce più ad accedere', accessoImpossibile);
 
   console.log('\nRisultati test Cloud Functions:');
   let tuttiOk = true;
