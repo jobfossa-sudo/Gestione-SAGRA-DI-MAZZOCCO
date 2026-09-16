@@ -8,7 +8,7 @@ function euro(valore: number): string {
   return valore.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
 }
 
-function RigaOrdine({ ordine }: { ordine: Ordine }) {
+function RigaOrdine({ ordine, amministratore }: { ordine: Ordine; amministratore: boolean }) {
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -36,15 +36,17 @@ function RigaOrdine({ ordine }: { ordine: Ordine }) {
         </span>
         <span>{euro(ordine.totale)}</span>
       </span>
-      <button type="button" className="bottone-annulla" onClick={handleAnnulla} disabled={inCorso}>
-        {inCorso ? 'Annullamento…' : 'Annulla'}
-      </button>
+      {amministratore && (
+        <button type="button" className="bottone-annulla" onClick={handleAnnulla} disabled={inCorso}>
+          {inCorso ? 'Annullamento…' : 'Annulla'}
+        </button>
+      )}
       {errore && <p className="errore">{errore}</p>}
     </li>
   );
 }
 
-export function FineSerata() {
+export function FineSerata({ amministratore }: { amministratore: boolean }) {
   const ordini = useOrdiniAperti();
   const bozze = ordini.filter((o) => o.stato === 'bozza');
   const inEvasione = ordini.filter((o) => o.stato === 'in_evasione');
@@ -61,7 +63,7 @@ export function FineSerata() {
         ) : (
           <ul>
             {bozze.map((o) => (
-              <RigaOrdine key={o.id} ordine={o} />
+              <RigaOrdine key={o.id} ordine={o} amministratore={amministratore} />
             ))}
           </ul>
         )}
@@ -77,7 +79,7 @@ export function FineSerata() {
         ) : (
           <ul>
             {inEvasione.map((o) => (
-              <RigaOrdine key={o.id} ordine={o} />
+              <RigaOrdine key={o.id} ordine={o} amministratore={amministratore} />
             ))}
           </ul>
         )}

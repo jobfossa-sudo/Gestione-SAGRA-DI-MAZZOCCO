@@ -76,6 +76,61 @@
   margin: 0 auto;
 }
 
+/* ---------- aree e sotto-schede ---------- */
+
+.app-cassa nav.sotto-schede {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+.app-cassa nav.sotto-schede button {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  padding: 10px 4px;
+  margin-right: 18px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+}
+.app-cassa nav.sotto-schede button:hover:not(.attiva) {
+  color: var(--text);
+}
+.app-cassa nav.sotto-schede button.attiva {
+  color: var(--accent);
+  background: transparent;
+  box-shadow: none;
+  border-bottom-color: var(--accent);
+}
+
+.segnaposto {
+  max-width: 620px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.segnaposto p {
+  color: var(--text-muted);
+}
+.segnaposto .prossimo {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 /* ---------- nuovo ordine ---------- */
 
 .nuovo-ordine {

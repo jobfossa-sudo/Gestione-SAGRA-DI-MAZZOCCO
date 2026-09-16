@@ -1,17 +1,24 @@
 import { signOut } from 'firebase/auth';
 import { useState } from 'react';
-import { NOME_RUOLO_COMANDE } from '@sagra-mazzocco/shared';
+import { NOME_RUOLO_COMANDE, type RuoloComande } from '@sagra-mazzocco/shared';
 import './App.css';
-import { ConfermaBozza } from './components/ConfermaBozza';
-import { FineSerata } from './components/FineSerata';
+import { AreaCassa } from './components/AreaCassa';
+import { GestioneMenu } from './components/GestioneMenu';
 import { Login } from './components/Login';
-import { NuovoOrdine } from './components/NuovoOrdine';
+import { Pannelli } from './components/Pannelli';
+import { Consegna } from './components/Consegna';
 import { useUtenteAutenticato } from './hooks';
 import { auth } from './services/firebase';
 import { SERATA_ID_OGGI } from './services/serata';
 
-const SCHEDE = ['Nuovo ordine', 'Conferma bozza', 'Fine serata'] as const;
-type Scheda = (typeof SCHEDE)[number];
+/** Ogni area è visibile a chi ha uno dei ruoli indicati; l'amministratore
+ * le vede tutte. */
+const AREE = [
+  { nome: 'Gestione menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: GestioneMenu },
+  { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa },
+  { nome: 'Pannelli', ruoli: ['cucina', 'bevande'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli },
+  { nome: 'Consegna', ruoli: ['consegna'] as RuoloComande[], soloAmministratore: false, contenuto: Consegna },
+];
 
 const dataSerata = new Date(SERATA_ID_OGGI).toLocaleDateString('it-IT', {
   weekday: 'long',
@@ -21,14 +28,19 @@ const dataSerata = new Date(SERATA_ID_OGGI).toLocaleDateString('it-IT', {
 
 function App() {
   const { utente, permessi, caricato } = useUtenteAutenticato();
-  const [scheda, setScheda] = useState<Scheda>('Nuovo ordine');
+  const [areaAttiva, setAreaAttiva] = useState<string | null>(null);
 
   if (!caricato) return null;
   if (!utente) return <Login />;
 
   const ruoli = permessi.comande ?? [];
+  const amministratore = permessi.amministratore === true;
 
-  if (!permessi.amministratore && ruoli.length === 0) {
+  const areeVisibili = AREE.filter((area) =>
+    amministratore ? true : !area.soloAmministratore && area.ruoli.some((ruolo) => ruoli.includes(ruolo))
+  );
+
+  if (areeVisibili.length === 0) {
     return (
       <div className="login">
         <div className="login-intro">
@@ -46,7 +58,10 @@ function App() {
     );
   }
 
-  const nomeRuolo = permessi.amministratore
+  const area = areeVisibili.find((a) => a.nome === areaAttiva) ?? areeVisibili[0];
+  const Contenuto = area.contenuto;
+
+  const nomeRuolo = amministratore
     ? 'Amministratore'
     : ruoli.map((ruolo) => NOME_RUOLO_COMANDE[ruolo]).join(' · ');
 
@@ -54,16 +69,23 @@ function App() {
     <div className="app-cassa">
       <header>
         <div className="marchio">
-          <h1>Sagra di Mazzocco · Cassa</h1>
+          <h1>Sagra di Mazzocco · Comande</h1>
           <p>Serata di {dataSerata}</p>
         </div>
-        <nav>
-          {SCHEDE.map((s) => (
-            <button key={s} type="button" className={s === scheda ? 'attiva' : ''} onClick={() => setScheda(s)}>
-              {s}
-            </button>
-          ))}
-        </nav>
+        {areeVisibili.length > 1 && (
+          <nav>
+            {areeVisibili.map((a) => (
+              <button
+                key={a.nome}
+                type="button"
+                className={a.nome === area.nome ? 'attiva' : ''}
+                onClick={() => setAreaAttiva(a.nome)}
+              >
+                {a.nome}
+              </button>
+            ))}
+          </nav>
+        )}
         <div className="utente">
           <span>
             {utente.displayName} · {nomeRuolo}
@@ -74,9 +96,7 @@ function App() {
         </div>
       </header>
       <main>
-        {scheda === 'Nuovo ordine' && <NuovoOrdine />}
-        {scheda === 'Conferma bozza' && <ConfermaBozza />}
-        {scheda === 'Fine serata' && <FineSerata />}
+        <Contenuto amministratore={amministratore} />
       </main>
     </div>
   );
