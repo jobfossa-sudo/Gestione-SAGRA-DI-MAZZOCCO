@@ -310,24 +310,26 @@
 .voci-settore li {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   font-size: 1.25rem;
   font-weight: 600;
 }
-.nome-voce small {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-muted);
+/* Una riga sì e una no leggermente tinta: l'occhio segue la riga dal nome al
+   numero anche su uno schermo largo. */
+.voci-settore li:nth-child(even) {
+  background: var(--surface-alt);
 }
-/* I puntini tra nome e numero guidano l'occhio lungo la riga. */
-.puntini {
-  flex: 1;
-  min-width: 20px;
-  border-bottom: 2px dotted var(--border-strong, var(--border));
-  transform: translateY(-0.3em);
+/* Le voci che ora non servono restano al loro posto, ma in secondo piano. */
+.voci-settore li.a-zero {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.voci-settore li.a-zero .quantita-voce {
+  color: var(--text-muted);
+  font-weight: 600;
 }
 .quantita-voce {
   font-size: 1.7rem;
