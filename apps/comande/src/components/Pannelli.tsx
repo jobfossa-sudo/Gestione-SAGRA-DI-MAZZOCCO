@@ -1,6 +1,10 @@
 import { NOME_SETTORE, SETTORI, type Componente, type Prodotto, type Settore, type SottoOrdine } from '@sagra-mazzocco/shared';
 import { useComponenti, useProdotti, useSottoOrdiniDaEvadere } from '../hooks';
 
+/** I reparti che compaiono sullo schermo: il bar serve le bevande al momento e
+ * non ha bisogno dell'elenco. */
+const SETTORI_A_SCHERMO = SETTORI.filter((s) => s !== 'bar');
+
 /** Cosa preparare per una comanda. Le comande create prima delle composizioni
  * non hanno l'elenco dei componenti: per loro valgono i piatti così come sono. */
 function partiDaPreparare(sottoOrdine: SottoOrdine): { id: string; nome: string; quantita: number }[] {
@@ -61,7 +65,7 @@ export function Pannelli() {
   return (
     <div className="area riquadro pannello-unico">
       <h2>Da preparare</h2>
-      {SETTORI.map((settore) => {
+      {SETTORI_A_SCHERMO.map((settore) => {
         const voci = vociDelSettore(settore, componenti, prodotti, sottoOrdini);
         return (
           <section key={settore} className={`elenco-settore settore-${settore}`}>
