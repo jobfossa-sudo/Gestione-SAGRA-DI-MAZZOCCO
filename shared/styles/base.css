@@ -49,44 +49,49 @@
   line-height: 1.45;
   color: var(--text);
   background: var(--bg);
-  color-scheme: light dark;
+  color-scheme: light;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #17130f;
-    --surface: #211c17;
-    --surface-alt: #1a1612;
-    --border: #352d25;
-    --border-strong: #493d32;
+/* Il tema scuro si accende con un attributo sul documento, non guardando le
+   impostazioni del sistema: così l'utente può scegliere. A metterlo è lo
+   scriptino in index.html, prima ancora che la pagina venga disegnata, e poi
+   useTema() in shared/src/tema.ts quando la scelta cambia. */
+:root[data-tema='scuro'] {
+  color-scheme: dark;
 
-    --text: #f3ece4;
-    --text-muted: #a99c8e;
+  --bg: #17130f;
+  --surface: #211c17;
+  --surface-alt: #1a1612;
+  --border: #352d25;
+  --border-strong: #493d32;
 
-    --accent: #f97316;
-    --accent-hover: #fb923c;
-    --accent-soft: #2e1b0e;
+  --text: #f3ece4;
+  --text-muted: #a99c8e;
 
-    --success: #4ade80;
-    --success-soft: #12251a;
-    --danger: #f87171;
-    --danger-soft: #2a1414;
+  --accent: #f97316;
+  --accent-hover: #fb923c;
+  --accent-soft: #2e1b0e;
 
-    --cucina: #fbbf24;
-    --griglia: #fb7185;
-    --bar: #38bdf8;
+  --success: #4ade80;
+  --success-soft: #12251a;
+  --danger: #f87171;
+  --danger-soft: #2a1414;
 
-    --portata-1: #fbbf24;
-    --portata-2: #fb7185;
-    --portata-3: #a3e635;
-    --portata-4: #38bdf8;
-    --portata-5: #c084fc;
+  --cucina: #fbbf24;
+  --griglia: #fb7185;
+  --bar: #38bdf8;
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
-  }
+  /* Sul fondo scuro servono tinte chiare, altrimenti le portate spariscono. */
+  --portata-1: #fbbf24;
+  --portata-2: #fb7185;
+  --portata-3: #a3e635;
+  --portata-4: #38bdf8;
+  --portata-5: #c084fc;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
 * {
@@ -237,4 +242,49 @@ label {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
   color: #fff;
+}
+
+/* Scelta dello sfondo, chiaro o scuro. Tre pulsanti affiancati: si vede a
+   colpo d'occhio quale è attivo, senza aprire un menù. */
+.selettore-tema {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+}
+.selettore-tema button {
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.95rem;
+  line-height: 1.1;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+.selettore-tema button:hover:not(.attivo) {
+  background: var(--surface);
+  color: var(--text);
+}
+.selettore-tema button.attivo {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+/* Il nome del tema resta per chi usa un lettore di schermo e nel suggerimento
+   al passaggio del mouse: nell'intestazione c'è posto solo per il simbolo. */
+.selettore-tema .etichetta {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Nella schermata di accesso sta sotto il modulo, in mezzo. */
+.login .selettore-tema {
+  align-self: center;
 }

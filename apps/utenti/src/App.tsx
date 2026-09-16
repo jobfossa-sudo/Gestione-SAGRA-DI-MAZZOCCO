@@ -1,6 +1,7 @@
 import { signOut } from 'firebase/auth';
 import { Login } from './components/Login';
 import { NuovoUtente } from './components/NuovoUtente';
+import { SelettoreTema } from './components/SelettoreTema';
 import { TabellaUtenti } from './components/TabellaUtenti';
 import { useUtenteAutenticato } from './hooks';
 import { auth } from './services/firebase';
@@ -19,6 +20,7 @@ function App() {
           <h1>Nessun accesso</h1>
           <p>La gestione degli utenti è riservata all'amministratore.</p>
         </div>
+        <SelettoreTema />
         <button type="button" onClick={() => signOut(auth)}>
           Esci
         </button>
@@ -35,6 +37,7 @@ function App() {
         </div>
         <div className="utente">
           <span>{utente.displayName} · Amministratore</span>
+          <SelettoreTema />
           <button type="button" onClick={() => signOut(auth)}>
             Esci
           </button>

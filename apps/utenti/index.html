@@ -5,6 +5,23 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Utenti · Sagra di Mazzocco</title>
+    <script>
+      // Il tema scelto si applica qui, prima che la pagina venga disegnata:
+      // altrimenti chi usa lo sfondo scuro vedrebbe un lampo bianco a ogni
+      // apertura. La scelta la gestisce shared/src/tema.ts.
+      (function () {
+        var scelta = 'sistema';
+        try {
+          scelta = localStorage.getItem('tema') || 'sistema';
+        } catch (e) {
+          /* browser che vieta la memoria locale: si usa quello di sistema */
+        }
+        var scuro =
+          scelta === 'scuro' ||
+          (scelta !== 'chiaro' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.tema = scuro ? 'scuro' : 'chiaro';
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

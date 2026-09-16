@@ -17,7 +17,8 @@
     "jsx": "react-jsx",
 
     "paths": {
-      "@sagra-mazzocco/shared": ["../../shared/src/index.ts"]
+      "@sagra-mazzocco/shared": ["../../shared/src/index.ts"],
+      "@sagra-mazzocco/shared/tema": ["../../shared/src/tema.ts"]
     },
 
     /* Linting */

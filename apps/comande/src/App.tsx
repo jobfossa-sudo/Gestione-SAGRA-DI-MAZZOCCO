@@ -7,6 +7,7 @@ import { GestioneMenu } from './components/GestioneMenu';
 import { Login } from './components/Login';
 import { Pannelli } from './components/Pannelli';
 import { Consegna } from './components/Consegna';
+import { SelettoreTema } from './components/SelettoreTema';
 import { useUtenteAutenticato } from './hooks';
 import { auth } from './services/firebase';
 import { SERATA_ID_OGGI } from './services/serata';
@@ -53,6 +54,7 @@ function App() {
             nuovo.
           </p>
         </div>
+        <SelettoreTema />
         <button type="button" onClick={() => signOut(auth)}>
           Esci
         </button>
@@ -92,6 +94,7 @@ function App() {
           <span>
             {utente.displayName} · {nomeRuolo}
           </span>
+          <SelettoreTema />
           <button type="button" onClick={() => signOut(auth)}>
             Esci
           </button>
