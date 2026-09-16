@@ -171,9 +171,17 @@
 .tabella-utenti .nome {
   font-weight: 600;
 }
+/* Il nome utente è quello che la persona digita per entrare: va letto a
+   colpo d'occhio quando si detta a un volontario. */
 .mono {
+  display: inline-block;
   font-family: ui-monospace, Consolas, monospace;
-  color: var(--text-muted);
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: 8px;
+  padding: 3px 9px;
 }
 .etichetta-io {
   margin-left: 8px;

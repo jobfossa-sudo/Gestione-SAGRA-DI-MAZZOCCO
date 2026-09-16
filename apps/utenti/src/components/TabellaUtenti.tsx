@@ -48,16 +48,10 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
   const cambiaAttivo = (attivo: boolean) => esegui(() => impostaAttivo({ uid: utente.uid, attivo }));
 
   async function elimina() {
-    const conferma = window.prompt(
-      `Eliminare definitivamente l'account di ${utente.nome} (${utente.nomeUtente})?\n` +
-        `L'operazione non si può annullare. Se ti serve solo impedirgli l'accesso, togli la spunta da "Attivo".\n\n` +
-        `Per confermare scrivi il nome utente:`
+    const conferma = window.confirm(
+      `Sei sicuro di voler eliminare definitivamente l'account di ${utente.nome} (${utente.nomeUtente})?`
     );
-    if (conferma === null) return;
-    if (conferma.trim() !== utente.nomeUtente) {
-      setErrore('Nome utente non corrispondente: eliminazione annullata.');
-      return;
-    }
+    if (!conferma) return;
     await esegui(() => eliminaUtente({ uid: utente.uid }));
   }
 
