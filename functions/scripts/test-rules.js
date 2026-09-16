@@ -34,6 +34,8 @@ async function main() {
   const senzaRuolo = testEnv.authenticatedContext('uid-senza-ruolo').firestore();
   const cassa = testEnv.authenticatedContext('uid-cassa', { comande: ['cassa'] }).firestore();
   const cucina = testEnv.authenticatedContext('uid-cucina', { comande: ['cucina'] }).firestore();
+  const griglia = testEnv.authenticatedContext('uid-griglia', { comande: ['griglia'] }).firestore();
+  const bar = testEnv.authenticatedContext('uid-bar', { comande: ['bar'] }).firestore();
   const admin = testEnv.authenticatedContext('uid-admin', { amministratore: true }).firestore();
   // Accesso a un'altra app soltanto: non deve vedere nulla di Comande.
   const soloAltraApp = testEnv.authenticatedContext('uid-contabile', { contabilita: ['visione'] }).firestore();
@@ -61,6 +63,8 @@ async function main() {
   await check('account senza ruolo non legge gli ordini', assertFails(senzaRuolo.doc('serate/2026-01-01/ordini/ordine1').get()));
   await check('cassa legge gli ordini', assertSucceeds(cassa.doc('serate/2026-01-01/ordini/ordine1').get()));
   await check('cucina legge gli ordini', assertSucceeds(cucina.doc('serate/2026-01-01/ordini/ordine1').get()));
+  await check('griglia legge gli ordini', assertSucceeds(griglia.doc('serate/2026-01-01/ordini/ordine1').get()));
+  await check('bar legge gli ordini', assertSucceeds(bar.doc('serate/2026-01-01/ordini/ordine1').get()));
   await check(
     'chi ha accesso solo a un’altra app non legge gli ordini di Comande',
     assertFails(soloAltraApp.doc('serate/2026-01-01/ordini/ordine1').get())

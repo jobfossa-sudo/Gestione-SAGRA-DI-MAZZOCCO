@@ -17,7 +17,7 @@ service cloud.firestore {
     function personaleComande() {
       return amministratore()
         || (request.auth != null
-            && request.auth.token.get('comande', []).hasAny(['cassa', 'cucina', 'bevande', 'consegna']));
+            && request.auth.token.get('comande', []).hasAny(['cassa', 'cucina', 'griglia', 'bar', 'consegna']));
     }
 
     // Menu: lettura pubblica (serve alla pagina QR non autenticata),

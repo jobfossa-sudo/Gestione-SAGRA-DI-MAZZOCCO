@@ -80,11 +80,12 @@ async function main() {
   const bozza1 = await assertOk(
     'creaOrdineBozza (cliente da QR, non autenticato)',
     creaOrdineBozza({ serataId: SERATA_ID, tavolo: 7, coperti: 2, items: [
+      { prodottoId: 'pasta', quantita: 1 },
       { prodottoId: 'panino', quantita: 2 },
       { prodottoId: 'birra', quantita: 2 },
     ] })
   );
-  record('creaOrdineBozza calcola il totale dal prezzo reale del prodotto', bozza1.totale === 5 * 2 + 3 * 2, `totale: ${bozza1.totale}`);
+  record('creaOrdineBozza calcola il totale dal prezzo reale del prodotto', bozza1.totale === 7 + 5 * 2 + 3 * 2, `totale: ${bozza1.totale}`);
 
   await accediCome('cucina');
   await assertRifiutato(
@@ -103,7 +104,7 @@ async function main() {
     .collection(`serate/${SERATA_ID}/sottoOrdini`)
     .where('ordineId', '==', conferma1.ordineId)
     .get();
-  record('confermaOrdine genera un sotto-ordine per reparto', sottoOrdiniOrdine1.size === 2, `generati: ${sottoOrdiniOrdine1.size}`);
+  record('confermaOrdine genera un sotto-ordine per settore', sottoOrdiniOrdine1.size === 3, `generati: ${sottoOrdiniOrdine1.size}`);
 
   await assertRifiutato(
     'una seconda conferma dello stesso ordine viene rifiutata',
@@ -111,10 +112,18 @@ async function main() {
     'failed-precondition'
   );
 
-  const sottoCucina = sottoOrdiniOrdine1.docs.find((d) => d.data().reparto === 'cucina');
-  const sottoBevande = sottoOrdiniOrdine1.docs.find((d) => d.data().reparto === 'bevande');
+  const sottoCucina = sottoOrdiniOrdine1.docs.find((d) => d.data().settore === 'cucina');
+  const sottoGriglia = sottoOrdiniOrdine1.docs.find((d) => d.data().settore === 'griglia');
+  const sottoBar = sottoOrdiniOrdine1.docs.find((d) => d.data().settore === 'bar');
+  record(
+    'ogni sotto-ordine porta il prefisso del proprio settore',
+    sottoCucina.data().codice.startsWith('C') &&
+      sottoGriglia.data().codice.startsWith('G') &&
+      sottoBar.data().codice.startsWith('B'),
+    `codici: ${sottoCucina.data().codice}, ${sottoGriglia.data().codice}, ${sottoBar.data().codice}`
+  );
 
-  // --- 2. Reparti: ciascuno segna pronto solo il proprio --------------------
+  // --- 2. Settori: ciascuno segna pronto solo il proprio --------------------
   await assertRifiutato(
     'la cassa non può segnare pronto un sotto-ordine',
     segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoCucina.id }),
@@ -123,8 +132,8 @@ async function main() {
 
   await accediCome('cucina');
   await assertRifiutato(
-    'la cucina non può segnare pronto un sotto-ordine delle bevande',
-    segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoBevande.id }),
+    'la cucina non può segnare pronto un sotto-ordine della griglia',
+    segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoGriglia.id }),
     'permission-denied'
   );
   await assertOk(
@@ -148,22 +157,35 @@ async function main() {
 
   await assertRifiutato(
     'consegna di un sotto-ordine non ancora pronto viene rifiutata',
-    consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoBevande.data().codice }),
+    consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoGriglia.data().codice }),
     'failed-precondition'
   );
 
-  await accediCome('bevande');
+  await accediCome('griglia');
   await assertOk(
-    'le bevande segnano pronto il proprio sotto-ordine',
-    segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoBevande.id })
+    'la griglia segna pronto il proprio sotto-ordine',
+    segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoGriglia.id })
   );
 
   await accediCome('consegna');
   const consegna2 = await assertOk(
-    'consegna dell’ultimo sotto-ordine',
-    consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoBevande.data().codice })
+    'consegna del sotto-ordine della griglia',
+    consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoGriglia.data().codice })
   );
-  record('dopo l’ultima consegna l’ordine risulta completato', consegna2.ordineCompletato === true);
+  record('con il bar ancora da consegnare l’ordine non è completato', consegna2.ordineCompletato === false);
+
+  await accediCome('bar');
+  await assertOk(
+    'il bar segna pronto il proprio sotto-ordine',
+    segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoBar.id })
+  );
+
+  await accediCome('consegna');
+  const consegna3 = await assertOk(
+    'consegna dell’ultimo sotto-ordine',
+    consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoBar.data().codice })
+  );
+  record('dopo l’ultima consegna l’ordine risulta completato', consegna3.ordineCompletato === true);
 
   // --- 4. Ordine diretto da cassa ----------------------------------------------
   await accediCome('cassa');
@@ -184,13 +206,13 @@ async function main() {
     await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', ordineJolly.ordineId).get()
   ).docs[0];
   await assertRifiutato(
-    'ma non può segnare pronto un sotto-ordine (non è un ruolo di reparto)',
+    'ma non può segnare pronto un sotto-ordine (non è un ruolo di settore)',
     segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoJolly.id }),
     'permission-denied'
   );
-  await accediCome('bevande');
+  await accediCome('bar');
   await assertOk(
-    'il reparto bevande segna pronto',
+    'il settore bar segna pronto',
     segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoJolly.id })
   );
   await accediCome('jolly');

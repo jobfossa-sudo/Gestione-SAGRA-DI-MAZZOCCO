@@ -455,10 +455,17 @@
 
 .nuovo-piatto {
   display: grid;
-  grid-template-columns: minmax(180px, 2fr) repeat(2, minmax(110px, 1fr)) auto auto;
+  grid-template-columns:
+    minmax(120px, 0.8fr) minmax(110px, 0.8fr) minmax(160px, 1.4fr)
+    minmax(160px, 1.6fr) minmax(100px, 0.6fr) auto auto;
   gap: 12px;
   align-items: end;
   margin-top: 12px;
+}
+@media (max-width: 900px) {
+  .nuovo-piatto {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .nuovo-piatto .riga-flag {
   flex-direction: row;
@@ -504,22 +511,52 @@
 .tabella-menu .centro {
   text-align: center;
 }
-.tabella-menu .stretta input,
-.tabella-menu .stretta select {
-  min-width: 96px;
-  max-width: 140px;
+.tabella-menu td {
+  padding: 8px 6px;
 }
 .tabella-menu input,
 .tabella-menu select {
-  padding: 7px 9px;
+  padding: 7px 8px;
+  width: 100%;
+}
+/* Larghezze pensate per l'ordine delle colonne: categoria, settore, piatto,
+   note, prezzo. Le ultime colonne restano strette. */
+.tabella-menu select {
+  min-width: 92px;
+}
+.tabella-menu .colonna-piatto input {
+  min-width: 140px;
+  font-weight: 600;
+}
+.tabella-menu .colonna-note input {
+  min-width: 150px;
+}
+.tabella-menu input.prezzo {
+  min-width: 78px;
+  max-width: 92px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tabella-menu input.porzioni {
+  min-width: 56px;
+  max-width: 72px;
+  text-align: center;
+}
+.tabella-menu th.centro {
+  max-width: 84px;
+  white-space: normal;
+}
+.tabella-menu .bottone-annulla {
+  padding: 7px 12px;
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 .tabella-menu input[type='checkbox'] {
   width: 19px;
   height: 19px;
   accent-color: var(--accent);
 }
-.tabella-menu tr.finito .nome-prodotto,
-.tabella-menu tr.finito input[type='text'] {
+.tabella-menu tr.finito .colonna-piatto input {
   text-decoration: line-through;
   color: var(--text-muted);
 }

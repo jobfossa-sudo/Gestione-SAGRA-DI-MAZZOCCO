@@ -39,13 +39,15 @@ const functions = getFunctions(app);
 const email = `${nomeUtente.trim().toLowerCase()}@utenti.sagra-mazzocco.invalid`;
 
 // Menu di esempio: va sostituito con il menu vero della sagra.
+// categoria = come si legge nel menù; settore = chi lo prepara.
 const PRODOTTI = [
-  { id: 'panino', nome: 'Panino', prezzo: 5, reparto: 'cucina', novita: false, esauritoSerata: null, categoria: 'Cucina' },
-  { id: 'pasta', nome: 'Pasta al ragù', prezzo: 7, reparto: 'cucina', novita: false, esauritoSerata: null, categoria: 'Cucina' },
-  { id: 'grigliata', nome: 'Grigliata mista', prezzo: 10, reparto: 'cucina', novita: false, esauritoSerata: null, categoria: 'Cucina' },
-  { id: 'acqua', nome: 'Acqua', prezzo: 1, reparto: 'bevande', novita: false, esauritoSerata: null, categoria: 'Bevande' },
-  { id: 'birra', nome: 'Birra', prezzo: 3, reparto: 'bevande', novita: false, esauritoSerata: null, categoria: 'Bevande' },
-  { id: 'vino', nome: 'Vino (calice)', prezzo: 3, reparto: 'bevande', novita: false, esauritoSerata: null, categoria: 'Bevande' },
+  { id: 'pasta', categoria: 'primi', settore: 'cucina', nome: 'Pasta al ragù', note: 'ragù di manzo, grana', prezzo: 7, novita: false, esauritoSerata: null },
+  { id: 'grigliata', categoria: 'secondi', settore: 'griglia', nome: 'Grigliata mista', note: 'salsiccia, costine, pancetta', prezzo: 10, novita: false, esauritoSerata: null },
+  { id: 'panino', categoria: 'secondi', settore: 'griglia', nome: 'Panino con salsiccia', note: '', prezzo: 5, novita: false, esauritoSerata: null },
+  { id: 'patatine', categoria: 'contorni', settore: 'cucina', nome: 'Patatine fritte', note: '', prezzo: 3, novita: false, esauritoSerata: null },
+  { id: 'acqua', categoria: 'bevande', settore: 'bar', nome: 'Acqua', note: 'naturale o frizzante', prezzo: 1, novita: false, esauritoSerata: null },
+  { id: 'birra', categoria: 'bevande', settore: 'bar', nome: 'Birra', note: 'media, alla spina', prezzo: 3, novita: false, esauritoSerata: null },
+  { id: 'vino', categoria: 'bevande', settore: 'bar', nome: 'Vino (calice)', note: '', prezzo: 3, novita: false, esauritoSerata: null },
 ];
 
 async function main() {

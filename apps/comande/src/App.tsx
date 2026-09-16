@@ -16,7 +16,7 @@ import { SERATA_ID_OGGI } from './services/serata';
 const AREE = [
   { nome: 'Gestione menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: GestioneMenu },
   { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa },
-  { nome: 'Pannelli', ruoli: ['cucina', 'bevande'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli },
+  { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli },
   { nome: 'Consegna', ruoli: ['consegna'] as RuoloComande[], soloAmministratore: false, contenuto: Consegna },
 ];
 

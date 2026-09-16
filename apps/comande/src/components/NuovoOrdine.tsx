@@ -1,11 +1,8 @@
 import { useMemo, useState } from 'react';
-import type { Reparto } from '@sagra-mazzocco/shared';
+import { CATEGORIE, NOME_CATEGORIA } from '@sagra-mazzocco/shared';
 import { useProdotti } from '../hooks';
 import { creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { SERATA_ID_OGGI } from '../services/serata';
-
-const NOME_REPARTO: Record<Reparto, string> = { cucina: 'Cucina', bevande: 'Bevande' };
-const ORDINE_REPARTI: Reparto[] = ['cucina', 'bevande'];
 
 function euro(valore: number): string {
   return valore.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
@@ -22,13 +19,13 @@ export function NuovoOrdine() {
   const [errore, setErrore] = useState<string | null>(null);
   const [messaggioSuccesso, setMessaggioSuccesso] = useState<string | null>(null);
 
-  const prodottiPerReparto = useMemo(
+  // Alla cassa il menù si legge per portate, come sul cartello: il settore che
+  // prepara il piatto qui non serve.
+  const prodottiPerCategoria = useMemo(
     () =>
-      ORDINE_REPARTI.map((reparto) => ({
-        reparto,
-        lista: prodotti
-          .filter((p) => p.reparto === reparto)
-          .sort((a, b) => a.nome.localeCompare(b.nome, 'it')),
+      CATEGORIE.map((categoria) => ({
+        categoria,
+        lista: prodotti.filter((p) => p.categoria === categoria),
       })).filter((gruppo) => gruppo.lista.length > 0),
     [prodotti]
   );
@@ -78,11 +75,11 @@ export function NuovoOrdine() {
   return (
     <div className="nuovo-ordine">
       <div className="colonna-menu">
-        {prodottiPerReparto.map(({ reparto, lista }) => (
-          <div key={reparto} className="gruppo-reparto">
+        {prodottiPerCategoria.map(({ categoria, lista }) => (
+          <div key={categoria} className="gruppo-reparto">
             <div className="intestazione-reparto">
-              <span className="pallino" style={{ ['--reparto-colore' as string]: `var(--${reparto})` }} />
-              <h2>{NOME_REPARTO[reparto]}</h2>
+              <span className="pallino" style={{ ['--reparto-colore' as string]: `var(--${categoria})` }} />
+              <h2>{NOME_CATEGORIA[categoria]}</h2>
             </div>
             <div className="griglia-prodotti">
               {lista.map((prodotto) => {

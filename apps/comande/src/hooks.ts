@@ -1,7 +1,7 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import type { DisponibilitaProdotto, Ordine, Permessi, Prodotto } from '@sagra-mazzocco/shared';
+import { CATEGORIE, type DisponibilitaProdotto, type Ordine, type Permessi, type Prodotto } from '@sagra-mazzocco/shared';
 import { auth, db } from './services/firebase';
 import { SERATA_ID_OGGI } from './services/serata';
 
@@ -26,7 +26,8 @@ export function useUtenteAutenticato(): { utente: User | null; permessi: Permess
   return stato;
 }
 
-/** Tutto il menù, aggiornato in tempo reale. I piatti finiti restano
+/** Tutto il menù, aggiornato in tempo reale e nell'ordine in cui si legge:
+ * prima le portate, poi i piatti in ordine alfabetico. I piatti finiti restano
  * nell'elenco: vanno mostrati barrati, non nascosti. */
 export function useProdotti(): Prodotto[] {
   const [prodotti, setProdotti] = useState<Prodotto[]>([]);
@@ -34,7 +35,13 @@ export function useProdotti(): Prodotto[] {
   useEffect(
     () =>
       onSnapshot(query(collection(db, 'prodotti'), orderBy('nome')), (snapshot) => {
-        setProdotti(snapshot.docs.map((doc) => doc.data() as Prodotto));
+        const elenco = snapshot.docs.map((doc) => doc.data() as Prodotto);
+        elenco.sort(
+          (a, b) =>
+            CATEGORIE.indexOf(a.categoria) - CATEGORIE.indexOf(b.categoria) ||
+            a.nome.localeCompare(b.nome, 'it')
+        );
+        setProdotti(elenco);
       }),
     []
   );

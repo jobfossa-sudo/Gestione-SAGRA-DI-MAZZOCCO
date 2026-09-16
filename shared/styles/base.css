@@ -20,8 +20,17 @@
   --danger: #b91c1c;
   --danger-soft: #fdecec;
 
+  /* Settori di preparazione (pannelli e stampanti). */
   --cucina: #b45309;
+  --griglia: #9f1239;
+  --bar: #0e7490;
+
+  /* Portate del menù. */
+  --primi: #b45309;
+  --secondi: #9f1239;
+  --contorni: #4d7c0f;
   --bevande: #0e7490;
+  --dessert: #7e22ce;
 
   --radius: 12px;
   --radius-lg: 18px;
@@ -61,7 +70,14 @@
     --danger-soft: #2a1414;
 
     --cucina: #fbbf24;
+    --griglia: #fb7185;
+    --bar: #38bdf8;
+
+    --primi: #fbbf24;
+    --secondi: #fb7185;
+    --contorni: #a3e635;
     --bevande: #38bdf8;
+    --dessert: #c084fc;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow: 0 4px 16px rgba(0, 0, 0, 0.45);

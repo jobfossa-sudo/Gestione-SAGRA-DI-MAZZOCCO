@@ -7,7 +7,31 @@ export interface FirestoreTimestampLike {
   nanoseconds: number;
 }
 
-export type Reparto = 'cucina' | 'bevande';
+/** Dove si prepara il piatto: decide a quale pannello e a quale stampante va
+ * il sotto-ordine. Non si mostra al cliente. */
+export type Settore = 'cucina' | 'griglia' | 'bar';
+
+export const SETTORI: Settore[] = ['cucina', 'griglia', 'bar'];
+
+export const NOME_SETTORE: Record<Settore, string> = {
+  cucina: 'Cucina',
+  griglia: 'Griglia',
+  bar: 'Bar',
+};
+
+/** Come il piatto si legge nel menù, anche quello dal QR. */
+export type Categoria = 'primi' | 'secondi' | 'contorni' | 'bevande' | 'dessert';
+
+/** L'ordine dell'elenco è anche quello in cui le portate compaiono nel menù. */
+export const CATEGORIE: Categoria[] = ['primi', 'secondi', 'contorni', 'bevande', 'dessert'];
+
+export const NOME_CATEGORIA: Record<Categoria, string> = {
+  primi: 'Primi',
+  secondi: 'Secondi',
+  contorni: 'Contorni',
+  bevande: 'Bevande',
+  dessert: 'Dessert',
+};
 
 export type StatoOrdine =
   | 'bozza'
@@ -23,7 +47,7 @@ export type TipoOrdine = 'cassa' | 'qr';
 export interface ItemOrdine {
   prodottoId: string;
   nome: string;
-  reparto: Reparto;
+  settore: Settore;
   prezzo: number;
   quantita: number;
 }
@@ -56,7 +80,7 @@ export interface SottoOrdine {
   ordineId: string;
   serataId: string;
   numeroOrdine: number;
-  reparto: Reparto;
+  settore: Settore;
   stato: StatoSottoOrdine;
   items: ItemSottoOrdine[];
   createdAt: FirestoreTimestampLike;
@@ -66,16 +90,20 @@ export interface SottoOrdine {
 
 export interface Prodotto {
   id: string;
+  /** Portata sotto cui compare nel menù: la vede anche il cliente. */
+  categoria: Categoria;
+  /** Chi lo prepara: serve solo all'interno, non compare nel menù dal QR. */
+  settore: Settore;
   nome: string;
+  /** Ingredienti o accompagnamenti, mostrati sotto il nome nel menù. */
+  note: string;
   prezzo: number;
-  reparto: Reparto;
   /** Contrassegnato come novità nel menù dal QR. */
   novita: boolean;
   /** Serata in cui il piatto è finito, così il cliente lo vede barrato senza
    * conoscere i numeri. Riferendosi a una serata precisa si azzera da solo la
    * sera dopo. Null = disponibile. */
   esauritoSerata: string | null;
-  categoria?: string;
 }
 
 /** Porzioni di un piatto per una singola serata. Sta sotto la serata e non
@@ -103,16 +131,17 @@ export interface Serata {
  * ovunque; gli altri hanno al massimo un ruolo per ciascuna app, e nessun
  * accesso alle app per cui non ne hanno uno. */
 
-/** "cucina" e "bevande" coincidono apposta con i reparti: chi ha quel ruolo
- * gestisce quel reparto. */
-export type RuoloComande = 'cassa' | 'cucina' | 'bevande' | 'consegna';
+/** "cucina", "griglia" e "bar" coincidono apposta con i settori: chi ha quel
+ * ruolo gestisce quel settore. */
+export type RuoloComande = 'cassa' | 'cucina' | 'griglia' | 'bar' | 'consegna';
 
-export const RUOLI_COMANDE: RuoloComande[] = ['cassa', 'cucina', 'bevande', 'consegna'];
+export const RUOLI_COMANDE: RuoloComande[] = ['cassa', 'cucina', 'griglia', 'bar', 'consegna'];
 
 export const NOME_RUOLO_COMANDE: Record<RuoloComande, string> = {
   cassa: 'Cassa',
   cucina: 'Cucina',
-  bevande: 'Bevande',
+  griglia: 'Griglia',
+  bar: 'Bar',
   consegna: 'Consegna',
 };
 
@@ -149,10 +178,11 @@ export function emailDaNomeUtente(nomeUtente: string): string {
   return `${nomeUtente.trim().toLowerCase()}@utenti.sagra-mazzocco.invalid`;
 }
 
-/** Prefisso del codice sotto-ordine per reparto (es. "C" + 025 -> "C025"). */
-export const PREFISSO_REPARTO: Record<Reparto, string> = {
+/** Prefisso del codice sotto-ordine per settore (es. "C" + 025 -> "C025"). */
+export const PREFISSO_SETTORE: Record<Settore, string> = {
   cucina: 'C',
-  bevande: 'B',
+  griglia: 'G',
+  bar: 'B',
 };
 
 // ---------------------------------------------------------------------------

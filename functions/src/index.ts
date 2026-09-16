@@ -1,5 +1,5 @@
 // Cloud Functions per la logica di business condivisa del sistema Sagra di
-// Mazzocco: numerazione ordini, generazione sotto-ordini per reparto,
+// Mazzocco: numerazione ordini, generazione sotto-ordini per settore,
 // transizioni di stato. Tutte le scritture su ordini/sottoOrdini passano di
 // qui (i client non possono scrivere direttamente, vedi firestore.rules).
 
@@ -35,8 +35,8 @@ import {
   Serata,
   ItemOrdine,
   ItemSottoOrdine,
-  Reparto,
-  PREFISSO_REPARTO,
+  Settore,
+  PREFISSO_SETTORE,
   ItemOrdineRichiesta,
   CreaOrdineRisposta,
   CreaOrdineBozzaRichiesta,
@@ -206,7 +206,7 @@ function refDisponibilita(serataId: string, prodottoId: string): DocumentReferen
 }
 
 /** Legge i prodotti richiesti da Firestore (dentro la transazione) e costruisce
- * gli item dell'ordine usando SEMPRE nome/prezzo/reparto presi dal database:
+ * gli item dell'ordine usando SEMPRE nome/prezzo/settore presi dal database:
  * i valori eventualmente inviati dal client per questi campi vengono ignorati,
  * altrimenti chiunque potrebbe alterare i prezzi di un ordine pubblico da QR.
  * Verifica anche che le porzioni della serata bastino: non si vendono mezzi
@@ -255,7 +255,7 @@ async function costruisciItemsOrdine(
     items.push({
       prodottoId: richiesto.prodottoId,
       nome: prodotto.nome,
-      reparto: prodotto.reparto,
+      settore: prodotto.settore,
       prezzo: prodotto.prezzo,
       quantita: richiesto.quantita,
     });
@@ -301,12 +301,12 @@ async function leggiSerataAperta(
   return { ref, contatoreOrdini: serata.contatoreOrdini };
 }
 
-function formattaCodice(reparto: Reparto, numero: number): string {
-  return `${PREFISSO_REPARTO[reparto]}${numero.toString().padStart(3, '0')}`;
+function formattaCodice(settore: Settore, numero: number): string {
+  return `${PREFISSO_SETTORE[settore]}${numero.toString().padStart(3, '0')}`;
 }
 
-/** Raggruppa gli item dell'ordine per reparto e crea, dentro la transazione,
- * un sotto-ordine per ciascun reparto coinvolto. */
+/** Raggruppa gli item dell'ordine per settore e crea, dentro la transazione,
+ * un sotto-ordine per ciascun settore coinvolto. */
 function generaSottoOrdini(
   transaction: Transaction,
   serataId: string,
@@ -314,24 +314,24 @@ function generaSottoOrdini(
   numero: number,
   items: ItemOrdine[]
 ): void {
-  const perReparto = new Map<Reparto, ItemSottoOrdine[]>();
+  const perSettore = new Map<Settore, ItemSottoOrdine[]>();
   for (const item of items) {
-    const lista = perReparto.get(item.reparto) ?? [];
+    const lista = perSettore.get(item.settore) ?? [];
     lista.push({ prodottoId: item.prodottoId, nome: item.nome, quantita: item.quantita });
-    perReparto.set(item.reparto, lista);
+    perSettore.set(item.settore, lista);
   }
 
-  for (const [reparto, itemsReparto] of perReparto) {
+  for (const [settore, itemsSettore] of perSettore) {
     const sottoOrdineRef = db.collection(`serate/${serataId}/sottoOrdini`).doc();
     const sottoOrdine: SottoOrdine = {
       id: sottoOrdineRef.id,
-      codice: formattaCodice(reparto, numero),
+      codice: formattaCodice(settore, numero),
       ordineId,
       serataId,
       numeroOrdine: numero,
-      reparto,
+      settore,
       stato: 'in_preparazione',
-      items: itemsReparto,
+      items: itemsSettore,
       createdAt: FieldValue.serverTimestamp() as unknown as SottoOrdine['createdAt'],
       readyAt: null,
       deliveredAt: null,
@@ -577,7 +577,8 @@ export const creaOrdineBozza = onCall(async (request: CallableRequest<CreaOrdine
 
 // ---------------------------------------------------------------------------
 // creaOrdineCassa — cassiere: ordine diretto, già pagato. Genera subito i
-// sotto-ordini per reparto (l'ordine parte immediatamente in cucina/bar).
+// sotto-ordini per settore (l'ordine parte immediatamente in cucina, alla
+// griglia e al bar).
 // ---------------------------------------------------------------------------
 
 export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdineCassaRichiesta>): Promise<CreaOrdineRisposta> => {
@@ -671,12 +672,12 @@ export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrd
 });
 
 // ---------------------------------------------------------------------------
-// segnaSottoOrdinePronto — il reparto (cucina/bevande) segna un sotto-ordine
-// come pronto per la consegna.
+// segnaSottoOrdinePronto — il settore (cucina/griglia/bar) segna un
+// sotto-ordine come pronto per la consegna.
 // ---------------------------------------------------------------------------
 
 export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<SegnaSottoOrdineProntoRichiesta>): Promise<SegnaSottoOrdineProntoRisposta> => {
-  const permessi = richiedeRuoloComande(request, 'cucina', 'bevande');
+  const permessi = richiedeRuoloComande(request, 'cucina', 'griglia', 'bar');
   const { serataId, sottoOrdineId } = request.data ?? ({} as SegnaSottoOrdineProntoRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof sottoOrdineId !== 'string' || !sottoOrdineId) {
     throw new HttpsError('invalid-argument', 'Sotto-ordine non valido.');
@@ -690,8 +691,8 @@ export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<Seg
       throw new HttpsError('not-found', 'Sotto-ordine inesistente.');
     }
     const sottoOrdine = snapshot.data() as SottoOrdine;
-    if (!permessi.amministratore && !permessi.ruoli.includes(sottoOrdine.reparto)) {
-      throw new HttpsError('permission-denied', `Il sotto-ordine ${sottoOrdine.codice} appartiene a un altro reparto.`);
+    if (!permessi.amministratore && !permessi.ruoli.includes(sottoOrdine.settore)) {
+      throw new HttpsError('permission-denied', `Il sotto-ordine ${sottoOrdine.codice} appartiene a un altro settore.`);
     }
     if (sottoOrdine.stato !== 'in_preparazione') {
       throw new HttpsError(
