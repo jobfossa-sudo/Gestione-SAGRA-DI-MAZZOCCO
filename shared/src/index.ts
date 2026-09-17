@@ -42,8 +42,12 @@ export const CATEGORIE_INIZIALI: Categoria[] = [
  * a due altre non obbliga a rinumerare tutto. */
 export const PASSO_ORDINE = 10;
 
+/** bozza: inviato dal QR, non ancora in cassa. da_pagare: confermato in cassa,
+ * numero assegnato, resoconto stampato, porzioni già tenute da parte; aspetta
+ * il pagamento. in_evasione: incassato e inviato ai reparti. */
 export type StatoOrdine =
   | 'bozza'
+  | 'da_pagare'
   | 'confermata_pagata'
   | 'in_evasione'
   | 'completata'
@@ -82,7 +86,10 @@ export interface Ordine {
   items: ItemOrdine[];
   totale: number;
   createdAt: FirestoreTimestampLike;
+  /** Quando la cassa lo ha confermato e stampato il resoconto. */
   confirmedAt: FirestoreTimestampLike | null;
+  /** Quando la cassa ha incassato e l'ordine è partito verso i reparti. */
+  pagatoAt?: FirestoreTimestampLike | null;
   completedAt: FirestoreTimestampLike | null;
   cancelledAt: FirestoreTimestampLike | null;
 }
@@ -179,6 +186,17 @@ export interface Serata {
   contatoreOrdini: number;
   /** Progressivo di ciascuna cassa: { A: 12, B: 9 }. Riparte ogni serata. */
   contatoriCassa?: Record<string, number>;
+}
+
+/** Il contrario di componiCodiceBarre: dal testo letto dal lettore ricava le
+ * parti. Si legge dal fondo, perché le parti finali hanno lunghezza fissa.
+ * Null se il testo non ha la forma giusta. */
+export function leggiCodiceBarre(
+  testo: string
+): { codice: string; data: string; ora: string; cassa: string } | null {
+  const trovato = /^([A-Z]\d{4,})(\d{8})(\d{4})([A-Z])$/.exec(testo.trim().toUpperCase());
+  if (!trovato || trovato[1][0] !== trovato[4]) return null;
+  return { codice: trovato[1], data: trovato[2], ora: trovato[3], cassa: trovato[4] };
 }
 
 /** La lettera che identifica una cassa: una sola lettera maiuscola. */
@@ -382,6 +400,16 @@ export interface CreaOrdineCassaRichiesta {
 export interface ConfermaOrdineRichiesta {
   serataId: string;
   numero: number;
+}
+
+export interface InviaOrdineRichiesta {
+  serataId: string;
+  ordineId: string;
+}
+
+export interface InviaOrdineRisposta {
+  ordineId: string;
+  codice: string;
 }
 
 export interface SegnaSottoOrdineProntoRichiesta {

@@ -1,15 +1,13 @@
 import { useMemo, useState } from 'react';
-import { useCategorie, useDisponibilita, useLetteraCassa, useProdotti, useUtenteAutenticato } from '../hooks';
+import { useCategorie, useDisponibilita, useLetteraCassa, useOrdiniAperti, useProdotti, useUtenteAutenticato } from '../hooks';
 import { creaOrdineCassa, messaggioErrore } from '../services/callables';
+import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
+import { SchedaDaIncassare } from './DaIncassare';
 
 /** Colonne della tabella: serve alle intestazioni di portata, che occupano
  * un'unica cella a tutta larghezza. */
 const COLONNE = 6;
-
-function euro(valore: number): string {
-  return valore.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
-}
 
 export function NuovoOrdine() {
   const categorie = useCategorie();
@@ -25,6 +23,12 @@ export function NuovoOrdine() {
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [messaggioSuccesso, setMessaggioSuccesso] = useState<string | null>(null);
+  /** L'ordine appena confermato, che aspetta l'incasso: finché è qui prende il
+   * posto del carrello, così la cassiera non batte un altro ordine per sbaglio
+   * mentre il cliente sta pagando. */
+  const [ordineDaIncassareId, setOrdineDaIncassareId] = useState<string | null>(null);
+  const ordiniAperti = useOrdiniAperti();
+  const ordineDaIncassare = ordiniAperti.find((o) => o.id === ordineDaIncassareId && o.stato === 'da_pagare') ?? null;
 
   // Alla cassa il menù si legge per portate, come sul cartello: il settore che
   // prepara il piatto qui non serve.
@@ -88,7 +92,9 @@ export function NuovoOrdine() {
     });
   }
 
-  async function inviaOrdine() {
+  /** Conferma: l'ordine prende il numero di comanda e il foglio per il cliente
+   * va in stampa. Ai reparti non arriva niente finché non si incassa. */
+  async function confermaOrdine() {
     setErrore(null);
     setMessaggioSuccesso(null);
     setInCorso(true);
@@ -100,9 +106,7 @@ export function NuovoOrdine() {
         tavolo: Number(tavolo),
         coperti: Number(coperti),
       });
-      setMessaggioSuccesso(
-        `Ordine ${risultato.data.codice} inviato ai reparti — ${euro(risultato.data.totale)}`
-      );
+      setOrdineDaIncassareId(risultato.data.ordineId);
       setCarrello({});
       setTavolo('');
       setCoperti('');
@@ -222,9 +226,24 @@ export function NuovoOrdine() {
 
       <div className="colonna-riepilogo">
         <div className="testata-riepilogo">
-          <h2>Riepilogo ordine</h2>
+          <h2>{ordineDaIncassare ? 'Da incassare' : 'Riepilogo ordine'}</h2>
           {letteraCassa && <span className="targhetta-cassa">Cassa {letteraCassa}</span>}
         </div>
+
+        {ordineDaIncassare && (
+          <SchedaDaIncassare
+            ordine={ordineDaIncassare}
+            stampaSubito
+            onFatto={(testo) => {
+              setMessaggioSuccesso(testo);
+              setOrdineDaIncassareId(null);
+            }}
+            onMettiDaParte={() => setOrdineDaIncassareId(null)}
+          />
+        )}
+        {!ordineDaIncassare && ordineDaIncassareId !== null && <p className="spiegazione">Sto preparando il foglio…</p>}
+        {!ordineDaIncassare && ordineDaIncassareId === null && (
+          <>
         {letteraCassa === null && (
           <p className="errore">
             Al tuo account non è stata assegnata la lettera della cassa (A, B…): chiedi all'amministratore di
@@ -271,17 +290,24 @@ export function NuovoOrdine() {
         </p>
 
         {mancaTavolo && <p className="avviso-campi">Scrivi il tavolo e i coperti prima di confermare.</p>}
-        {errore && <p className="errore">{errore}</p>}
-        {messaggioSuccesso && <p className="successo">{messaggioSuccesso}</p>}
 
         <button
           type="button"
           className="bottone-principale"
           disabled={numeroArticoli === 0 || inCorso || avvisoPorzioni !== null || mancaTavolo || !letteraCassa}
-          onClick={inviaOrdine}
+          onClick={confermaOrdine}
         >
-          {inCorso ? 'Invio in corso…' : 'Conferma e invia'}
+          {inCorso ? 'Conferma in corso…' : 'Conferma e stampa'}
         </button>
+        <p className="spiegazione">
+          La conferma dà il numero di comanda e stampa il foglio per il cliente. Ai reparti l'ordine arriva solo
+          dopo l'incasso.
+        </p>
+          </>
+        )}
+
+        {errore && <p className="errore">{errore}</p>}
+        {messaggioSuccesso && <p className="successo">{messaggioSuccesso}</p>}
       </div>
     </div>
   );

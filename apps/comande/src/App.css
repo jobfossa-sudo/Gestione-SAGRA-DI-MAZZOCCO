@@ -1131,3 +1131,171 @@ body.trascinamento-in-corso {
 .aggiungi-componente .bottone-aggiungi {
   width: auto;
 }
+
+/* ---------- ordine confermato, in attesa di incasso ---------- */
+
+.scheda-incasso {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  padding: 16px;
+}
+.testata-incasso {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.codice-comanda {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.bottoni-incasso {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bottone-secondario {
+  background: transparent;
+  color: var(--text-muted);
+}
+.da-incassare .elenco-bozze li {
+  grid-template-columns: auto 1fr auto auto;
+}
+
+/* ---------- fogli da stampare (A5) ---------- */
+
+/* Sullo schermo l'area di stampa non esiste: vive solo sulla carta. */
+.area-stampa {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A5 portrait;
+    margin: 10mm;
+  }
+  /* Esce solo il foglio: l'app resta fuori dalla stampa. */
+  body > *:not(.area-stampa) {
+    display: none !important;
+  }
+  .area-stampa {
+    display: block;
+    background: #fff;
+    color: #000;
+  }
+  .foglio {
+    /* Un foglio per pagina, anche quando se ne stampano diversi insieme. */
+    break-after: page;
+    page-break-after: always;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .foglio:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+}
+
+.foglio .testata-foglio {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 2px solid #000;
+  padding-bottom: 4px;
+}
+.foglio .occhiello {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 10pt;
+}
+.foglio .tipo-foglio {
+  font-size: 10pt;
+}
+.foglio .codice-grande {
+  font-size: 34pt;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 8pt 0 0;
+}
+.foglio .tavolo-foglio {
+  margin: 0 0 8pt;
+  font-size: 12pt;
+}
+.copia-cucina-testata {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10pt;
+}
+.foglio .tavolo-grande {
+  margin: 0;
+  font-size: 30pt;
+  font-weight: 800;
+  line-height: 1;
+}
+.foglio .tavolo-grande span {
+  display: block;
+  font-size: 10pt;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.foglio .voci-foglio {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12pt;
+}
+.foglio .voci-foglio td {
+  border-bottom: 1px dotted #999;
+  padding: 4pt 2pt;
+  vertical-align: top;
+}
+.foglio .voci-foglio .quantita {
+  font-weight: 700;
+  width: 3em;
+}
+.foglio .voci-foglio .destra {
+  text-align: right;
+  white-space: nowrap;
+}
+/* Quadratino da spuntare mentre si compone il vassoio. */
+.foglio .casella-spunta {
+  width: 1.4em;
+}
+.foglio .casella-spunta::after {
+  content: '';
+  display: block;
+  width: 1em;
+  height: 1em;
+  border: 1px solid #000;
+}
+.foglio .voci-foglio tfoot td {
+  border-bottom: none;
+  border-top: 2px solid #000;
+  font-size: 14pt;
+  font-weight: 800;
+  padding-top: 6pt;
+}
+.piede-codice {
+  margin-top: 10pt;
+  text-align: center;
+}
+.piede-codice p {
+  margin: 2pt 0 0;
+  font-size: 11pt;
+  letter-spacing: 0.04em;
+}
+.codice-a-barre {
+  width: 100%;
+  max-width: 100mm;
+  height: auto;
+}

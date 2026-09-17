@@ -56,6 +56,8 @@ import {
   ImpostaPorzioniRichiesta,
   SegnaEsauritoRichiesta,
   ProdottoRisposta,
+  InviaOrdineRichiesta,
+  InviaOrdineRisposta,
   ImpostaLetteraCassaRichiesta,
   REGOLA_LETTERA_CASSA,
   formattaCodiceOrdine,
@@ -400,7 +402,7 @@ function generaSottoOrdini(
   ordineId: string,
   numero: number,
   codiceOrdine: string,
-  righe: RigaDisponibilita[],
+  righe: { prodotto: Prodotto; quantita: number }[],
   componenti: Map<string, Componente>
 ): void {
   const perSettore = new Map<Settore, LavoroSettore>();
@@ -709,9 +711,10 @@ export const creaOrdineBozza = onCall(async (request: CallableRequest<CreaOrdine
 });
 
 // ---------------------------------------------------------------------------
-// creaOrdineCassa — cassiere: ordine diretto, già pagato. Genera subito i
-// sotto-ordini per settore (l'ordine parte immediatamente in cucina, alla
-// griglia e al bar).
+// creaOrdineCassa — la cassa conferma l'ordine battuto al banco: riceve il
+// numero di comanda, si stampa il resoconto per il cliente e le porzioni si
+// tengono da parte. L'ordine resta "da_pagare": verso i reparti parte solo con
+// inviaOrdine, dopo l'incasso.
 // ---------------------------------------------------------------------------
 
 export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdineCassaRichiesta>): Promise<CreaOrdineRisposta> => {
@@ -729,9 +732,11 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
     const serata = await leggiSerataAperta(transaction, serataId);
     const lettera = await leggiLetteraCassa(transaction, uid);
     const { items: itemsOrdine, totale, righe } = await costruisciItemsOrdine(transaction, serataId, itemsRichiesti);
-    const componenti = await leggiComponenti(transaction);
 
     const { numero, codice, codiceBarre } = prossimoCodiceOrdine(transaction, serata, lettera);
+    // Le porzioni si scalano già alla conferma: il cliente ha in mano il
+    // resoconto stampato, un'altra cassa non deve potergli vendere l'ultima
+    // porzione mentre paga. Se l'ordine viene annullato tornano vendibili.
     scalaPorzioni(transaction, serataId, righe);
 
     const ordineRef = db.collection(`serate/${serataId}/ordini`).doc();
@@ -743,7 +748,7 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
       cassa: lettera,
       codice,
       codiceBarre,
-      stato: 'in_evasione',
+      stato: 'da_pagare',
       tipo: 'cassa',
       tavolo: tavoloValidato,
       coperti: copertiValidati,
@@ -751,19 +756,20 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
       totale,
       createdAt: adesso,
       confirmedAt: adesso,
+      pagatoAt: null,
       completedAt: null,
       cancelledAt: null,
     };
     transaction.set(ordineRef, ordine);
-    generaSottoOrdini(transaction, serataId, ordineRef.id, numero, codice, righe, componenti);
 
     return { ordineId: ordineRef.id, numero, codice, totale };
   });
 });
 
 // ---------------------------------------------------------------------------
-// confermaOrdine — cassiere conferma una bozza (trovata dal numero d'ordine
-// mostrato al cliente dopo l'invio da QR) e genera i sotto-ordini.
+// confermaOrdine — la cassa richiama una bozza dal QR (dal numero mostrato al
+// cliente) e la conferma: da qui segue lo stesso giro di un ordine battuto al
+// banco (numero di comanda, resoconto, pagamento, invio).
 // ---------------------------------------------------------------------------
 
 export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrdineRichiesta>): Promise<CreaOrdineRisposta> => {
@@ -794,31 +800,80 @@ export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrd
       );
     }
 
-    // Tra l'invio dal tavolo e il pagamento qualcosa può essere finito: si
-    // ricontrolla la disponibilità e solo ora si scalano le porzioni.
+    // Tra l'invio dal tavolo e la cassa qualcosa può essere finito: si
+    // ricontrolla la disponibilità e solo ora si tengono da parte le porzioni.
     const { righe } = await costruisciItemsOrdine(
       transaction,
       serataId,
       ordine.items.map((item) => ({ prodottoId: item.prodottoId, quantita: item.quantita }))
     );
-    const componenti = await leggiComponenti(transaction);
 
     // Il numero di comanda lo dà la cassa che incassa, come per gli ordini
     // battuti al banco.
     const { codice, codiceBarre } = prossimoCodiceOrdine(transaction, serata, lettera);
     transaction.update(ordineDoc.ref, {
-      stato: 'in_evasione',
+      stato: 'da_pagare',
       cassa: lettera,
       codice,
       codiceBarre,
       confirmedAt: FieldValue.serverTimestamp(),
+      pagatoAt: null,
     });
     scalaPorzioni(transaction, serataId, righe);
-    // La composizione si legge adesso e non al momento della bozza: conta
-    // quella in vigore quando l'ordine parte davvero verso i settori.
-    generaSottoOrdini(transaction, serataId, ordineDoc.id, numero, codice, righe, componenti);
 
     return { ordineId: ordineDoc.id, numero, codice, totale: ordine.totale };
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inviaOrdine — il cliente ha pagato: l'ordine parte verso i reparti, diviso
+// in una comanda per settore.
+// ---------------------------------------------------------------------------
+
+export const inviaOrdine = onCall(async (request: CallableRequest<InviaOrdineRichiesta>): Promise<InviaOrdineRisposta> => {
+  richiedeRuoloComande(request, 'cassa');
+  const { serataId, ordineId } = request.data ?? ({} as InviaOrdineRichiesta);
+  if (typeof serataId !== 'string' || !serataId || typeof ordineId !== 'string' || !ordineId) {
+    throw new HttpsError('invalid-argument', 'Ordine non valido.');
+  }
+
+  const ordineRef = db.doc(`serate/${serataId}/ordini/${ordineId}`);
+
+  return db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ordineRef);
+    if (!snapshot.exists) {
+      throw new HttpsError('not-found', 'Ordine inesistente.');
+    }
+    const ordine = snapshot.data() as Ordine;
+    if (ordine.stato !== 'da_pagare' || !ordine.codice) {
+      const motivo =
+        ordine.stato === 'in_evasione' || ordine.stato === 'completata'
+          ? 'è già stato inviato'
+          : ordine.stato === 'annullata'
+            ? 'è stato annullato'
+            : 'non è ancora stato confermato in cassa';
+      throw new HttpsError('failed-precondition', `L'ordine ${ordine.codice ?? ordine.numero} ${motivo}.`);
+    }
+
+    // La composizione si legge adesso: conta quella in vigore quando l'ordine
+    // parte davvero verso i settori. Se nel frattempo un piatto è stato tolto
+    // dal menù, lo si prepara comunque com'era quando è stato venduto.
+    const righe: { prodotto: Prodotto; quantita: number }[] = [];
+    for (const item of ordine.items) {
+      const prodottoSnapshot = await transaction.get(db.doc(`prodotti/${item.prodottoId}`));
+      const prodotto = (prodottoSnapshot.data() as Prodotto | undefined) ?? ({
+        id: item.prodottoId,
+        nome: item.nome,
+        settore: item.settore,
+      } as Prodotto);
+      righe.push({ prodotto, quantita: item.quantita });
+    }
+    const componenti = await leggiComponenti(transaction);
+
+    transaction.update(ordineRef, { stato: 'in_evasione', pagatoAt: FieldValue.serverTimestamp() });
+    generaSottoOrdini(transaction, serataId, ordineId, ordine.numero, ordine.codice, righe, componenti);
+
+    return { ordineId, codice: ordine.codice };
   });
 });
 
@@ -903,12 +958,12 @@ export const consegnaSottoOrdine = onCall(async (request: CallableRequest<Conseg
 });
 
 // ---------------------------------------------------------------------------
-// annullaOrdine — il cassiere annulla una bozza mai pagata o un ordine pagato
-// mai completato (individuati a fine serata).
+// annullaOrdine — la cassa annulla un ordine confermato ma mai incassato;
+// l'amministratore anche bozze e ordini già partiti (individuati a fine serata).
 // ---------------------------------------------------------------------------
 
 export const annullaOrdine = onCall(async (request: CallableRequest<AnnullaOrdineRichiesta>): Promise<AnnullaOrdineRisposta> => {
-  richiedeRuoloComande(request);
+  const permessi = richiedeRuoloComande(request, 'cassa');
   const { serataId, ordineId } = request.data ?? ({} as AnnullaOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof ordineId !== 'string' || !ordineId) {
     throw new HttpsError('invalid-argument', 'Ordine non valido.');
@@ -928,8 +983,13 @@ export const annullaOrdine = onCall(async (request: CallableRequest<AnnullaOrdin
         `L'ordine ${ordine.codice ?? ordine.numero} non può essere annullato (stato attuale: ${ordine.stato}).`
       );
     }
+    // La cassa annulla solo quello che non ha ancora incassato (il cliente se
+    // ne va senza pagare); un ordine già partito lo annulla l'amministratore.
+    if (!permessi.amministratore && ordine.stato !== 'da_pagare') {
+      throw new HttpsError('permission-denied', 'La cassa può annullare solo gli ordini non ancora incassati.');
+    }
 
-    // Un ordine pagato aveva già scalato le porzioni: annullandolo tornano
+    // Un ordine confermato in cassa aveva già scalato le porzioni: annullandolo tornano
     // vendibili. Una bozza non aveva scalato nulla.
     const daRestituire: { ref: DocumentReference; prodottoRef: DocumentReference; venduti: number }[] = [];
     if (ordine.stato !== 'bozza') {

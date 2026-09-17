@@ -38,6 +38,15 @@ const segnaSottoOrdinePronto = httpsCallable(functions, 'segnaSottoOrdinePronto'
 const consegnaSottoOrdine = httpsCallable(functions, 'consegnaSottoOrdine');
 const annullaOrdine = httpsCallable(functions, 'annullaOrdine');
 const impostaLetteraCassa = httpsCallable(functions, 'impostaLetteraCassa');
+const inviaOrdine = httpsCallable(functions, 'inviaOrdine');
+
+/** Il giro completo della cassa: conferma (numero e resoconto), poi incasso e
+ * invio ai reparti. Restituisce l'esito della conferma. */
+async function creaEInvia(dati) {
+  const conferma = await creaOrdineCassa(dati);
+  await inviaOrdine({ serataId: dati.serataId, ordineId: conferma.data.ordineId });
+  return conferma;
+}
 
 const SERATA_ID = new Date().toISOString().slice(0, 10);
 // Deve coincidere con functions/.env.local e con seed.js.
@@ -102,6 +111,7 @@ async function main() {
     'confermaOrdine (cassa conferma la bozza per numero)',
     confermaOrdine({ serataId: SERATA_ID, numero: bozza1.numero })
   );
+  await assertOk('la cassa incassa e invia la bozza confermata', inviaOrdine({ serataId: SERATA_ID, ordineId: conferma1.ordineId }));
 
   const sottoOrdiniOrdine1 = await db
     .collection(`serate/${SERATA_ID}/sottoOrdini`)
@@ -194,7 +204,7 @@ async function main() {
   await accediCome('cassa');
   const ordineCassa = await assertOk(
     'creaOrdineCassa (cassa, ordine diretto)',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'grigliata', quantita: 1 }] })
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'grigliata', quantita: 1 }] })
   );
   const ordineCassaDoc = await db.doc(`serate/${SERATA_ID}/ordini/${ordineCassa.ordineId}`).get();
   record('l’ordine da cassa parte subito "in_evasione"', ordineCassaDoc.data().stato === 'in_evasione');
@@ -203,7 +213,7 @@ async function main() {
   await accediCome('jolly');
   const ordineJolly = await assertOk(
     'chi ha i ruoli cassa e consegna può incassare',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'birra', quantita: 1 }] })
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'birra', quantita: 1 }] })
   );
   const sottoJolly = (
     await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', ordineJolly.ordineId).get()
@@ -249,13 +259,13 @@ async function main() {
   await accediCome('senzaruolo');
   await assertRifiutato(
     'un account senza ruolo non può creare ordini in cassa',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
     'permission-denied'
   );
   await signOut(auth);
   await assertRifiutato(
     'senza accesso non si creano ordini in cassa',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
     'unauthenticated'
   );
 
@@ -333,7 +343,7 @@ async function main() {
   await accediCome('mario', 'password-mario');
   const ordineMario = await assertOk(
     'il nuovo utente lavora subito con il ruolo assegnato',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] })
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] })
   );
   record('l’ordine del nuovo utente prende la sua lettera (minuscola accettata)', /^C\d{4}$/.test(ordineMario.codice), `codice: ${ordineMario.codice}`);
 
@@ -351,7 +361,7 @@ async function main() {
   await accediCome('mario', 'password-mario');
   await assertRifiutato(
     'dopo il cambio di ruolo l’utente non può più incassare',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
     'permission-denied'
   );
 
@@ -423,12 +433,12 @@ async function main() {
   await accediCome('cassa');
   await assertRifiutato(
     'non si possono ordinare più porzioni di quante ne restano',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'vino', quantita: 4 }] }),
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'vino', quantita: 4 }] }),
     'failed-precondition'
   );
   const ordineVino = await assertOk(
     'si possono ordinare esattamente le porzioni rimaste',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'vino', quantita: 3 }] })
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'vino', quantita: 3 }] })
   );
 
   const dopoVendita = (await db.doc(`serate/${SERATA_ID}/disponibilita/vino`).get()).data();
@@ -438,7 +448,7 @@ async function main() {
 
   await assertRifiutato(
     'a porzioni finite l’ordine viene rifiutato con il messaggio giusto',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'vino', quantita: 1 }] }),
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'vino', quantita: 1 }] }),
     'failed-precondition'
   );
 
@@ -454,7 +464,7 @@ async function main() {
   await accediCome('cassa');
   await assertRifiutato(
     'un piatto segnato esaurito non si può ordinare',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'pasta', quantita: 1 }] }),
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'pasta', quantita: 1 }] }),
     'failed-precondition'
   );
   await signOut(auth);
@@ -495,7 +505,7 @@ async function main() {
   await accediCome('cassa');
   const ordineComposto = await assertOk(
     'ordine con piatti scomposti',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [
       { prodottoId: 'piatto-salsicce', quantita: 3 },
       { prodottoId: 'grigliata-test', quantita: 2 },
     ] })
@@ -516,7 +526,7 @@ async function main() {
 
   const ordineMisto = await assertOk(
     'ordine con un piatto che fa lavorare due settori',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'grigliata-patatine', quantita: 1 }] })
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'grigliata-patatine', quantita: 1 }] })
   );
   const comandeMiste = (
     await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', ordineMisto.ordineId).get()
@@ -544,7 +554,7 @@ async function main() {
   await accediCome('cassa'); // lettera A
   const ordineA = await assertOk(
     'la cassiera A batte un ordine',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] })
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] })
   );
   record('il numero di comanda è A + quattro cifre', /^A\d{4}$/.test(ordineA.codice), `codice: ${ordineA.codice}`);
   const docA = (await db.doc(`serate/${SERATA_ID}/ordini/${ordineA.ordineId}`).get()).data();
@@ -560,14 +570,14 @@ async function main() {
   await accediCome('jolly'); // lettera B
   const ordineB = await assertOk(
     'la cassiera B batte un ordine',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] })
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] })
   );
   record('la cassa B ha la sua lettera', /^B\d{4}$/.test(ordineB.codice), `codice: ${ordineB.codice}`);
 
   await accediCome('cassa');
   const [paralleloA1, paralleloA2] = await Promise.all([
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
   ]);
   const numeriA = [paralleloA1.data.numero, paralleloA2.data.numero].sort((a, b) => a - b);
   record(
@@ -590,12 +600,12 @@ async function main() {
   await accediCome('cassa');
   await assertRifiutato(
     'senza tavolo l’ordine in cassa viene rifiutato',
-    creaOrdineCassa({ serataId: SERATA_ID, coperti: 2, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
+    creaEInvia({ serataId: SERATA_ID, coperti: 2, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
     'invalid-argument'
   );
   await assertRifiutato(
     'senza coperti l’ordine in cassa viene rifiutato',
-    creaOrdineCassa({ serataId: SERATA_ID, tavolo: 3, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
+    creaEInvia({ serataId: SERATA_ID, tavolo: 3, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
     'invalid-argument'
   );
 
@@ -611,7 +621,7 @@ async function main() {
   await accediCome('cassa');
   await assertRifiutato(
     'senza lettera la cassiera non può battere ordini',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] }),
     'failed-precondition'
   );
   await accediCome('admin');
@@ -619,11 +629,103 @@ async function main() {
   await accediCome('cassa'); // senza rientrare vale subito: non è un permesso
   const ordineD = await assertOk(
     'la nuova lettera vale da subito',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] })
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] })
   );
   record('e la cassa D parte da 1', ordineD.codice === 'D0001', `codice: ${ordineD.codice}`);
   await accediCome('admin');
   await impostaLetteraCassa({ uid: uidCassa, letteraCassa: 'A' });
+
+  // --- 16. Conferma, pagamento, invio ----------------------------------------
+  await accediCome('admin');
+  await impostaPorzioni({ serataId: SERATA_ID, prodottoId: 'torta', porzioniMassime: 2 });
+
+  await accediCome('cassa');
+  const daPagare = await assertOk(
+    'la cassa conferma un ordine (numero e resoconto)',
+    creaOrdineCassa({ serataId: SERATA_ID, tavolo: 8, coperti: 2, items: [{ prodottoId: 'torta', quantita: 2 }] })
+  );
+  const docDaPagare = (await db.doc(`serate/${SERATA_ID}/ordini/${daPagare.ordineId}`).get()).data();
+  record('l’ordine confermato resta in attesa di pagamento', docDaPagare.stato === 'da_pagare', `stato: ${docDaPagare.stato}`);
+  const comandePrima = await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', daPagare.ordineId).get();
+  record('prima dell’incasso non arriva nessuna comanda ai reparti', comandePrima.size === 0, `comande: ${comandePrima.size}`);
+  const tortaTenuta = (await db.doc(`serate/${SERATA_ID}/disponibilita/torta`).get()).data();
+  record('le porzioni sono già tenute da parte alla conferma', tortaTenuta.venduti === 2, `venduti: ${tortaTenuta.venduti}`);
+  await assertRifiutato(
+    'un’altra cassa non può vendere le porzioni tenute da parte',
+    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'torta', quantita: 1 }] }),
+    'failed-precondition'
+  );
+
+  await accediCome('cucina');
+  await assertRifiutato(
+    'la cucina non può inviare un ordine',
+    inviaOrdine({ serataId: SERATA_ID, ordineId: daPagare.ordineId }),
+    'permission-denied'
+  );
+  await accediCome('cassa');
+  await assertOk('incassato: la cassa invia l’ordine', inviaOrdine({ serataId: SERATA_ID, ordineId: daPagare.ordineId }));
+  const docInviato = (await db.doc(`serate/${SERATA_ID}/ordini/${daPagare.ordineId}`).get()).data();
+  record('l’ordine inviato è in evasione e ricorda quando è stato pagato', docInviato.stato === 'in_evasione' && docInviato.pagatoAt != null);
+  const comandeDopo = await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', daPagare.ordineId).get();
+  record(
+    'dopo l’incasso la comanda arriva in cucina con il numero di comanda',
+    comandeDopo.size === 1 && comandeDopo.docs[0].data().codice === `C${daPagare.codice}`,
+    comandeDopo.docs.map((d) => d.data().codice).join(', ')
+  );
+  await assertRifiutato(
+    'un ordine non si invia due volte',
+    inviaOrdine({ serataId: SERATA_ID, ordineId: daPagare.ordineId }),
+    'failed-precondition'
+  );
+  const comandeDoppie = await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', daPagare.ordineId).get();
+  record('…e le comande non si duplicano', comandeDoppie.size === 1);
+  await assertRifiutato(
+    'la cassa non può annullare un ordine già incassato',
+    annullaOrdine({ serataId: SERATA_ID, ordineId: daPagare.ordineId }),
+    'permission-denied'
+  );
+
+  // Il cliente se ne va senza pagare.
+  await accediCome('admin');
+  await impostaPorzioni({ serataId: SERATA_ID, prodottoId: 'torta', porzioniMassime: 3 });
+  await accediCome('cassa');
+  const abbandonato = await assertOk(
+    'la cassa conferma un ordine che non verrà pagato',
+    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'torta', quantita: 1 }] })
+  );
+  const tortaFinita = (await db.doc('prodotti/torta').get()).data();
+  record('con l’ultima porzione tenuta da parte il piatto risulta finito', tortaFinita.esauritoSerata === SERATA_ID);
+  await assertOk('la cassa annulla l’ordine non pagato', annullaOrdine({ serataId: SERATA_ID, ordineId: abbandonato.ordineId }));
+  const tortaLiberata = (await db.doc(`serate/${SERATA_ID}/disponibilita/torta`).get()).data();
+  const tortaDiNuovo = (await db.doc('prodotti/torta').get()).data();
+  record(
+    'annullandolo la porzione torna vendibile',
+    tortaLiberata.venduti === 2 && tortaDiNuovo.esauritoSerata === null,
+    `venduti: ${tortaLiberata.venduti}, esaurito: ${tortaDiNuovo.esauritoSerata}`
+  );
+  await assertRifiutato(
+    'un ordine annullato non si può inviare',
+    inviaOrdine({ serataId: SERATA_ID, ordineId: abbandonato.ordineId }),
+    'failed-precondition'
+  );
+
+  // Dal QR: la bozza confermata segue lo stesso giro.
+  await signOut(auth);
+  const bozzaGiro = await creaOrdineBozza({ serataId: SERATA_ID, tavolo: 6, coperti: 4, items: [{ prodottoId: 'birra', quantita: 2 }] });
+  await accediCome('cassa');
+  await assertRifiutato(
+    'una bozza non ancora confermata non si può inviare',
+    inviaOrdine({ serataId: SERATA_ID, ordineId: bozzaGiro.data.ordineId }),
+    'failed-precondition'
+  );
+  const bozzaConfermata = await assertOk('la cassa conferma la bozza', confermaOrdine({ serataId: SERATA_ID, numero: bozzaGiro.data.numero }));
+  const docBozza = (await db.doc(`serate/${SERATA_ID}/ordini/${bozzaConfermata.ordineId}`).get()).data();
+  const comandeBozza = await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', bozzaConfermata.ordineId).get();
+  record(
+    'la bozza confermata aspetta il pagamento, senza comande',
+    docBozza.stato === 'da_pagare' && comandeBozza.size === 0 && /^A\d{4}$/.test(docBozza.codice),
+    `stato: ${docBozza.stato}, comande: ${comandeBozza.size}, codice: ${docBozza.codice}`
+  );
 
   console.log('\nRisultati test Cloud Functions:');
   let tuttiOk = true;

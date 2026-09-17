@@ -153,15 +153,16 @@ export function useSottoOrdiniDaEvadere(): SottoOrdine[] {
   return sottoOrdini;
 }
 
-/** Ordini della serata di oggi ancora "aperti": bozze mai confermate e ordini
- * pagati non ancora completati. Usata dalla vista di fine serata. */
+/** Ordini della serata di oggi ancora "aperti": bozze dal QR mai confermate,
+ * ordini confermati in attesa di pagamento e ordini pagati non ancora
+ * completati. */
 export function useOrdiniAperti(): Ordine[] {
   const [ordini, setOrdini] = useState<Ordine[]>([]);
 
   useEffect(() => {
     const q = query(
       collection(db, `serate/${SERATA_ID_OGGI}/ordini`),
-      where('stato', 'in', ['bozza', 'in_evasione']),
+      where('stato', 'in', ['bozza', 'da_pagare', 'in_evasione']),
       orderBy('numero')
     );
     return onSnapshot(q, (snapshot) => {

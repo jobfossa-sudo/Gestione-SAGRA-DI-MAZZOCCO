@@ -2,13 +2,11 @@ import { useState } from 'react';
 import type { Ordine } from '@sagra-mazzocco/shared';
 import { useOrdiniAperti } from '../hooks';
 import { confermaOrdine, messaggioErrore } from '../services/callables';
+import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
+import { SchedaDaIncassare } from './DaIncassare';
 
-function euro(valore: number): string {
-  return valore.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
-}
-
-/** Il resoconto si mostra al cliente prima di incassare: è la sua ultima
+/** Il resoconto si mostra al cliente prima di confermare: è la sua ultima
  * occasione per dire "no, questo non l'ho ordinato". */
 function Resoconto({
   ordine,
@@ -44,14 +42,16 @@ function Resoconto({
       </ul>
 
       <p className="totale">
-        Da incassare <strong>{euro(ordine.totale)}</strong>
+        Da pagare <strong>{euro(ordine.totale)}</strong>
       </p>
 
-      <p className="spiegazione">Fai controllare l'ordine al cliente, incassa e solo allora conferma.</p>
+      <p className="spiegazione">
+        Fai controllare l'ordine al cliente: la conferma gli dà il numero di comanda e stampa il foglio da pagare.
+      </p>
 
       <div className="bottoni-resoconto">
         <button type="button" className="bottone-principale" disabled={inCorso} onClick={onConferma}>
-          {inCorso ? 'Conferma in corso…' : 'Incassato — conferma e invia'}
+          {inCorso ? 'Conferma in corso…' : 'Conferma e stampa'}
         </button>
         <button type="button" disabled={inCorso} onClick={onAnnulla}>
           Torna indietro
@@ -70,6 +70,9 @@ export function ConfermaBozza() {
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [messaggioSuccesso, setMessaggioSuccesso] = useState<string | null>(null);
+  /** Confermato: adesso aspetta il pagamento, come un ordine battuto al banco. */
+  const [daIncassareId, setDaIncassareId] = useState<string | null>(null);
+  const daIncassare = ordiniAperti.find((o) => o.id === daIncassareId && o.stato === 'da_pagare') ?? null;
 
   /** Primo passo: si digita il numero e si richiama l'ordine. Il numero va
    * battuto a mano apposta — è la barriera contro il tasto premuto per
@@ -80,28 +83,32 @@ export function ConfermaBozza() {
     setMessaggioSuccesso(null);
 
     const cercato = Number(numero);
-    const trovato = ordiniAperti.find((o) => o.numero === cercato);
+    // Si cerca solo tra le bozze: i numeri dal QR e i numeri di comanda delle
+    // casse sono due serie diverse, quindi lo stesso numero può esistere due
+    // volte e senza questo filtro si richiamerebbe l'ordine sbagliato.
+    const trovato = bozze.find((o) => o.numero === cercato);
     if (!trovato) {
-      setErrore(`Nessun ordine con numero ${cercato} in questa serata. Controlla il numero sullo schermo del cliente.`);
-      return;
-    }
-    if (trovato.stato !== 'bozza') {
-      setErrore(`L'ordine n. ${cercato} è già stato confermato e incassato.`);
+      const gia = ordiniAperti.find((o) => o.numero === cercato && o.stato !== 'bozza');
+      setErrore(
+        gia
+          ? `L'ordine n. ${cercato} è già stato confermato in cassa: lo trovi in "Da incassare" come ${gia.codice}.`
+          : `Nessun ordine dal tavolo con numero ${cercato} in questa serata. Controlla il numero sullo schermo del cliente.`
+      );
       return;
     }
     setDaConfermare(trovato);
   }
 
-  /** Secondo passo: il cliente ha controllato, la cassa ha incassato. */
+  /** Secondo passo: il cliente ha controllato il resoconto. L'ordine prende il
+   * numero di comanda e il foglio va in stampa; ai reparti arriva dopo. */
   async function conferma() {
     if (!daConfermare) return;
     setErrore(null);
+    setMessaggioSuccesso(null);
     setInCorso(true);
     try {
       const risultato = await confermaOrdine({ serataId: SERATA_ID_OGGI, numero: daConfermare.numero });
-      setMessaggioSuccesso(
-        `Ordine ${risultato.data.codice} confermato e inviato ai reparti — ${euro(risultato.data.totale)}`
-      );
+      setDaIncassareId(risultato.data.ordineId);
       setDaConfermare(null);
       setNumero('');
     } catch (err) {
@@ -119,11 +126,21 @@ export function ConfermaBozza() {
         <h2>Conferma un ordine dal tavolo</h2>
         <p className="spiegazione">
           Il cliente ha ordinato dal telefono inquadrando il QR: chiedigli il numero mostrato sullo schermo e
-          digitalo qui. Vedrai il resoconto da fargli controllare prima di incassare. Solo dopo la conferma
-          l'ordine parte verso i reparti.
+          digitalo qui. Vedrai il resoconto da fargli controllare; la conferma stampa il foglio con il numero di
+          comanda. Ai reparti l'ordine arriva solo dopo l'incasso.
         </p>
 
-        {daConfermare ? (
+        {daIncassare ? (
+          <SchedaDaIncassare
+            ordine={daIncassare}
+            stampaSubito
+            onFatto={(testo) => {
+              setMessaggioSuccesso(testo);
+              setDaIncassareId(null);
+            }}
+            onMettiDaParte={() => setDaIncassareId(null)}
+          />
+        ) : daConfermare ? (
           <Resoconto
             ordine={daConfermare}
             inCorso={inCorso}
@@ -159,11 +176,11 @@ export function ConfermaBozza() {
 
       <section className="riquadro">
         <h2>
-          In attesa di pagamento <span className="contatore">{bozze.length}</span>
+          Arrivati dai tavoli <span className="contatore">{bozze.length}</span>
         </h2>
         <p className="spiegazione">
-          Ordini arrivati dai tavoli e non ancora incassati. L'elenco serve a vedere a colpo d'occhio cosa manca: il
-          numero va comunque digitato qui sopra.
+          Ordini inviati dal QR e non ancora passati in cassa. L'elenco serve a vedere a colpo d'occhio cosa manca:
+          il numero va comunque digitato qui sopra.
         </p>
         {bozze.length === 0 ? (
           <p className="vuoto">Nessun ordine in attesa.</p>

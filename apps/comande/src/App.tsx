@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { NOME_RUOLO_COMANDE, type RuoloComande } from '@sagra-mazzocco/shared';
 import './App.css';
 import { AreaCassa } from './components/AreaCassa';
+import { AreaStampa } from './components/AreaStampa';
 import { Composizioni } from './components/Composizioni';
 import { GestioneMenu } from './components/GestioneMenu';
 import { Login } from './components/Login';
@@ -105,6 +106,8 @@ function App() {
       <main className={area.larga ? 'larga' : undefined}>
         <Contenuto amministratore={amministratore} />
       </main>
+      {/* Invisibile sullo schermo: è il foglio che esce dalla stampante. */}
+      <AreaStampa />
     </div>
   );
 }
