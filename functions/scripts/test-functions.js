@@ -39,6 +39,8 @@ const consegnaSottoOrdine = httpsCallable(functions, 'consegnaSottoOrdine');
 const annullaOrdine = httpsCallable(functions, 'annullaOrdine');
 const impostaLetteraCassa = httpsCallable(functions, 'impostaLetteraCassa');
 const inviaOrdine = httpsCallable(functions, 'inviaOrdine');
+const segnaCopiaCucinaStampata = httpsCallable(functions, 'segnaCopiaCucinaStampata');
+const chiudiOrdine = httpsCallable(functions, 'chiudiOrdine');
 
 /** Il giro completo della cassa: conferma (numero e resoconto), poi incasso e
  * invio ai reparti. Restituisce l'esito della conferma. */
@@ -161,7 +163,7 @@ async function main() {
     'permission-denied'
   );
 
-  await accediCome('consegna');
+  await accediCome('distribuzione');
   const consegna1 = await assertOk(
     'consegna del sotto-ordine della cucina',
     consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoCucina.data().codice })
@@ -180,7 +182,7 @@ async function main() {
     segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoGriglia.id })
   );
 
-  await accediCome('consegna');
+  await accediCome('distribuzione');
   const consegna2 = await assertOk(
     'consegna del sotto-ordine della griglia',
     consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoGriglia.data().codice })
@@ -193,7 +195,7 @@ async function main() {
     segnaSottoOrdinePronto({ serataId: SERATA_ID, sottoOrdineId: sottoBar.id })
   );
 
-  await accediCome('consegna');
+  await accediCome('distribuzione');
   const consegna3 = await assertOk(
     'consegna dell’ultimo sotto-ordine',
     consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoBar.data().codice })
@@ -212,7 +214,7 @@ async function main() {
   // --- 4bis. Volontaria con due ruoli: fa entrambe le cose ---------------------
   await accediCome('jolly');
   const ordineJolly = await assertOk(
-    'chi ha i ruoli cassa e consegna può incassare',
+    'chi ha i ruoli cassa e distribuzione può incassare',
     creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'birra', quantita: 1 }] })
   );
   const sottoJolly = (
@@ -230,7 +232,7 @@ async function main() {
   );
   await accediCome('jolly');
   await assertOk(
-    'e con l’altro ruolo la stessa persona registra la consegna',
+    'e con l’altro ruolo la stessa persona registra la consegna della comanda',
     consegnaSottoOrdine({ serataId: SERATA_ID, codice: sottoJolly.data().codice })
   );
 
@@ -725,6 +727,97 @@ async function main() {
     'la bozza confermata aspetta il pagamento, senza comande',
     docBozza.stato === 'da_pagare' && comandeBozza.size === 0 && /^A\d{4}$/.test(docBozza.codice),
     `stato: ${docBozza.stato}, comande: ${comandeBozza.size}, codice: ${docBozza.codice}`
+  );
+
+  // --- 17. Distribuzione: copia cucina e lettura del codice a barre ---------
+  await accediCome('cassa');
+  const perVassoio = await assertOk(
+    'la cassa batte un ordine da portare al tavolo',
+    creaOrdineCassa({ serataId: SERATA_ID, tavolo: 9, coperti: 4, items: [{ prodottoId: 'acqua', quantita: 2 }] })
+  );
+  const letturaPrimaDelPagamento = (
+    await db.doc(`serate/${SERATA_ID}/ordini/${perVassoio.ordineId}`).get()
+  ).data();
+
+  await accediCome('distribuzione');
+  await assertRifiutato(
+    'la copia cucina non esce per un ordine non pagato',
+    segnaCopiaCucinaStampata({ serataId: SERATA_ID, ordineId: perVassoio.ordineId }),
+    'failed-precondition'
+  );
+  await assertRifiutato(
+    'un foglio non pagato non chiude niente',
+    chiudiOrdine({ serataId: SERATA_ID, codiceBarre: letturaPrimaDelPagamento.codiceBarre }),
+    'failed-precondition'
+  );
+
+  await accediCome('cassa');
+  await inviaOrdine({ serataId: SERATA_ID, ordineId: perVassoio.ordineId });
+  await assertRifiutato(
+    'la cassa non gestisce la distribuzione',
+    segnaCopiaCucinaStampata({ serataId: SERATA_ID, ordineId: perVassoio.ordineId }),
+    'permission-denied'
+  );
+
+  await accediCome('distribuzione');
+  const primaStampa = await assertOk(
+    'la distribuzione si prende la stampa della copia cucina',
+    segnaCopiaCucinaStampata({ serataId: SERATA_ID, ordineId: perVassoio.ordineId })
+  );
+  record('…e le tocca stamparla', primaStampa.daStampare === true);
+  const secondaStampa = await assertOk(
+    'una seconda richiesta per lo stesso ordine viene accettata',
+    segnaCopiaCucinaStampata({ serataId: SERATA_ID, ordineId: perVassoio.ordineId })
+  );
+  record('…ma non fa uscire un secondo foglio', secondaStampa.daStampare === false);
+
+  await assertRifiutato(
+    'un testo qualsiasi non è un codice di comanda',
+    chiudiOrdine({ serataId: SERATA_ID, codiceBarre: 'ciao' }),
+    'invalid-argument'
+  );
+  await assertRifiutato(
+    'un foglio di un’altra serata non chiude gli ordini di stasera',
+    chiudiOrdine({ serataId: SERATA_ID, codiceBarre: 'Z9999200001011200Z' }),
+    'not-found'
+  );
+
+  const ordineDaChiudere = (await db.doc(`serate/${SERATA_ID}/ordini/${perVassoio.ordineId}`).get()).data();
+  const chiusura = await assertOk(
+    'la lettura del codice a barre chiude l’ordine',
+    chiudiOrdine({ serataId: SERATA_ID, codiceBarre: ordineDaChiudere.codiceBarre })
+  );
+  record('la risposta dice dove portare il vassoio', chiusura.tavolo === 9 && chiusura.codice === ordineDaChiudere.codice);
+  const dopoChiusura = (await db.doc(`serate/${SERATA_ID}/ordini/${perVassoio.ordineId}`).get()).data();
+  record('l’ordine risulta completato', dopoChiusura.stato === 'completata' && dopoChiusura.completedAt != null);
+  const comandeChiuse = await db
+    .collection(`serate/${SERATA_ID}/sottoOrdini`)
+    .where('ordineId', '==', perVassoio.ordineId)
+    .get();
+  record(
+    'tutte le comande dell’ordine risultano consegnate',
+    comandeChiuse.size > 0 && comandeChiuse.docs.every((d) => d.data().stato === 'consegnata'),
+    comandeChiuse.docs.map((d) => `${d.data().codice}: ${d.data().stato}`).join(', ')
+  );
+  await assertRifiutato(
+    'lo stesso foglio letto due volte avvisa e non fa danni',
+    chiudiOrdine({ serataId: SERATA_ID, codiceBarre: ordineDaChiudere.codiceBarre }),
+    'failed-precondition'
+  );
+
+  // Un ordine annullato: il suo foglio non deve valere più niente.
+  await accediCome('cassa');
+  const daAnnullare = await assertOk(
+    'la cassa conferma un ordine che poi annulla',
+    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] })
+  );
+  const foglioAnnullato = (await db.doc(`serate/${SERATA_ID}/ordini/${daAnnullare.ordineId}`).get()).data();
+  await annullaOrdine({ serataId: SERATA_ID, ordineId: daAnnullare.ordineId });
+  await accediCome('distribuzione');
+  await assertRifiutato(
+    'il foglio di un ordine annullato non chiude niente',
+    chiudiOrdine({ serataId: SERATA_ID, codiceBarre: foglioAnnullato.codiceBarre }),
+    'failed-precondition'
   );
 
   console.log('\nRisultati test Cloud Functions:');

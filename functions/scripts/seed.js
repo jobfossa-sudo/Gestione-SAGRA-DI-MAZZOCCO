@@ -25,9 +25,9 @@ const UTENTI_PROVA = [
   { nomeUtente: 'cucina', nome: 'Cuoco di prova', amministratore: false, accessi: { comande: ['cucina'] } },
   { nomeUtente: 'griglia', nome: 'Grigliere di prova', amministratore: false, accessi: { comande: ['griglia'] } },
   { nomeUtente: 'bar', nome: 'Barista di prova', amministratore: false, accessi: { comande: ['bar'] } },
-  { nomeUtente: 'consegna', nome: 'Inserviente di prova', amministratore: false, accessi: { comande: ['consegna'] } },
+  { nomeUtente: 'distribuzione', nome: 'Addetto alla distribuzione', amministratore: false, accessi: { comande: ['distribuzione'] } },
   // Volontaria con due postazioni: verifica il caso dei ruoli multipli.
-  { nomeUtente: 'jolly', nome: 'Volontaria tuttofare', amministratore: false, accessi: { comande: ['cassa', 'consegna'] }, letteraCassa: 'B' },
+  { nomeUtente: 'jolly', nome: 'Volontaria tuttofare', amministratore: false, accessi: { comande: ['cassa', 'distribuzione'] }, letteraCassa: 'B' },
   { nomeUtente: 'senzaruolo', nome: 'Account senza accessi', amministratore: false, accessi: {} },
 ];
 

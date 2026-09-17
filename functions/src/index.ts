@@ -58,6 +58,11 @@ import {
   ProdottoRisposta,
   InviaOrdineRichiesta,
   InviaOrdineRisposta,
+  SegnaCopiaCucinaStampataRichiesta,
+  SegnaCopiaCucinaStampataRisposta,
+  ChiudiOrdineRichiesta,
+  ChiudiOrdineRisposta,
+  leggiCodiceBarre,
   ImpostaLetteraCassaRichiesta,
   REGOLA_LETTERA_CASSA,
   formattaCodiceOrdine,
@@ -913,13 +918,114 @@ export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<Seg
 });
 
 // ---------------------------------------------------------------------------
-// consegnaSottoOrdine — l'inserviente scansiona il barcode (il "codice", es.
-// C025) per chiudere un sotto-ordine. Se è l'ultimo sotto-ordine dell'ordine,
-// l'ordine passa automaticamente a "completata".
+// segnaCopiaCucinaStampata — la Distribuzione si prende la stampa della copia
+// cucina di un ordine. Risponde "daStampare" a uno solo: così, anche con due
+// computer accesi o ricaricando la pagina, il foglio esce una volta sola.
+// ---------------------------------------------------------------------------
+
+export const segnaCopiaCucinaStampata = onCall(
+  async (request: CallableRequest<SegnaCopiaCucinaStampataRichiesta>): Promise<SegnaCopiaCucinaStampataRisposta> => {
+    richiedeRuoloComande(request, 'distribuzione');
+    const { serataId, ordineId } = request.data ?? ({} as SegnaCopiaCucinaStampataRichiesta);
+    if (typeof serataId !== 'string' || !serataId || typeof ordineId !== 'string' || !ordineId) {
+      throw new HttpsError('invalid-argument', 'Ordine non valido.');
+    }
+
+    const ordineRef = db.doc(`serate/${serataId}/ordini/${ordineId}`);
+
+    return db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ordineRef);
+      if (!snapshot.exists) {
+        throw new HttpsError('not-found', 'Ordine inesistente.');
+      }
+      const ordine = snapshot.data() as Ordine;
+      // Si stampa solo quello che è stato pagato e non è ancora stato chiuso.
+      if (ordine.stato !== 'in_evasione') {
+        throw new HttpsError(
+          'failed-precondition',
+          `L'ordine ${ordine.codice ?? ordine.numero} non è in lavorazione (stato attuale: ${ordine.stato}).`
+        );
+      }
+      if (ordine.copiaCucinaStampataAt) return { ordineId, daStampare: false };
+
+      transaction.update(ordineRef, { copiaCucinaStampataAt: FieldValue.serverTimestamp() });
+      return { ordineId, daStampare: true };
+    });
+  }
+);
+
+// ---------------------------------------------------------------------------
+// chiudiOrdine — in Distribuzione si passa la copia cucina sotto il lettore:
+// l'ordine viene consegnato per intero (tutte le sue comande) e i numeri dei
+// pannelli scendono. Il codice a barre contiene comanda, data, ora e cassa.
+// ---------------------------------------------------------------------------
+
+export const chiudiOrdine = onCall(async (request: CallableRequest<ChiudiOrdineRichiesta>): Promise<ChiudiOrdineRisposta> => {
+  richiedeRuoloComande(request, 'distribuzione');
+  const { serataId, codiceBarre } = request.data ?? ({} as ChiudiOrdineRichiesta);
+  if (typeof serataId !== 'string' || !serataId || typeof codiceBarre !== 'string' || !codiceBarre) {
+    throw new HttpsError('invalid-argument', 'Codice non valido.');
+  }
+  // Un lettore può aggiungere spazi o scrivere in minuscolo: si normalizza
+  // prima di cercare, e un testo che non ha la forma di un nostro codice si
+  // ferma qui senza nemmeno interrogare il database.
+  const letto = leggiCodiceBarre(codiceBarre);
+  if (!letto) {
+    throw new HttpsError('invalid-argument', 'Codice non valido: non è il codice di una comanda.');
+  }
+  const testo = codiceBarre.trim().toUpperCase();
+
+  return db.runTransaction(async (transaction) => {
+    const trovatiSnapshot = await transaction.get(
+      db.collection(`serate/${serataId}/ordini`).where('codiceBarre', '==', testo).limit(1)
+    );
+    if (trovatiSnapshot.empty) {
+      throw new HttpsError(
+        'not-found',
+        `Il codice ${letto.codice} non è di questa serata: controlla la data sul foglio.`
+      );
+    }
+    const ordineDoc = trovatiSnapshot.docs[0];
+    const ordine = ordineDoc.data() as Ordine;
+
+    if (ordine.stato === 'completata') {
+      throw new HttpsError('failed-precondition', `L'ordine ${ordine.codice} è già stato consegnato.`);
+    }
+    if (ordine.stato === 'annullata') {
+      throw new HttpsError('failed-precondition', `L'ordine ${ordine.codice} è stato annullato.`);
+    }
+    if (ordine.stato !== 'in_evasione') {
+      throw new HttpsError('failed-precondition', `L'ordine ${ordine.codice} non risulta pagato: mandalo in cassa.`);
+    }
+
+    const comandeSnapshot = await transaction.get(
+      db.collection(`serate/${serataId}/sottoOrdini`).where('ordineId', '==', ordineDoc.id)
+    );
+
+    const adesso = FieldValue.serverTimestamp();
+    for (const comanda of comandeSnapshot.docs) {
+      if ((comanda.data() as SottoOrdine).stato === 'consegnata') continue;
+      transaction.update(comanda.ref, { stato: 'consegnata', deliveredAt: adesso });
+    }
+    transaction.update(ordineDoc.ref, { stato: 'completata', completedAt: adesso });
+
+    return {
+      ordineId: ordineDoc.id,
+      codice: ordine.codice ?? letto.codice,
+      tavolo: ordine.tavolo,
+      coperti: ordine.coperti,
+    };
+  });
+});
+
+// ---------------------------------------------------------------------------
+// consegnaSottoOrdine — chiusura di una singola comanda dal suo codice (es.
+// C025). Resta per i casi in cui un settore consegna la sua parte da solo; il
+// giro normale passa da chiudiOrdine, che chiude l'ordine intero.
 // ---------------------------------------------------------------------------
 
 export const consegnaSottoOrdine = onCall(async (request: CallableRequest<ConsegnaSottoOrdineRichiesta>): Promise<ConsegnaSottoOrdineRisposta> => {
-  richiedeRuoloComande(request, 'consegna');
+  richiedeRuoloComande(request, 'distribuzione');
   const { serataId, codice } = request.data ?? ({} as ConsegnaSottoOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof codice !== 'string' || !codice) {
     throw new HttpsError('invalid-argument', 'Codice non valido.');

@@ -8,7 +8,7 @@ import { Composizioni } from './components/Composizioni';
 import { GestioneMenu } from './components/GestioneMenu';
 import { Login } from './components/Login';
 import { Pannelli } from './components/Pannelli';
-import { Consegna } from './components/Consegna';
+import { Distribuzione } from './components/Distribuzione';
 import { SelettoreTema } from './components/SelettoreTema';
 import { useUtenteAutenticato } from './hooks';
 import { auth } from './services/firebase';
@@ -23,7 +23,7 @@ const AREE = [
   { nome: 'Composizioni', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Composizioni, larga: true },
   { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa, larga: false },
   { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli, larga: false },
-  { nome: 'Consegna', ruoli: ['consegna'] as RuoloComande[], soloAmministratore: false, contenuto: Consegna, larga: false },
+  { nome: 'Distribuzione', ruoli: ['distribuzione'] as RuoloComande[], soloAmministratore: false, contenuto: Distribuzione, larga: false },
 ];
 
 const dataSerata = new Date(SERATA_ID_OGGI).toLocaleDateString('it-IT', {

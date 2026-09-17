@@ -2,6 +2,10 @@ import { httpsCallable } from 'firebase/functions';
 import type {
   AnnullaOrdineRichiesta,
   AnnullaOrdineRisposta,
+  ChiudiOrdineRichiesta,
+  ChiudiOrdineRisposta,
+  SegnaCopiaCucinaStampataRichiesta,
+  SegnaCopiaCucinaStampataRisposta,
   ConfermaOrdineRichiesta,
   CreaOrdineCassaRichiesta,
   CreaOrdineRisposta,
@@ -42,10 +46,22 @@ export const segnaSottoOrdinePronto = httpsCallable<SegnaSottoOrdineProntoRichie
   'segnaSottoOrdinePronto'
 );
 
+/** La Distribuzione si prende la stampa della copia cucina di un ordine:
+ * risponde "daStampare" a uno solo, così il foglio esce una volta sola. */
+export const segnaCopiaCucinaStampata = httpsCallable<
+  SegnaCopiaCucinaStampataRichiesta,
+  SegnaCopiaCucinaStampataRisposta
+>(functions, 'segnaCopiaCucinaStampata');
+
+/** La lettura del codice a barre: chiude l'ordine intero. */
+export const chiudiOrdine = httpsCallable<ChiudiOrdineRichiesta, ChiudiOrdineRisposta>(functions, 'chiudiOrdine');
+
 /** Le Cloud Functions rispondono con errori HttpsError: firebase/functions
  * espone il messaggio leggibile in `error.message`, il resto (stack, codice
  * interno) non serve mostrarlo al cassiere. */
 export function messaggioErrore(err: unknown): string {
-  if (err instanceof Error) return err.message;
+  // Il messaggio può arrivare con il codice HTTP in coda ("… [400]"): è roba
+  // da programmatori, chi sta in cassa non deve leggerla.
+  if (err instanceof Error) return err.message.replace(/\s*\[\d{3}\]\s*$/, '');
   return 'Errore imprevisto.';
 }

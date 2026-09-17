@@ -90,6 +90,10 @@ export interface Ordine {
   confirmedAt: FirestoreTimestampLike | null;
   /** Quando la cassa ha incassato e l'ordine è partito verso i reparti. */
   pagatoAt?: FirestoreTimestampLike | null;
+  /** Quando in Distribuzione è uscita la copia cucina. Serve a stamparla una
+   * volta sola: chi la stampa se lo prende qui, e anche riaprendo la pagina o
+   * accendendo un secondo computer non escono due fogli per lo stesso ordine. */
+  copiaCucinaStampataAt?: FirestoreTimestampLike | null;
   completedAt: FirestoreTimestampLike | null;
   cancelledAt: FirestoreTimestampLike | null;
 }
@@ -226,17 +230,18 @@ export function componiCodiceBarre(codice: string, dataOra: { data: string; ora:
  * accesso alle app per cui non ne hanno uno. */
 
 /** "cucina", "griglia" e "bar" coincidono apposta con i settori: chi ha quel
- * ruolo gestisce quel settore. */
-export type RuoloComande = 'cassa' | 'cucina' | 'griglia' | 'bar' | 'consegna';
+ * ruolo gestisce quel settore. "distribuzione" è la postazione dove esce la
+ * copia cucina, si compongono i vassoi e si legge il codice a barre. */
+export type RuoloComande = 'cassa' | 'cucina' | 'griglia' | 'bar' | 'distribuzione';
 
-export const RUOLI_COMANDE: RuoloComande[] = ['cassa', 'cucina', 'griglia', 'bar', 'consegna'];
+export const RUOLI_COMANDE: RuoloComande[] = ['cassa', 'cucina', 'griglia', 'bar', 'distribuzione'];
 
 export const NOME_RUOLO_COMANDE: Record<RuoloComande, string> = {
   cassa: 'Cassa',
   cucina: 'Cucina',
   griglia: 'Griglia',
   bar: 'Bar',
-  consegna: 'Consegna',
+  distribuzione: 'Distribuzione',
 };
 
 /** Una chiave per app, con i ruoli che la persona ricopre in quell'app: alla
@@ -410,6 +415,30 @@ export interface InviaOrdineRichiesta {
 export interface InviaOrdineRisposta {
   ordineId: string;
   codice: string;
+}
+
+export interface SegnaCopiaCucinaStampataRichiesta {
+  serataId: string;
+  ordineId: string;
+}
+
+export interface SegnaCopiaCucinaStampataRisposta {
+  ordineId: string;
+  /** Vero solo per chi si è preso la stampa: gli altri non stampano. */
+  daStampare: boolean;
+}
+
+export interface ChiudiOrdineRichiesta {
+  serataId: string;
+  /** Il testo letto dal lettore di codici a barre. */
+  codiceBarre: string;
+}
+
+export interface ChiudiOrdineRisposta {
+  ordineId: string;
+  codice: string;
+  tavolo: number | null;
+  coperti: number | null;
 }
 
 export interface SegnaSottoOrdineProntoRichiesta {
