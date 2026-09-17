@@ -12,7 +12,7 @@ import {
   DocumentReference,
 } from 'firebase-admin/firestore';
 import { defineString } from 'firebase-functions/params';
-import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https';
+import { onCall, HttpsError, CallableOptions, CallableRequest } from 'firebase-functions/v2/https';
 import {
   Accessi,
   Permessi,
@@ -73,6 +73,18 @@ initializeApp();
 const db = getFirestore();
 
 const CODICE_INIZIALIZZAZIONE = defineString('CODICE_INIZIALIZZAZIONE');
+
+/** Impostazioni comuni a tutte le funzioni.
+ *
+ * `invoker: 'public'` non vuol dire "chiunque può fare quello che vuole": le
+ * funzioni chiamabili devono essere raggiungibili dal browser, e il controllo
+ * di chi sta chiamando lo fa il codice qui dentro (richiedeRuoloComande e
+ * compagnia). Senza questo, dal sito pubblicato ogni chiamata veniva
+ * respinta prima di arrivare al codice, con un errore di CORS.
+ *
+ * `maxInstances` è un tetto di spesa: anche in caso di errore o di abuso, il
+ * progetto non può moltiplicare le copie del server all'infinito. */
+const CHIAMABILE: CallableOptions = { invoker: 'public', maxInstances: 10 };
 
 // ---------------------------------------------------------------------------
 // Helper condivisi
@@ -470,6 +482,7 @@ function generaSottoOrdini(
 // ---------------------------------------------------------------------------
 
 export const inizializzaSistema = onCall(
+  CHIAMABILE,
   async (request: CallableRequest<InizializzaSistemaRichiesta>): Promise<InizializzaSistemaRisposta> => {
     const { codice, nomeUtente, nome, password } = request.data ?? ({} as InizializzaSistemaRichiesta);
     const atteso = CODICE_INIZIALIZZAZIONE.value();
@@ -511,7 +524,7 @@ export const inizializzaSistema = onCall(
 // aggiornati, senza aspettare la scadenza del token.
 // ---------------------------------------------------------------------------
 
-export const creaUtente = onCall(async (request: CallableRequest<CreaUtenteRichiesta>): Promise<UtenteRisposta> => {
+export const creaUtente = onCall(CHIAMABILE, async (request: CallableRequest<CreaUtenteRichiesta>): Promise<UtenteRisposta> => {
   richiedeAmministratore(request);
   const dati = request.data ?? ({} as CreaUtenteRichiesta);
   const uid = await creaAccount({
@@ -528,6 +541,7 @@ export const creaUtente = onCall(async (request: CallableRequest<CreaUtenteRichi
 /** La lettera non è un permesso: non cambia cosa la persona può fare, solo
  * come si numerano i suoi ordini. Per questo non serve farla rientrare. */
 export const impostaLetteraCassa = onCall(
+  CHIAMABILE,
   async (request: CallableRequest<ImpostaLetteraCassaRichiesta>): Promise<UtenteRisposta> => {
     richiedeAmministratore(request);
     const { uid } = request.data ?? ({} as ImpostaLetteraCassaRichiesta);
@@ -539,6 +553,7 @@ export const impostaLetteraCassa = onCall(
 );
 
 export const aggiornaPermessi = onCall(
+  CHIAMABILE,
   async (request: CallableRequest<AggiornaPermessiRichiesta>): Promise<UtenteRisposta> => {
     const uidRichiedente = richiedeAmministratore(request);
     const { uid, amministratore } = request.data ?? ({} as AggiornaPermessiRichiesta);
@@ -555,6 +570,7 @@ export const aggiornaPermessi = onCall(
 );
 
 export const reimpostaPassword = onCall(
+  CHIAMABILE,
   async (request: CallableRequest<ReimpostaPasswordRichiesta>): Promise<UtenteRisposta> => {
     richiedeAmministratore(request);
     const { uid, password } = request.data ?? ({} as ReimpostaPasswordRichiesta);
@@ -569,6 +585,7 @@ export const reimpostaPassword = onCall(
 );
 
 export const impostaAttivo = onCall(
+  CHIAMABILE,
   async (request: CallableRequest<ImpostaAttivoRichiesta>): Promise<UtenteRisposta> => {
     const uidRichiedente = richiedeAmministratore(request);
     const { uid, attivo } = request.data ?? ({} as ImpostaAttivoRichiesta);
@@ -586,6 +603,7 @@ export const impostaAttivo = onCall(
  * profilo da Firestore. Gli ordini già registrati non ne contengono
  * riferimenti, quindi lo storico resta integro. */
 export const eliminaUtente = onCall(
+  CHIAMABILE,
   async (request: CallableRequest<EliminaUtenteRichiesta>): Promise<UtenteRisposta> => {
     const uidRichiedente = richiedeAmministratore(request);
     const { uid } = request.data ?? ({} as EliminaUtenteRichiesta);
@@ -604,7 +622,7 @@ export const eliminaUtente = onCall(
 // prendere ordini; se la serata esiste già non la sovrascrive.
 // ---------------------------------------------------------------------------
 
-export const apriSerata = onCall(async (request: CallableRequest<ApriSerataRichiesta>): Promise<ApriSerataRisposta> => {
+export const apriSerata = onCall(CHIAMABILE, async (request: CallableRequest<ApriSerataRichiesta>): Promise<ApriSerataRisposta> => {
   richiedeRuoloComande(request);
   const { data } = request.data ?? ({} as ApriSerataRichiesta);
   if (typeof data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
@@ -631,6 +649,7 @@ export const apriSerata = onCall(async (request: CallableRequest<ApriSerataRichi
 // ---------------------------------------------------------------------------
 
 export const impostaPorzioni = onCall(
+  CHIAMABILE,
   async (request: CallableRequest<ImpostaPorzioniRichiesta>): Promise<ProdottoRisposta> => {
     richiedeAmministratore(request);
     const { serataId, prodottoId, porzioniMassime } = request.data ?? ({} as ImpostaPorzioniRichiesta);
@@ -657,6 +676,7 @@ export const impostaPorzioni = onCall(
 );
 
 export const segnaEsaurito = onCall(
+  CHIAMABILE,
   async (request: CallableRequest<SegnaEsauritoRichiesta>): Promise<ProdottoRisposta> => {
     richiedeAmministratore(request);
     const { serataId, prodottoId, esaurito } = request.data ?? ({} as SegnaEsauritoRichiesta);
@@ -672,7 +692,7 @@ export const segnaEsaurito = onCall(
 // pagato né inviato ai reparti. Non richiede autenticazione (flusso pubblico).
 // ---------------------------------------------------------------------------
 
-export const creaOrdineBozza = onCall(async (request: CallableRequest<CreaOrdineBozzaRichiesta>): Promise<CreaOrdineRisposta> => {
+export const creaOrdineBozza = onCall(CHIAMABILE, async (request: CallableRequest<CreaOrdineBozzaRichiesta>): Promise<CreaOrdineRisposta> => {
   const { serataId, tavolo, coperti, items } = request.data ?? ({} as CreaOrdineBozzaRichiesta);
   if (typeof serataId !== 'string' || !serataId) {
     throw new HttpsError('invalid-argument', 'Serata non valida.');
@@ -722,7 +742,7 @@ export const creaOrdineBozza = onCall(async (request: CallableRequest<CreaOrdine
 // inviaOrdine, dopo l'incasso.
 // ---------------------------------------------------------------------------
 
-export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdineCassaRichiesta>): Promise<CreaOrdineRisposta> => {
+export const creaOrdineCassa = onCall(CHIAMABILE, async (request: CallableRequest<CreaOrdineCassaRichiesta>): Promise<CreaOrdineRisposta> => {
   richiedeRuoloComande(request, 'cassa');
   const { serataId, items, tavolo, coperti } = request.data ?? ({} as CreaOrdineCassaRichiesta);
   if (typeof serataId !== 'string' || !serataId) {
@@ -777,7 +797,7 @@ export const creaOrdineCassa = onCall(async (request: CallableRequest<CreaOrdine
 // banco (numero di comanda, resoconto, pagamento, invio).
 // ---------------------------------------------------------------------------
 
-export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrdineRichiesta>): Promise<CreaOrdineRisposta> => {
+export const confermaOrdine = onCall(CHIAMABILE, async (request: CallableRequest<ConfermaOrdineRichiesta>): Promise<CreaOrdineRisposta> => {
   richiedeRuoloComande(request, 'cassa');
   const { serataId, numero } = request.data ?? ({} as ConfermaOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId) {
@@ -835,7 +855,7 @@ export const confermaOrdine = onCall(async (request: CallableRequest<ConfermaOrd
 // in una comanda per settore.
 // ---------------------------------------------------------------------------
 
-export const inviaOrdine = onCall(async (request: CallableRequest<InviaOrdineRichiesta>): Promise<InviaOrdineRisposta> => {
+export const inviaOrdine = onCall(CHIAMABILE, async (request: CallableRequest<InviaOrdineRichiesta>): Promise<InviaOrdineRisposta> => {
   richiedeRuoloComande(request, 'cassa');
   const { serataId, ordineId } = request.data ?? ({} as InviaOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof ordineId !== 'string' || !ordineId) {
@@ -887,7 +907,7 @@ export const inviaOrdine = onCall(async (request: CallableRequest<InviaOrdineRic
 // sotto-ordine come pronto per la consegna.
 // ---------------------------------------------------------------------------
 
-export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<SegnaSottoOrdineProntoRichiesta>): Promise<SegnaSottoOrdineProntoRisposta> => {
+export const segnaSottoOrdinePronto = onCall(CHIAMABILE, async (request: CallableRequest<SegnaSottoOrdineProntoRichiesta>): Promise<SegnaSottoOrdineProntoRisposta> => {
   const permessi = richiedeRuoloComande(request, 'cucina', 'griglia', 'bar');
   const { serataId, sottoOrdineId } = request.data ?? ({} as SegnaSottoOrdineProntoRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof sottoOrdineId !== 'string' || !sottoOrdineId) {
@@ -924,6 +944,7 @@ export const segnaSottoOrdinePronto = onCall(async (request: CallableRequest<Seg
 // ---------------------------------------------------------------------------
 
 export const segnaCopiaCucinaStampata = onCall(
+  CHIAMABILE,
   async (request: CallableRequest<SegnaCopiaCucinaStampataRichiesta>): Promise<SegnaCopiaCucinaStampataRisposta> => {
     richiedeRuoloComande(request, 'distribuzione');
     const { serataId, ordineId } = request.data ?? ({} as SegnaCopiaCucinaStampataRichiesta);
@@ -960,7 +981,7 @@ export const segnaCopiaCucinaStampata = onCall(
 // pannelli scendono. Il codice a barre contiene comanda, data, ora e cassa.
 // ---------------------------------------------------------------------------
 
-export const chiudiOrdine = onCall(async (request: CallableRequest<ChiudiOrdineRichiesta>): Promise<ChiudiOrdineRisposta> => {
+export const chiudiOrdine = onCall(CHIAMABILE, async (request: CallableRequest<ChiudiOrdineRichiesta>): Promise<ChiudiOrdineRisposta> => {
   richiedeRuoloComande(request, 'distribuzione');
   const { serataId, codiceBarre } = request.data ?? ({} as ChiudiOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof codiceBarre !== 'string' || !codiceBarre) {
@@ -1024,7 +1045,7 @@ export const chiudiOrdine = onCall(async (request: CallableRequest<ChiudiOrdineR
 // giro normale passa da chiudiOrdine, che chiude l'ordine intero.
 // ---------------------------------------------------------------------------
 
-export const consegnaSottoOrdine = onCall(async (request: CallableRequest<ConsegnaSottoOrdineRichiesta>): Promise<ConsegnaSottoOrdineRisposta> => {
+export const consegnaSottoOrdine = onCall(CHIAMABILE, async (request: CallableRequest<ConsegnaSottoOrdineRichiesta>): Promise<ConsegnaSottoOrdineRisposta> => {
   richiedeRuoloComande(request, 'distribuzione');
   const { serataId, codice } = request.data ?? ({} as ConsegnaSottoOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof codice !== 'string' || !codice) {
@@ -1068,7 +1089,7 @@ export const consegnaSottoOrdine = onCall(async (request: CallableRequest<Conseg
 // l'amministratore anche bozze e ordini già partiti (individuati a fine serata).
 // ---------------------------------------------------------------------------
 
-export const annullaOrdine = onCall(async (request: CallableRequest<AnnullaOrdineRichiesta>): Promise<AnnullaOrdineRisposta> => {
+export const annullaOrdine = onCall(CHIAMABILE, async (request: CallableRequest<AnnullaOrdineRichiesta>): Promise<AnnullaOrdineRisposta> => {
   const permessi = richiedeRuoloComande(request, 'cassa');
   const { serataId, ordineId } = request.data ?? ({} as AnnullaOrdineRichiesta);
   if (typeof serataId !== 'string' || !serataId || typeof ordineId !== 'string' || !ordineId) {
