@@ -1,0 +1,11 @@
+{
+  "name": "prove",
+  "private": true,
+  "description": "Prove nel browser delle app della sagra: si lanciano a mano, col sistema di prova acceso.",
+  "scripts": {
+    "prova": "node prova-cassa.cjs && node prova-distribuzione.cjs && node prova-qr.cjs && node prova-offline.cjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

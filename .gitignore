@@ -8,3 +8,5 @@ firebase-debug.*.log
 firestore-debug.log
 ui-debug.log
 .firebase/
+prove/risultati/
+prove/node_modules/

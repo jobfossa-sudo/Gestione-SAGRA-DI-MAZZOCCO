@@ -1582,3 +1582,14 @@ body.trascinamento-in-corso {
   font-size: 11pt;
   line-height: 1.5;
 }
+
+/* ---------- avviso di rete assente ---------- */
+
+.avviso-rete {
+  margin: 0;
+  padding: 10px 16px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 700;
+  text-align: center;
+}

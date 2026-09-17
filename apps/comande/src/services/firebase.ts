@@ -1,6 +1,11 @@
 import { initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
-import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import {
+  connectFirestoreEmulator,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
 
 // Configurazione pubblica del progetto Firebase "gestione-sagra-mazzocco":
@@ -15,7 +20,17 @@ const app = initializeApp({
 });
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Copia locale dei dati: se la rete della sagra fa le bizze, menù, pannelli
+// ed elenchi restano leggibili e si riallineano da soli al ritorno del
+// collegamento. Vale per la lettura: gli ordini passano dalle Cloud Functions,
+// che senza rete non si possono chiamare (vedi l'avviso in cima all'app).
+// `persistentMultipleTabManager` serve perché in cassa si tengono aperte più
+// finestre della stessa app.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
+
 export const functions = getFunctions(app);
 
 // In sviluppo (npm run dev) ci si collega sempre agli emulatori locali, mai

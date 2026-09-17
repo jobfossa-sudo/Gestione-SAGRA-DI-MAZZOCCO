@@ -4,6 +4,7 @@ import { NOME_RUOLO_COMANDE, type RuoloComande } from '@sagra-mazzocco/shared';
 import './App.css';
 import { AreaCassa } from './components/AreaCassa';
 import { AreaStampa } from './components/AreaStampa';
+import { AvvisoRete } from './components/AvvisoRete';
 import { Composizioni } from './components/Composizioni';
 import { GestioneMenu } from './components/GestioneMenu';
 import { Login } from './components/Login';
@@ -43,7 +44,13 @@ function App() {
   // si apre il menù, senza accesso e senza niente del personale.
   const tavolo = tavoloDaIndirizzo();
 
-  if (tavolo !== null) return <MenuQr tavolo={tavolo} />;
+  if (tavolo !== null)
+    return (
+      <>
+        <AvvisoRete />
+        <MenuQr tavolo={tavolo} />
+      </>
+    );
 
   if (!caricato) return null;
   if (!utente) return <Login />;
@@ -83,6 +90,7 @@ function App() {
 
   return (
     <div className="app-cassa">
+      <AvvisoRete />
       <header>
         <div className="marchio">
           <h1>Sagra di Mazzocco · Comande</h1>

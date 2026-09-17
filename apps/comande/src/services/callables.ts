@@ -67,7 +67,18 @@ export const chiudiOrdine = httpsCallable<ChiudiOrdineRichiesta, ChiudiOrdineRis
 /** Le Cloud Functions rispondono con errori HttpsError: firebase/functions
  * espone il messaggio leggibile in `error.message`, il resto (stack, codice
  * interno) non serve mostrarlo al cassiere. */
+/** Quando la richiesta non arriva nemmeno al server (rete assente o server non
+ * raggiungibile) il codice è uno di questi, e il messaggio originale è in
+ * inglese e da programmatori. */
+const ERRORI_DI_RETE = ['functions/internal', 'functions/unavailable', 'functions/deadline-exceeded'];
+
 export function messaggioErrore(err: unknown): string {
+  const codice = (err as { code?: string } | null)?.code;
+  if (typeof codice === 'string' && ERRORI_DI_RETE.includes(codice)) {
+    return navigator.onLine
+      ? 'Il server non risponde: l’ordine non è partito. Controlla il collegamento e riprova.'
+      : 'Senza collegamento l’ordine non può partire. Riprova quando la rete torna.';
+  }
   // Il messaggio può arrivare con il codice HTTP in coda ("… [400]"): è roba
   // da programmatori, chi sta in cassa non deve leggerla.
   if (err instanceof Error) return err.message.replace(/\s*\[\d{3}\]\s*$/, '');
