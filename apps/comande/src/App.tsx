@@ -7,12 +7,15 @@ import { AreaStampa } from './components/AreaStampa';
 import { Composizioni } from './components/Composizioni';
 import { GestioneMenu } from './components/GestioneMenu';
 import { Login } from './components/Login';
+import { MenuQr } from './components/MenuQr';
+import { QrTavoli } from './components/QrTavoli';
 import { Pannelli } from './components/Pannelli';
 import { Distribuzione } from './components/Distribuzione';
 import { SelettoreTema } from './components/SelettoreTema';
 import { useUtenteAutenticato } from './hooks';
 import { auth } from './services/firebase';
 import { SERATA_ID_OGGI } from './services/serata';
+import { tavoloDaIndirizzo } from './services/tavolo';
 
 /** Ogni area è visibile a chi ha uno dei ruoli indicati; l'amministratore
  * le vede tutte. "larga" toglie il limite di larghezza: serve solo dove si
@@ -21,6 +24,7 @@ import { SERATA_ID_OGGI } from './services/serata';
 const AREE = [
   { nome: 'Gestione menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: GestioneMenu, larga: true },
   { nome: 'Composizioni', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Composizioni, larga: true },
+  { nome: 'QR dei tavoli', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: QrTavoli, larga: true },
   { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa, larga: false },
   { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli, larga: false },
   { nome: 'Distribuzione', ruoli: ['distribuzione'] as RuoloComande[], soloAmministratore: false, contenuto: Distribuzione, larga: false },
@@ -35,6 +39,11 @@ const dataSerata = new Date(SERATA_ID_OGGI).toLocaleDateString('it-IT', {
 function App() {
   const { utente, permessi, caricato } = useUtenteAutenticato();
   const [areaAttiva, setAreaAttiva] = useState<string | null>(null);
+  // Il tavolo nell'indirizzo vuol dire "sono un cliente, ho inquadrato il QR":
+  // si apre il menù, senza accesso e senza niente del personale.
+  const tavolo = tavoloDaIndirizzo();
+
+  if (tavolo !== null) return <MenuQr tavolo={tavolo} />;
 
   if (!caricato) return null;
   if (!utente) return <Login />;

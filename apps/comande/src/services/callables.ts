@@ -7,6 +7,7 @@ import type {
   SegnaCopiaCucinaStampataRichiesta,
   SegnaCopiaCucinaStampataRisposta,
   ConfermaOrdineRichiesta,
+  CreaOrdineBozzaRichiesta,
   CreaOrdineCassaRichiesta,
   CreaOrdineRisposta,
   ImpostaPorzioniRichiesta,
@@ -18,6 +19,13 @@ import type {
   SegnaSottoOrdineProntoRisposta,
 } from '@sagra-mazzocco/shared';
 import { functions } from './firebase';
+
+/** L'ordine che il cliente invia dal menù QR: resta una bozza finché non passa
+ * in cassa. È l'unica funzione che si può chiamare senza aver fatto l'accesso. */
+export const creaOrdineBozza = httpsCallable<CreaOrdineBozzaRichiesta, CreaOrdineRisposta>(
+  functions,
+  'creaOrdineBozza'
+);
 
 export const creaOrdineCassa = httpsCallable<CreaOrdineCassaRichiesta, CreaOrdineRisposta>(
   functions,

@@ -2,6 +2,7 @@ import JsBarcode from 'jsbarcode';
 import { useEffect, useRef } from 'react';
 import { leggiCodiceBarre, type Ordine } from '@sagra-mazzocco/shared';
 import { euro } from '../services/formato';
+import { QrTavolo } from './QrTavoli';
 
 /** Il codice a barre (Code 128: lettere e cifre) disegnato come immagine
  * vettoriale, così esce nitido su qualsiasi stampante. */
@@ -66,6 +67,29 @@ export function FoglioResoconto({ ordine }: { ordine: Ordine }) {
         </tfoot>
       </table>
       <PiedeCodice ordine={ordine} />
+    </section>
+  );
+}
+
+/** Il foglietto da attaccare al tavolo: il cliente inquadra il QR e il menù si
+ * apre già col numero del tavolo. */
+export function FoglioQrTavolo({ tavolo, svg }: { tavolo: number; svg: string }) {
+  return (
+    <section className="foglio foglio-qr">
+      <header className="testata-foglio">
+        <span className="occhiello">Sagra di Mazzocco</span>
+        <span className="tipo-foglio">Ordina dal telefono</span>
+      </header>
+      <p className="tavolo-qr-foglio">
+        <span>Tavolo</span> {tavolo}
+      </p>
+      <QrTavolo svg={svg} />
+      <ol className="istruzioni-qr">
+        <li>Inquadra il quadrato con la fotocamera del telefono.</li>
+        <li>Scegli quante persone siete e cosa volete.</li>
+        <li>Invia: sullo schermo compare un numero.</li>
+        <li>Vai in cassa, mostra il numero e paga.</li>
+      </ol>
     </section>
   );
 }
