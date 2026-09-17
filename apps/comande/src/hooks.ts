@@ -1,7 +1,11 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
+import { BIGLIETTI_INIZIALI, TIPI_BIGLIETTO } from '@sagra-mazzocco/shared';
 import type {
+  Biglietto,
+  TipoBiglietto,
+  Immagine,
   Categoria,
   Componente,
   DisponibilitaProdotto,
@@ -171,4 +175,40 @@ export function useOrdiniAperti(): Ordine[] {
   }, []);
 
   return ordini;
+}
+
+/** L'impaginazione dei biglietti, decisa dall'amministratore. Un biglietto
+ * mai modificato non ha un documento: vale quella di partenza. */
+export function useBiglietti(): Record<TipoBiglietto, Biglietto> {
+  const [biglietti, setBiglietti] = useState<Record<TipoBiglietto, Biglietto>>(BIGLIETTI_INIZIALI);
+
+  useEffect(
+    () =>
+      onSnapshot(collection(db, 'biglietti'), (snapshot) => {
+        const salvati = new Map(snapshot.docs.map((doc) => [doc.id, doc.data() as Biglietto]));
+        setBiglietti(
+          Object.fromEntries(
+            TIPI_BIGLIETTO.map((tipo) => [tipo, salvati.get(tipo) ?? BIGLIETTI_INIZIALI[tipo]])
+          ) as Record<TipoBiglietto, Biglietto>
+        );
+      }),
+    []
+  );
+
+  return biglietti;
+}
+
+/** Le immagini caricate (logo, stemma, sponsor), per id. */
+export function useImmagini(): Map<string, Immagine> {
+  const [immagini, setImmagini] = useState(new Map<string, Immagine>());
+
+  useEffect(
+    () =>
+      onSnapshot(collection(db, 'immagini'), (snapshot) => {
+        setImmagini(new Map(snapshot.docs.map((doc) => [doc.id, doc.data() as Immagine])));
+      }),
+    []
+  );
+
+  return immagini;
 }

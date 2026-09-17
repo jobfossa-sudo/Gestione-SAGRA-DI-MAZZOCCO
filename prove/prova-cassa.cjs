@@ -58,7 +58,7 @@ function verifica(descrizione, condizione, extra = '') {
   verifica('il foglio riporta il numero di comanda', foglio.includes(codice));
   verifica('il foglio riporta il codice a barre disegnato', /<svg[^>]*codice-a-barre[\s\S]*<rect/.test(foglio));
   verifica('sotto il codice c’è la riga leggibile', /· Cassa A/.test(foglio.replace(/<[^>]+>/g, '')));
-  verifica('il foglio riporta tavolo e coperti', /Tavolo 12/.test(foglio) && /3 coperti/.test(foglio));
+  verifica('il foglio riporta tavolo e coperti', /blocco-tavolo[\s\S]*12/.test(foglio) && /3 coperti/.test(foglio));
   fs.writeFileSync(RISULTATI + '/foglio-resoconto.html', foglio);
 
   // Prima dell'incasso i reparti non vedono niente.

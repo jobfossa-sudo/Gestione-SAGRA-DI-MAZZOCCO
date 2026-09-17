@@ -192,6 +192,189 @@ export interface Serata {
   contatoriCassa?: Record<string, number>;
 }
 
+// ---------------------------------------------------------------------------
+// Impaginazione dei biglietti stampati
+//
+// Un biglietto non è disegnato nel codice: è un elenco di blocchi, che
+// l'amministratore accende, spegne e trascina dalla schermata "Biglietti".
+// Qui ci sono le forme e la disposizione di partenza, che riproduce i fogli
+// come erano prima che si potessero comporre.
+// ---------------------------------------------------------------------------
+
+/** I biglietti componibili. Il cartello col QR del tavolo non è qui: è un
+ * manifesto, non un biglietto d'ordine. */
+export type TipoBiglietto = 'resoconto' | 'copiaCucina';
+
+export const TIPI_BIGLIETTO: TipoBiglietto[] = ['resoconto', 'copiaCucina'];
+
+export const NOME_BIGLIETTO: Record<TipoBiglietto, string> = {
+  resoconto: 'Resoconto per il cliente',
+  copiaCucina: 'Copia cucina',
+};
+
+export const SPIEGAZIONE_BIGLIETTO: Record<TipoBiglietto, string> = {
+  resoconto: 'Lo stampa la cassa alla conferma e lo dà al cliente, che lo porta a pagare.',
+  copiaCucina: 'Esce in Distribuzione, segue il vassoio e si legge col lettore prima di portarlo al tavolo.',
+};
+
+export type TipoBlocco =
+  | 'immagine'
+  | 'titolo'
+  | 'testo'
+  | 'codice'
+  | 'tavolo'
+  | 'voci'
+  | 'totale'
+  | 'codiceBarre'
+  | 'riga'
+  | 'spazio';
+
+export const TIPI_BLOCCO: TipoBlocco[] = [
+  'immagine',
+  'titolo',
+  'testo',
+  'codice',
+  'tavolo',
+  'voci',
+  'totale',
+  'codiceBarre',
+  'riga',
+  'spazio',
+];
+
+export const NOME_BLOCCO: Record<TipoBlocco, string> = {
+  immagine: 'Immagine',
+  titolo: 'Titolo',
+  testo: 'Testo libero',
+  codice: 'Numero di comanda',
+  tavolo: 'Tavolo e coperti',
+  voci: 'Elenco dei piatti',
+  totale: 'Totale',
+  codiceBarre: 'Codice a barre',
+  riga: 'Riga di separazione',
+  spazio: 'Spazio vuoto',
+};
+
+export type Allineamento = 'sinistra' | 'centro' | 'destra';
+export type Grandezza = 'piccolo' | 'normale' | 'grande' | 'enorme' | 'gigante';
+
+/** Su un foglio orizzontale conviene affiancare: i blocchi "sinistra" e
+ * "destra" vicini tra loro finiscono in due colonne, quelli "intera"
+ * occupano tutta la larghezza. */
+export type Colonna = 'intera' | 'sinistra' | 'destra';
+
+export interface BloccoBiglietto {
+  id: string;
+  tipo: TipoBlocco;
+  attivo: boolean;
+  colonna: Colonna;
+  allineamento?: Allineamento;
+  grandezza?: Grandezza;
+  grassetto?: boolean;
+  /** Per "titolo" e "testo". */
+  testo?: string;
+  /** Per "immagine": il documento della raccolta `immagini`. */
+  immagineId?: string | null;
+  /** Per "immagine": quanto larga stamparla, in millimetri. */
+  larghezzaMm?: number;
+  /** Per "voci". */
+  mostraPrezzi?: boolean;
+  /** Per "voci": il quadratino da spuntare componendo il vassoio. */
+  caselleSpunta?: boolean;
+  /** Per "tavolo". */
+  mostraCoperti?: boolean;
+  /** Per "codiceBarre": la riga in chiaro sotto le strisce. */
+  mostraRigaLeggibile?: boolean;
+  /** Per "spazio". */
+  altezzaMm?: number;
+}
+
+export type FormatoCarta = 'a5-orizzontale' | 'a5-verticale' | 'a4-orizzontale' | 'a4-verticale';
+
+export const MISURE_CARTA: Record<
+  FormatoCarta,
+  { nome: string; regolaCss: string; larghezzaMm: number; altezzaMm: number }
+> = {
+  'a5-orizzontale': { nome: 'A5 orizzontale', regolaCss: 'A5 landscape', larghezzaMm: 210, altezzaMm: 148 },
+  'a5-verticale': { nome: 'A5 verticale', regolaCss: 'A5 portrait', larghezzaMm: 148, altezzaMm: 210 },
+  'a4-orizzontale': { nome: 'A4 orizzontale', regolaCss: 'A4 landscape', larghezzaMm: 297, altezzaMm: 210 },
+  'a4-verticale': { nome: 'A4 verticale', regolaCss: 'A4 portrait', larghezzaMm: 210, altezzaMm: 297 },
+};
+
+export const FORMATI_CARTA = Object.keys(MISURE_CARTA) as FormatoCarta[];
+
+export interface Biglietto {
+  id: TipoBiglietto;
+  formato: FormatoCarta;
+  /** Margine bianco intorno al foglio, in millimetri. */
+  margineMm: number;
+  blocchi: BloccoBiglietto[];
+}
+
+/** Blocchi che non si possono spegnere, perché senza di loro il sistema non
+ * funziona più: senza numero e codice a barre la copia cucina non chiude
+ * l'ordine, e un resoconto senza totale non si può far pagare. */
+export const BLOCCHI_OBBLIGATORI: Record<TipoBiglietto, TipoBlocco[]> = {
+  resoconto: ['totale'],
+  copiaCucina: ['codice', 'codiceBarre'],
+};
+
+/** La disposizione di partenza, e quella a cui si torna col tasto
+ * "Ripristina": gli stessi fogli di prima, su A5 orizzontale. */
+export const BIGLIETTI_INIZIALI: Record<TipoBiglietto, Biglietto> = {
+  resoconto: {
+    id: 'resoconto',
+    formato: 'a5-orizzontale',
+    margineMm: 10,
+    blocchi: [
+      { id: 'testata', tipo: 'titolo', attivo: true, colonna: 'intera', testo: 'Sagra di Mazzocco', grandezza: 'grande', allineamento: 'sinistra', grassetto: true },
+      { id: 'sottotitolo', tipo: 'testo', attivo: true, colonna: 'intera', testo: 'Resoconto ordine', grandezza: 'piccolo', allineamento: 'sinistra' },
+      { id: 'riga-testata', tipo: 'riga', attivo: true, colonna: 'intera' },
+      { id: 'voci', tipo: 'voci', attivo: true, colonna: 'sinistra', mostraPrezzi: true, caselleSpunta: false },
+      { id: 'totale', tipo: 'totale', attivo: true, colonna: 'sinistra', grandezza: 'grande', allineamento: 'destra' },
+      { id: 'codice', tipo: 'codice', attivo: true, colonna: 'destra', grandezza: 'gigante', allineamento: 'centro', grassetto: true },
+      { id: 'tavolo', tipo: 'tavolo', attivo: true, colonna: 'destra', allineamento: 'centro', mostraCoperti: true },
+      { id: 'codice-barre', tipo: 'codiceBarre', attivo: true, colonna: 'destra', allineamento: 'centro', mostraRigaLeggibile: true },
+      { id: 'saluto', tipo: 'testo', attivo: false, colonna: 'intera', testo: 'Grazie e buon appetito!', grandezza: 'normale', allineamento: 'centro' },
+      { id: 'logo', tipo: 'immagine', attivo: false, colonna: 'intera', immagineId: null, larghezzaMm: 40, allineamento: 'centro' },
+    ],
+  },
+  copiaCucina: {
+    id: 'copiaCucina',
+    formato: 'a5-orizzontale',
+    margineMm: 10,
+    blocchi: [
+      { id: 'testata', tipo: 'titolo', attivo: true, colonna: 'intera', testo: 'Copia cucina', grandezza: 'normale', allineamento: 'sinistra', grassetto: true },
+      { id: 'riga-testata', tipo: 'riga', attivo: true, colonna: 'intera' },
+      { id: 'voci', tipo: 'voci', attivo: true, colonna: 'sinistra', mostraPrezzi: false, caselleSpunta: true },
+      { id: 'codice', tipo: 'codice', attivo: true, colonna: 'destra', grandezza: 'gigante', allineamento: 'centro', grassetto: true },
+      { id: 'tavolo', tipo: 'tavolo', attivo: true, colonna: 'destra', allineamento: 'centro', grandezza: 'grande', mostraCoperti: true },
+      { id: 'codice-barre', tipo: 'codiceBarre', attivo: true, colonna: 'destra', allineamento: 'centro', mostraRigaLeggibile: true },
+      { id: 'logo', tipo: 'immagine', attivo: false, colonna: 'intera', immagineId: null, larghezzaMm: 30, allineamento: 'centro' },
+    ],
+  },
+};
+
+/** Un'immagine caricata dall'amministratore (logo, stemma, sponsor). Sta in
+ * Firestore, non in un archivio a parte: sono pochi disegni piccoli, così
+ * arrivano con gli altri dati e restano disponibili anche senza rete. */
+export interface Immagine {
+  id: string;
+  nome: string;
+  /** L'immagine stessa, già rimpicciolita, come "data:image/png;base64,…". */
+  dati: string;
+  larghezza: number;
+  altezza: number;
+  /** Peso in byte del campo `dati`: serve a non superare il limite del
+   * documento (1 MB) e a tenere le stampe leggere. */
+  byte: number;
+  createdAt: FirestoreTimestampLike;
+}
+
+/** Limite di sicurezza per un'immagine: un documento Firestore non può
+ * superare 1 MB, e un logo pesante rallenterebbe la stampa. */
+export const BYTE_MASSIMI_IMMAGINE = 400 * 1024;
+
 /** Il contrario di componiCodiceBarre: dal testo letto dal lettore ricava le
  * parti. Si legge dal fondo, perché le parti finali hanno lunghezza fissa.
  * Null se il testo non ha la forma giusta. */

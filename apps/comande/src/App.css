@@ -1682,3 +1682,266 @@ body.trascinamento-in-corso {
   font-size: 1.2rem;
   font-weight: 700;
 }
+
+/* ---------- composizione dei biglietti ---------- */
+
+.biglietti {
+  display: grid;
+  grid-template-columns: minmax(360px, 480px) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .biglietti {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.colonna-composizione {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.elenco-blocchi {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.riga-blocco {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  padding: 8px 10px;
+}
+.riga-blocco.spento {
+  opacity: 0.55;
+}
+.riga-blocco.in-volo {
+  opacity: 0.4;
+}
+/* Dove finirebbe il blocco se lo si lasciasse adesso. */
+.riga-blocco.bersaglio,
+.fine-elenco.bersaglio {
+  border-top: 3px solid var(--accent);
+}
+.testata-blocco {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.maniglia {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  touch-action: none;
+  user-select: none;
+}
+body.trascinamento-in-corso {
+  cursor: grabbing;
+  user-select: none;
+}
+.interruttore {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.nome-blocco {
+  font-weight: 700;
+}
+.targhetta-obbligatorio {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.impostazioni-blocco {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-strong);
+}
+.impostazioni-blocco label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.impostazioni-blocco label.larga {
+  flex: 1 1 100%;
+}
+.impostazioni-blocco label.spunta {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-end;
+  padding-bottom: 6px;
+}
+.impostazioni-blocco input[type='text'],
+.impostazioni-blocco input[type='number'],
+.impostazioni-blocco select {
+  font-size: 0.9rem;
+  padding: 5px 8px;
+}
+.impostazioni-blocco input[type='number'] {
+  width: 6rem;
+}
+.fine-elenco {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 10px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.aggiungi-blocco {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.aggiungi-blocco select {
+  flex: 1;
+  min-width: 0;
+}
+.aggiungi-blocco button {
+  width: auto;
+}
+.testata-anteprima {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.testata-anteprima button {
+  width: auto;
+}
+/* L'anteprima è il foglio vero, in scala: si vede da subito se il testo esce
+   dai margini o se una colonna è troppo stretta. */
+.cornice-anteprima {
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--border);
+  border-radius: var(--radius);
+  overflow: auto;
+}
+.cornice-anteprima .foglio-composto {
+  background: #fff;
+  color: #000;
+  box-shadow: var(--shadow);
+  margin: 0 auto;
+}
+
+/* ---------- immagini dei biglietti ---------- */
+
+.carica-immagine {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  font-weight: 600;
+  cursor: pointer;
+}
+.carica-immagine input {
+  display: none;
+}
+.elenco-immagini {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.elenco-immagini li {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  padding: 8px 10px;
+}
+.elenco-immagini img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 6px;
+}
+.elenco-immagini .dettagli {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.nome-immagine {
+  font-weight: 600;
+}
+.elenco-immagini .misura {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ---------- foglio composto a blocchi ---------- */
+
+.foglio-composto {
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+}
+.foglio-composto .blocco {
+  margin: 0;
+}
+.foglio-composto .due-colonne {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6mm;
+  align-items: start;
+}
+.foglio-composto .due-colonne .colonna {
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+  min-width: 0;
+}
+.foglio-composto .blocco-codice {
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+.foglio-composto .blocco-tavolo .etichetta {
+  font-size: 0.55em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.foglio-composto .blocco-tavolo .coperti {
+  font-size: 0.6em;
+}
+.foglio-composto .blocco-riga {
+  border: none;
+  border-top: 0.6mm solid #000;
+  margin: 1mm 0;
+  width: 100%;
+}
+.foglio-composto .blocco-totale {
+  border-top: 0.6mm solid #000;
+  padding-top: 2mm;
+}
+.foglio-composto .blocco-immagine img {
+  height: auto;
+}
+.foglio-composto .voci-foglio {
+  width: 100%;
+  border-collapse: collapse;
+}

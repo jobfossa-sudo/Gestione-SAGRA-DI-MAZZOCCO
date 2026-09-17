@@ -14,7 +14,11 @@ const {
 async function main() {
   const testEnv = await initializeTestEnvironment({
     projectId: 'gestione-sagra-mazzocco',
-    firestore: { host: '127.0.0.1', port: 8080 },
+    // La porta si può cambiare (PORTA_FIRESTORE=8085 …): così le prove si
+    // possono lanciare su un emulatore a parte, senza spegnere e svuotare
+    // quello con cui si sta provando l'app. Le prove finiscono con
+    // clearFirestore(), che cancella tutto quello che trovano.
+    firestore: { host: '127.0.0.1', port: Number(process.env.PORTA_FIRESTORE ?? 8080) },
   });
 
   // Dati di partenza scritti bypassando le regole (come farebbe una Cloud
@@ -37,6 +41,7 @@ async function main() {
   const cucina = testEnv.authenticatedContext('uid-cucina', { comande: ['cucina'] }).firestore();
   const griglia = testEnv.authenticatedContext('uid-griglia', { comande: ['griglia'] }).firestore();
   const bar = testEnv.authenticatedContext('uid-bar', { comande: ['bar'] }).firestore();
+  const distribuzione = testEnv.authenticatedContext('uid-distribuzione', { comande: ['distribuzione'] }).firestore();
   const admin = testEnv.authenticatedContext('uid-admin', { amministratore: true }).firestore();
   // Accesso a un'altra app soltanto: non deve vedere nulla di Comande.
   const soloAltraApp = testEnv.authenticatedContext('uid-contabile', { contabilita: ['visione'] }).firestore();
@@ -78,6 +83,27 @@ async function main() {
   await check('la cucina legge i componenti', assertSucceeds(cucina.collection('componenti').get()));
   await check('il cliente dal QR non legge i componenti', assertFails(anonimo.collection('componenti').get()));
   await check('la cassa non modifica i componenti', assertFails(cassa.doc('componenti/pollo').update({ settore: 'bar' })));
+
+  // Biglietti stampati e immagini: li compone l'amministratore, li legge chi
+  // stampa.
+  await check(
+    'amministratore compone un biglietto',
+    assertSucceeds(admin.doc('biglietti/resoconto').set({ id: 'resoconto', formato: 'a5-orizzontale', margineMm: 10, blocchi: [] }))
+  );
+  await check('la cassa legge l’impaginazione del biglietto', assertSucceeds(cassa.doc('biglietti/resoconto').get()));
+  await check(
+    'la distribuzione legge l’impaginazione del biglietto',
+    assertSucceeds(distribuzione.doc('biglietti/resoconto').get())
+  );
+  await check('il cliente dal QR non legge i biglietti', assertFails(anonimo.doc('biglietti/resoconto').get()));
+  await check('la cassa non cambia l’impaginazione', assertFails(cassa.doc('biglietti/resoconto').update({ margineMm: 0 })));
+  await check(
+    'amministratore carica un’immagine',
+    assertSucceeds(admin.doc('immagini/logo').set({ id: 'logo', nome: 'logo', dati: 'data:image/png;base64,AAA', byte: 3 }))
+  );
+  await check('chi stampa legge le immagini', assertSucceeds(cassa.doc('immagini/logo').get()));
+  await check('il cliente dal QR non legge le immagini', assertFails(anonimo.doc('immagini/logo').get()));
+  await check('la cassa non carica immagini', assertFails(cassa.doc('immagini/logo').set({ id: 'logo' })));
 
   // Ordini
   await check('anonimo non legge gli ordini', assertFails(anonimo.doc('serate/2026-01-01/ordini/ordine1').get()));

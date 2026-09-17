@@ -24,6 +24,8 @@ salvata su GitHub.
   di errore.
 - `prova-qr.cjs` — il menù del cliente dal QR del tavolo e la generazione dei
   QR da parte dell'amministratore.
+- `prova-biglietti.cjs` — la composizione dei biglietti: blocchi accesi,
+  spenti e trascinati, immagini, carta e stampa di prova.
 - `prova-offline.cjs` — cosa si vede quando la rete cade.
 
 Le prove del server (senza browser) stanno invece in `functions/scripts/`:

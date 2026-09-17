@@ -40,6 +40,18 @@ service cloud.firestore {
       allow write: if amministratore();
     }
 
+    // Impaginazione dei biglietti stampati e immagini che ci finiscono dentro:
+    // le compone l'amministratore, le legge chi stampa (cassa e distribuzione).
+    match /biglietti/{bigliettoId} {
+      allow read: if personaleComande();
+      allow write: if amministratore();
+    }
+
+    match /immagini/{immagineId} {
+      allow read: if personaleComande();
+      allow write: if amministratore();
+    }
+
     match /serate/{serataId} {
       allow read: if personaleComande();
       allow write: if false;

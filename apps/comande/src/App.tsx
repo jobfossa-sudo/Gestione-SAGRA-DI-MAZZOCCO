@@ -5,6 +5,7 @@ import './App.css';
 import { AreaCassa } from './components/AreaCassa';
 import { AreaStampa } from './components/AreaStampa';
 import { AvvisoRete } from './components/AvvisoRete';
+import { Biglietti } from './components/Biglietti';
 import { Composizioni } from './components/Composizioni';
 import { GestioneMenu } from './components/GestioneMenu';
 import { Login } from './components/Login';
@@ -25,6 +26,7 @@ import { menuDaIndirizzo } from './services/tavolo';
 const AREE = [
   { nome: 'Gestione menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: GestioneMenu, larga: true },
   { nome: 'Composizioni', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Composizioni, larga: true },
+  { nome: 'Biglietti', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Biglietti, larga: true },
   { nome: 'QR del menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: QrMenu, larga: true },
   { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa, larga: false },
   { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli, larga: false },

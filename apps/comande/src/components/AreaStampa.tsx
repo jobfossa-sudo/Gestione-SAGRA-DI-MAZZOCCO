@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Ordine } from '@sagra-mazzocco/shared';
-import { FoglioCopiaCucina, FoglioQrMenu, FoglioResoconto } from './Fogli';
+import { MISURE_CARTA, type Ordine, type TipoBiglietto } from '@sagra-mazzocco/shared';
+import { useBiglietti, useImmagini } from '../hooks';
+import { FoglioComposto } from './FoglioComposto';
+import { FoglioQrMenu } from './Fogli';
 
 export type Foglio =
-  | { tipo: 'resoconto'; ordine: Ordine }
-  | { tipo: 'copiaCucina'; ordine: Ordine }
+  | { tipo: TipoBiglietto; ordine: Ordine }
   /** Il QR arriva già disegnato: va preparato prima di chiamare la stampa. */
   | { tipo: 'qrMenu'; svg: string };
 
@@ -19,9 +20,11 @@ export function stampa(fogli: Foglio[]): void {
 }
 
 /** Va montata una volta sola nell'app. Sullo schermo è invisibile; in stampa
- * è l'unica cosa che esce, un foglio A5 per pagina. */
+ * è l'unica cosa che esce, un foglio per pagina. */
 export function AreaStampa() {
   const [fogli, setFogli] = useState<Foglio[]>([]);
+  const biglietti = useBiglietti();
+  const immagini = useImmagini();
 
   useEffect(() => {
     // Richieste arrivate insieme escono in un'unica stampa.
@@ -33,19 +36,40 @@ export function AreaStampa() {
 
   useEffect(() => {
     if (fogli.length === 0) return;
-    // I codici a barre si disegnano negli effetti dei fogli, che girano prima
-    // di questo: quando si arriva qui la pagina è completa.
+    // I codici a barre e i QR si disegnano negli effetti dei fogli, che girano
+    // prima di questo: quando si arriva qui la pagina è completa.
     window.print();
     setFogli([]);
   }, [fogli]);
 
+  // Il formato della carta lo decide il primo foglio della stampa: una stessa
+  // stampa non può mescolare misure diverse. Il cartello col QR resta A5
+  // verticale, la sua misura non si cambia.
+  const primo = fogli[0];
+  const formato =
+    primo === undefined
+      ? null
+      : primo.tipo === 'qrMenu'
+        ? 'A5 portrait'
+        : MISURE_CARTA[biglietti[primo.tipo].formato].regolaCss;
+
   return createPortal(
     <div className="area-stampa">
-      {fogli.map((foglio, indice) => {
-        if (foglio.tipo === 'resoconto') return <FoglioResoconto key={indice} ordine={foglio.ordine} />;
-        if (foglio.tipo === 'copiaCucina') return <FoglioCopiaCucina key={indice} ordine={foglio.ordine} />;
-        return <FoglioQrMenu key={indice} svg={foglio.svg} />;
-      })}
+      {/* I margini del foglio li mette il biglietto stesso, quindi qui la
+          pagina non ne aggiunge altri. */}
+      {formato && <style>{`@page { size: ${formato}; margin: 0; }`}</style>}
+      {fogli.map((foglio, indice) =>
+        foglio.tipo === 'qrMenu' ? (
+          <FoglioQrMenu key={indice} svg={foglio.svg} />
+        ) : (
+          <FoglioComposto
+            key={indice}
+            biglietto={biglietti[foglio.tipo]}
+            ordine={foglio.ordine}
+            immagini={immagini}
+          />
+        )
+      )}
     </div>,
     document.body
   );

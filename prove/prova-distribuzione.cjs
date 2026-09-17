@@ -78,7 +78,7 @@ async function entra(browser, utente) {
     `prima ${stampePrima}, dopo ${stampe.length}`
   );
   const copia = stampe[stampe.length - 1] || '';
-  verifica('la copia cucina porta il tavolo in grande', /tavolo-grande[\s\S]*21/.test(copia));
+  verifica('la copia cucina porta il tavolo', /blocco-tavolo[\s\S]*21/.test(copia));
   verifica('la copia cucina non porta i prezzi', !/€/.test(copia));
   verifica('la copia cucina porta il codice a barre', /codice-a-barre[\s\S]*<rect/.test(copia));
   verifica('la copia cucina elenca i piatti', /Pasta al ragù/.test(copia));
