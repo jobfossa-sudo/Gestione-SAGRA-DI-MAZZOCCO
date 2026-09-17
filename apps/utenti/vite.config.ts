@@ -21,7 +21,9 @@ export default defineConfig({
   },
   server: {
     // Porta diversa da Comande, così le due app girano insieme in locale.
+    host: '127.0.0.1',
     port: 5174,
+    strictPort: true,
     fs: { allow: ['../..'] },
   },
 })

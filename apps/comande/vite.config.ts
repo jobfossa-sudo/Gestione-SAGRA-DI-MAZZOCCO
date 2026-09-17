@@ -20,6 +20,12 @@ export default defineConfig({
     ],
   },
   server: {
+    // Indirizzo e porta fissi: l'app risponde sia a localhost sia a
+    // 127.0.0.1, e se la porta è occupata si ferma invece di spostarsi sulla
+    // 5174, che è quella dell'app Utenti.
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: true,
     fs: { allow: ['../..'] },
   },
 })
