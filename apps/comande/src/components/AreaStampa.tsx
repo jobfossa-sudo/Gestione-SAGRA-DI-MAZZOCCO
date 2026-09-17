@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Ordine } from '@sagra-mazzocco/shared';
-import { FoglioCopiaCucina, FoglioQrTavolo, FoglioResoconto } from './Fogli';
+import { FoglioCopiaCucina, FoglioQrMenu, FoglioResoconto } from './Fogli';
 
 export type Foglio =
   | { tipo: 'resoconto'; ordine: Ordine }
   | { tipo: 'copiaCucina'; ordine: Ordine }
   /** Il QR arriva già disegnato: va preparato prima di chiamare la stampa. */
-  | { tipo: 'qrTavolo'; tavolo: number; svg: string };
+  | { tipo: 'qrMenu'; svg: string };
 
 let ricevi: ((fogli: Foglio[]) => void) | null = null;
 
@@ -44,7 +44,7 @@ export function AreaStampa() {
       {fogli.map((foglio, indice) => {
         if (foglio.tipo === 'resoconto') return <FoglioResoconto key={indice} ordine={foglio.ordine} />;
         if (foglio.tipo === 'copiaCucina') return <FoglioCopiaCucina key={indice} ordine={foglio.ordine} />;
-        return <FoglioQrTavolo key={indice} tavolo={foglio.tavolo} svg={foglio.svg} />;
+        return <FoglioQrMenu key={indice} svg={foglio.svg} />;
       })}
     </div>,
     document.body

@@ -5,20 +5,25 @@ import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
 import { SelettoreTema } from './SelettoreTema';
 
-/** La pagina che il cliente apre inquadrando il QR del suo tavolo. Non serve
- * nessun account: l'ordine parte come bozza e vale solo quando il cliente va
- * in cassa, mostra il numero e paga.
+/** La pagina che il cliente apre inquadrando il QR. Non serve nessun account:
+ * l'ordine parte come bozza e vale solo quando il cliente va in cassa, mostra
+ * il numero e paga.
+ *
+ * Il tavolo lo dichiara il cliente: il QR è uno solo, uguale su tutti i
+ * tavoli. Se arriva da un vecchio QR col tavolo dentro, il numero è già
+ * compilato.
  *
  * Qui non si vedono né i settori né le porzioni rimaste: sono cose interne.
  * Di un piatto finito il cliente vede solo che è finito. */
-export function MenuQr({ tavolo }: { tavolo: number }) {
+export function MenuQr({ tavoloIniziale }: { tavoloIniziale: number | null }) {
   const categorie = useCategorie();
   const prodotti = useProdotti();
   const [carrello, setCarrello] = useState<Record<string, number>>({});
+  const [tavolo, setTavolo] = useState(tavoloIniziale === null ? '' : String(tavoloIniziale));
   const [coperti, setCoperti] = useState('');
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
-  const [inviato, setInviato] = useState<{ numero: number; totale: number } | null>(null);
+  const [inviato, setInviato] = useState<{ numero: number; totale: number; tavolo: number } | null>(null);
 
   const perCategoria = useMemo(
     () =>
@@ -32,6 +37,9 @@ export function MenuQr({ tavolo }: { tavolo: number }) {
   const totale = selezionati.reduce((somma, p) => somma + p.prezzo * carrello[p.id], 0);
   const articoli = Object.values(carrello).reduce((s, q) => s + q, 0);
   const copertiValidi = Number.isInteger(Number(coperti)) && Number(coperti) > 0;
+  // Il tavolo serve all'inserviente per sapere dove portare il vassoio: senza
+  // non si invia niente.
+  const tavoloValido = Number.isInteger(Number(tavolo)) && Number(tavolo) > 0;
 
   function cambia(prodottoId: string, delta: number) {
     setCarrello((prec) => {
@@ -48,11 +56,11 @@ export function MenuQr({ tavolo }: { tavolo: number }) {
     try {
       const risultato = await creaOrdineBozza({
         serataId: SERATA_ID_OGGI,
-        tavolo,
+        tavolo: Number(tavolo),
         coperti: Number(coperti),
         items: Object.entries(carrello).map(([prodottoId, quantita]) => ({ prodottoId, quantita })),
       });
-      setInviato({ numero: risultato.data.numero, totale: risultato.data.totale });
+      setInviato({ numero: risultato.data.numero, totale: risultato.data.totale, tavolo: Number(tavolo) });
       setCarrello({});
     } catch (err) {
       setErrore(messaggioErrore(err));
@@ -66,7 +74,7 @@ export function MenuQr({ tavolo }: { tavolo: number }) {
       <div className="menu-qr">
         <header className="testata-qr">
           <span className="occhiello">Sagra di Mazzocco</span>
-          <span className="tavolo-qr">Tavolo {tavolo}</span>
+          <span className="tavolo-qr">Tavolo {inviato.tavolo}</span>
         </header>
         <section className="riquadro numero-inviato">
           <h1>Ordine inviato</h1>
@@ -87,7 +95,7 @@ export function MenuQr({ tavolo }: { tavolo: number }) {
     <div className="menu-qr">
       <header className="testata-qr">
         <span className="occhiello">Sagra di Mazzocco</span>
-        <span className="tavolo-qr">Tavolo {tavolo}</span>
+        <span className="tavolo-qr">{tavoloValido ? `Tavolo ${Number(tavolo)}` : 'Il menù'}</span>
         <SelettoreTema />
       </header>
 
@@ -109,11 +117,18 @@ export function MenuQr({ tavolo }: { tavolo: number }) {
                 return (
                   <li key={prodotto.id} className={finito ? 'esaurito' : undefined}>
                     <div className="descrizione">
-                      <span className="titolo-prodotto">
-                        {prodotto.nome}
-                        {prodotto.novita && !finito && <span className="targhetta-novita">novità</span>}
-                        {finito && <span className="targhetta-esaurito">esaurito</span>}
-                      </span>
+                      <span className="titolo-prodotto">{prodotto.nome}</span>
+                      {/* Le targhette vanno su una riga loro: accanto al nome,
+                          su uno schermo stretto, finivano sopra al prezzo. */}
+                      {(finito || prodotto.novita) && (
+                        <span className="targhette">
+                          {finito ? (
+                            <span className="targhetta-esaurito">esaurito</span>
+                          ) : (
+                            <span className="targhetta-novita">novità</span>
+                          )}
+                        </span>
+                      )}
                       {prodotto.note && <span className="note">{prodotto.note}</span>}
                     </div>
                     <span className="prezzo">{euro(prodotto.prezzo)}</span>
@@ -146,10 +161,22 @@ export function MenuQr({ tavolo }: { tavolo: number }) {
 
       {/* La barra in fondo resta visibile mentre si scorre il menù. */}
       <div className="barra-ordine">
-        <label>
-          Quante persone
-          <input type="number" min="1" placeholder="—" value={coperti} onChange={(e) => setCoperti(e.target.value)} />
-        </label>
+        <div className="campi-cliente">
+          <label>
+            Numero del tavolo
+            <input
+              type="number"
+              min="1"
+              placeholder="—"
+              value={tavolo}
+              onChange={(e) => setTavolo(e.target.value)}
+            />
+          </label>
+          <label>
+            Quante persone
+            <input type="number" min="1" placeholder="—" value={coperti} onChange={(e) => setCoperti(e.target.value)} />
+          </label>
+        </div>
         <p className="totale">
           {articoli} {articoli === 1 ? 'articolo' : 'articoli'} · <strong>{euro(totale)}</strong>
         </p>
@@ -157,12 +184,18 @@ export function MenuQr({ tavolo }: { tavolo: number }) {
         <button
           type="button"
           className="bottone-principale"
-          disabled={articoli === 0 || !copertiValidi || inCorso}
+          disabled={articoli === 0 || !tavoloValido || !copertiValidi || inCorso}
           onClick={invia}
         >
           {inCorso ? 'Invio in corso…' : 'Invia alla cassa'}
         </button>
-        {articoli > 0 && !copertiValidi && <p className="avviso-campi">Scrivi quante persone siete.</p>}
+        {articoli > 0 && (!tavoloValido || !copertiValidi) && (
+          <p className="avviso-campi">
+            {!tavoloValido
+              ? 'Scrivi il numero del tavolo dove sei seduto: lo trovi sul cartello del tavolo.'
+              : 'Scrivi quante persone siete.'}
+          </p>
+        )}
       </div>
     </div>
   );

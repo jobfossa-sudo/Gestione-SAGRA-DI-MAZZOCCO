@@ -15,18 +15,20 @@ function verifica(descrizione, condizione, extra = '') {
 (async () => {
   const browser = await chromium.launch();
 
-  // Il cliente: un telefono che inquadra il QR del tavolo 7.
+  // Il cliente: un telefono che inquadra il QR del menù (uno solo per tutti
+  // i tavoli) e dichiara lui il tavolo.
   const telefono = await browser.newContext(devices['iPhone 13']);
   const cliente = await telefono.newPage();
   // L'avviso giallo degli emulatori è fisso in fondo e coprirebbe la barra
   // dell'ordine: nel sito vero non esiste.
-  await cliente.goto(URL + '?tavolo=7');
+  await cliente.goto(URL + '?menu');
   await cliente.addStyleTag({ content: '.firebase-emulator-warning{display:none!important}' }).catch(() => {});
   cliente.on('pageerror', (e) => console.log('[cliente] ERRORE PAGINA:', e.message));
   await cliente.waitForTimeout(2500);
 
   const testo = await cliente.innerText('body');
-  verifica('il QR apre il menù col numero del tavolo', /Tavolo 7/.test(testo));
+  verifica('il QR apre il menù del cliente', /Il menù/.test(testo));
+  verifica('c’è la casella dove scrivere il tavolo', await cliente.getByLabel('Numero del tavolo').isVisible());
   verifica('non chiede nessun accesso', !/Nome utente/.test(testo));
   verifica('il menù mostra i piatti con i prezzi', /Pasta al ragù/.test(testo) && /7,00/.test(testo));
   verifica('non mostra le porzioni rimaste', !/Rimaste/i.test(testo));
@@ -38,10 +40,14 @@ function verifica(descrizione, condizione, extra = '') {
   verifica('il totale si aggiorna', /15,00/.test(await cliente.innerText('.barra-ordine')));
 
   const invio = cliente.getByRole('button', { name: 'Invia alla cassa' });
-  verifica('senza il numero di persone non si può inviare', !(await invio.isEnabled()));
+  verifica('senza tavolo e persone non si può inviare', !(await invio.isEnabled()));
   await cliente.getByLabel('Quante persone').fill('4');
   await cliente.waitForTimeout(300);
-  verifica('col numero di persone si può inviare', await invio.isEnabled());
+  verifica('con le persone ma senza tavolo non si invia ancora', !(await invio.isEnabled()));
+  await cliente.getByLabel('Numero del tavolo').fill('7');
+  await cliente.waitForTimeout(300);
+  verifica('scritto il tavolo si può inviare', await invio.isEnabled());
+  verifica('la testata mostra il tavolo dichiarato', /Tavolo 7/.test(await cliente.innerText('.testata-qr')));
   await invio.click();
   await cliente.waitForTimeout(3000);
 
@@ -76,7 +82,7 @@ function verifica(descrizione, condizione, extra = '') {
   const scheda = await cassa.innerText('.conferma-bozza');
   verifica('la cassa conferma e stampa il foglio', /[A-Z]\d{4}/.test(scheda) && /Tavolo 7/.test(scheda), scheda.match(/[A-Z]\d{4}/)[0]);
 
-  // L'amministratore genera i QR dei tavoli.
+  // L'amministratore stampa il cartello con il QR del menù.
   const admin = await browser.newPage();
   await admin.addInitScript(() => {
     window.__stampe = [];
@@ -90,20 +96,28 @@ function verifica(descrizione, condizione, extra = '') {
   await admin.getByLabel('Password').fill('prova1234');
   await admin.getByRole('button', { name: 'Entra' }).click();
   await admin.waitForTimeout(2000);
-  await admin.getByRole('button', { name: 'QR dei tavoli' }).click();
-  await admin.waitForTimeout(2000);
-  verifica('l’amministratore vede la griglia dei QR', (await admin.locator('.griglia-qr li').count()) === 20);
-  verifica('ogni QR è disegnato', (await admin.locator('.griglia-qr svg').count()) === 20);
-  await admin.getByLabel('Quanti tavoli').fill('3');
-  await admin.waitForTimeout(1500);
-  verifica('si scelgono quanti tavoli', (await admin.locator('.griglia-qr li').count()) === 3);
-  await admin.getByRole('button', { name: /Stampa tutti/ }).click();
-  await admin.waitForTimeout(2000);
+  await admin.getByRole('button', { name: 'QR del menù' }).click();
+  await admin.waitForTimeout(2500);
+  verifica('l’amministratore vede un solo QR', (await admin.locator('.anteprima-cartello svg').count()) === 1);
+  verifica(
+    'il QR porta al menù senza numero di tavolo',
+    /\?menu$/.test(await admin.innerText('.indirizzo-qr')),
+    await admin.innerText('.indirizzo-qr')
+  );
+
+  await admin.getByLabel('Quante copie').fill('3');
+  await admin.waitForTimeout(500);
+  await admin.getByRole('button', { name: /Stampa 3 copie/ }).click();
+  await admin.waitForTimeout(2500);
   const stampe = await admin.evaluate(() => window.__stampe);
-  verifica('la stampa manda un foglio per tavolo', /Tavolo[\s\S]*1[\s\S]*Tavolo[\s\S]*3/.test(stampe[0] || ''));
-  verifica('sul foglio c’è il QR e le istruzioni', /istruzioni-qr/.test(stampe[0] || '') && /<svg/.test(stampe[0] || ''));
-  require('fs').writeFileSync(RISULTATI + '/foglio-qr.html', stampe[0] || '');
-  await admin.screenshot({ path: RISULTATI + '/qr-tavoli.png', fullPage: true });
+  const foglio = stampe[0] || '';
+  verifica('escono tante copie quante chieste', (foglio.match(/class="foglio foglio-qr"/g) || []).length === 3);
+  verifica('il cartello porta il nome e l’anno della sagra', /Sagra di Mazzocco/.test(foglio) && /2027/.test(foglio));
+  verifica('il cartello è colorato', /banda-qr/.test(foglio) && /cornice-qr/.test(foglio));
+  verifica('il cartello porta il QR e le istruzioni', /istruzioni-qr/.test(foglio) && /<svg/.test(foglio));
+  verifica('le istruzioni dicono di scrivere il tavolo', /numero del tavolo/i.test(foglio));
+  require('fs').writeFileSync(RISULTATI + '/foglio-qr.html', foglio);
+  await admin.screenshot({ path: RISULTATI + '/qr-menu.png', fullPage: true });
 
   await browser.close();
   const falliti = esiti.filter((e) => !e.ok).length;

@@ -2,7 +2,7 @@ import JsBarcode from 'jsbarcode';
 import { useEffect, useRef } from 'react';
 import { leggiCodiceBarre, type Ordine } from '@sagra-mazzocco/shared';
 import { euro } from '../services/formato';
-import { QrTavolo } from './QrTavoli';
+import { QrCodice } from './QrMenu';
 
 /** Il codice a barre (Code 128: lettere e cifre) disegnato come immagine
  * vettoriale, così esce nitido su qualsiasi stampante. */
@@ -71,25 +71,39 @@ export function FoglioResoconto({ ordine }: { ordine: Ordine }) {
   );
 }
 
-/** Il foglietto da attaccare al tavolo: il cliente inquadra il QR e il menù si
- * apre già col numero del tavolo. */
-export function FoglioQrTavolo({ tavolo, svg }: { tavolo: number; svg: string }) {
+/** Il cartello da mettere sul tavolo: uno solo, uguale per tutti i tavoli. È a
+ * colori, ma il QR resta nero su bianco, così funziona anche stampato in
+ * bianco e nero. */
+export function FoglioQrMenu({ svg }: { svg: string }) {
   return (
     <section className="foglio foglio-qr">
-      <header className="testata-foglio">
-        <span className="occhiello">Sagra di Mazzocco</span>
-        <span className="tipo-foglio">Ordina dal telefono</span>
-      </header>
-      <p className="tavolo-qr-foglio">
-        <span>Tavolo</span> {tavolo}
-      </p>
-      <QrTavolo svg={svg} />
+      <div className="banda-qr">
+        <span className="anno-qr">2027</span>
+        <h1>Sagra di Mazzocco</h1>
+        <p>Ordina dal tavolo con il telefono</p>
+      </div>
+
+      <div className="cornice-qr">
+        <QrCodice svg={svg} />
+      </div>
+      <p className="invito-qr">Inquadra il quadrato con la fotocamera</p>
+
       <ol className="istruzioni-qr">
-        <li>Inquadra il quadrato con la fotocamera del telefono.</li>
-        <li>Scegli quante persone siete e cosa volete.</li>
-        <li>Invia: sullo schermo compare un numero.</li>
-        <li>Vai in cassa, mostra il numero e paga.</li>
+        <li>
+          <span className="passo">1</span> Scrivi il <strong>numero del tavolo</strong> e quante persone siete.
+        </li>
+        <li>
+          <span className="passo">2</span> Scegli dal menù e premi <strong>Invia alla cassa</strong>.
+        </li>
+        <li>
+          <span className="passo">3</span> Sullo schermo compare un <strong>numero</strong>.
+        </li>
+        <li>
+          <span className="passo">4</span> Vai in cassa, mostra il numero e paga.
+        </li>
       </ol>
+
+      <p className="piede-qr">Buon appetito!</p>
     </section>
   );
 }
