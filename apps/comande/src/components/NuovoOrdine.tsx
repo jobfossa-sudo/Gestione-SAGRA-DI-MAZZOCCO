@@ -3,7 +3,7 @@ import { useCategorie, useDisponibilita, useLetteraCassa, useOrdiniAperti, usePr
 import { creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
-import { SchedaDaIncassare } from './DaIncassare';
+import { Passo, PassiOrdine, TestataOrdine, VociOrdine } from './PassiOrdine';
 
 /** Colonne della tabella: serve alle intestazioni di portata, che occupano
  * un'unica cella a tutta larghezza. */
@@ -231,15 +231,20 @@ export function NuovoOrdine() {
         </div>
 
         {ordineDaIncassare && (
-          <SchedaDaIncassare
-            ordine={ordineDaIncassare}
-            stampaSubito
-            onFatto={(testo) => {
-              setMessaggioSuccesso(testo);
-              setOrdineDaIncassareId(null);
-            }}
-            onMettiDaParte={() => setOrdineDaIncassareId(null)}
-          />
+          <div className="lavoro-ordine">
+            <TestataOrdine ordine={ordineDaIncassare} />
+            <VociOrdine ordine={ordineDaIncassare} etichettaTotale="Da incassare" />
+            <PassiOrdine
+              ordine={ordineDaIncassare}
+              stampaSubito
+              onFatto={(testo) => {
+                setMessaggioSuccesso(testo);
+                setOrdineDaIncassareId(null);
+              }}
+              onChiudi={() => setOrdineDaIncassareId(null)}
+              etichettaChiudi="Metti da parte"
+            />
+          </div>
         )}
         {!ordineDaIncassare && ordineDaIncassareId !== null && <p className="spiegazione">Sto preparando il foglio…</p>}
         {!ordineDaIncassare && ordineDaIncassareId === null && (
@@ -291,18 +296,29 @@ export function NuovoOrdine() {
 
         {mancaTavolo && <p className="avviso-campi">Scrivi il tavolo e i coperti prima di confermare.</p>}
 
-        <button
-          type="button"
-          className="bottone-principale"
-          disabled={numeroArticoli === 0 || inCorso || avvisoPorzioni !== null || mancaTavolo || !letteraCassa}
-          onClick={confermaOrdine}
-        >
-          {inCorso ? 'Conferma in corso…' : 'Conferma e stampa'}
-        </button>
-        <p className="spiegazione">
-          La conferma dà il numero di comanda e stampa il foglio per il cliente. Ai reparti l'ordine arriva solo
-          dopo l'incasso.
-        </p>
+        {/* La stessa scala a due passi della scheda "Da fare": il secondo
+            gradino è spento, ma si vede già che l'ordine non è finito qui. */}
+        <div className="passi-ordine">
+          <Passo numero={1} stato="ora">
+            <button
+              type="button"
+              className="bottone-principale"
+              disabled={numeroArticoli === 0 || inCorso || avvisoPorzioni !== null || mancaTavolo || !letteraCassa}
+              onClick={confermaOrdine}
+            >
+              {inCorso ? 'Conferma in corso…' : 'Conferma e stampa'}
+            </button>
+            <p className="spiegazione">
+              La conferma dà il numero di comanda e stampa il foglio per il cliente.
+            </p>
+          </Passo>
+          <Passo numero={2} stato="dopo">
+            <button type="button" className="bottone-principale" disabled>
+              Invia ordine
+            </button>
+            <p className="spiegazione">Si accende dopo la conferma, quando il cliente ha pagato.</p>
+          </Passo>
+        </div>
           </>
         )}
 

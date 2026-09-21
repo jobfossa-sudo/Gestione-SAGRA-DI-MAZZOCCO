@@ -50,7 +50,7 @@ function verifica(descrizione, condizione, extra = '') {
   verifica('dopo la conferma compare la scheda da incassare', /Da incassare/.test(testoIncasso));
   const codice = (testoIncasso.match(/[A-Z]\d{4}/) || [])[0];
   verifica('la scheda mostra il numero di comanda', !!codice, codice);
-  verifica('c’è il tasto per incassare', await cassa.getByRole('button', { name: 'Incassato: invia' }).isVisible());
+  verifica('il tasto per inviare si è acceso', await cassa.getByRole('button', { name: 'Invia ordine' }).isEnabled());
 
   const stampe = await cassa.evaluate(() => window.__stampe);
   verifica('il foglio per il cliente è andato in stampa da solo', stampe.length === 1);
@@ -71,7 +71,7 @@ function verifica(descrizione, condizione, extra = '') {
   const pastaPrima = await quantoInCucina('Pasta al ragù');
 
   // --- Incasso e invio ---
-  await cassa.getByRole('button', { name: 'Incassato: invia' }).click();
+  await cassa.getByRole('button', { name: 'Invia ordine' }).click();
   await cassa.waitForTimeout(3000);
   const dopoInvio = await cassa.innerText('.colonna-riepilogo');
   verifica('dopo l’invio la cassa torna al carrello vuoto', /Tocca i prodotti/.test(dopoInvio));
@@ -105,17 +105,17 @@ function verifica(descrizione, condizione, extra = '') {
   });
   verifica('un cliente dal QR crea una bozza', !!bozza.numero, 'numero ' + bozza.numero);
 
-  await cassa.getByRole('button', { name: 'Conferma bozza' }).click();
+  await cassa.getByRole('button', { name: /Da fare/ }).click();
   await cassa.getByLabel('Numero ordine').fill(String(bozza.numero));
   await cassa.getByRole('button', { name: "Richiama l'ordine" }).click();
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).waitFor();
-  const resoconto = await cassa.innerText('.conferma-bozza');
+  const resoconto = await cassa.innerText('.da-fare');
   verifica('il resoconto della bozza si fa controllare al cliente', /da pagare/i.test(resoconto));
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
   await cassa.waitForTimeout(3000);
   const stampeDopoQr = await cassa.evaluate(() => window.__stampe.length);
   verifica('anche la bozza confermata stampa il suo foglio', stampeDopoQr === 2);
-  const schedaQr = await cassa.innerText('.conferma-bozza');
+  const schedaQr = await cassa.innerText('.da-fare');
   const codiceQr = (schedaQr.match(/[A-Z]\d{4}/) || [])[0];
   verifica('la bozza prende il numero di comanda della cassa', /^A\d{4}$/.test(codiceQr || ''), codiceQr);
 
@@ -123,10 +123,10 @@ function verifica(descrizione, condizione, extra = '') {
   cassa.on('dialog', (d) => d.accept());
   await cassa.getByRole('button', { name: 'Annulla ordine' }).click();
   await cassa.waitForTimeout(3000);
-  const dopoAnnullo = await cassa.innerText('.conferma-bozza');
+  const dopoAnnullo = await cassa.innerText('.da-fare');
   verifica('l’ordine non pagato si annulla', /annullato: non è mai partito/.test(dopoAnnullo), dopoAnnullo.slice(0, 120));
 
-  // --- Scheda "Da incassare" e fine serata ---
+  // --- Ordine messo da parte, ripreso dalla scheda "Da fare", e fine serata ---
   await cassa.getByRole('button', { name: 'Nuovo ordine', exact: true }).click();
   await cassa.getByRole('button', { name: 'Aggiungi Patatine fritte' }).click();
   await cassa.getByLabel('Tavolo').fill('4');
@@ -134,18 +134,25 @@ function verifica(descrizione, condizione, extra = '') {
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
   await cassa.waitForTimeout(2500);
   await cassa.getByRole('button', { name: 'Metti da parte' }).click();
-  await cassa.getByRole('button', { name: /Da incassare/ }).click();
+  await cassa.getByRole('button', { name: /Da fare/ }).click();
   await cassa.waitForTimeout(1500);
-  const elenco = await cassa.innerText('.da-incassare');
-  verifica('l’ordine messo da parte resta in "Da incassare"', /In attesa di pagamento/.test(elenco) && /Patatine/.test(elenco));
+  const elenco = await cassa.innerText('.da-fare');
+  verifica(
+    'l’ordine messo da parte resta nell’elenco "Da fare"',
+    /da incassare/i.test(elenco) && /Patatine/.test(elenco)
+  );
   await cassa.getByRole('button', { name: 'Apri' }).first().click();
   await cassa.waitForTimeout(1000);
   verifica(
     'da lì si può incassare anche più tardi',
-    await cassa.getByRole('button', { name: 'Incassato: invia' }).isVisible()
+    await cassa.getByRole('button', { name: 'Invia ordine' }).isEnabled()
+  );
+  verifica(
+    'riaprendolo non ristampa il foglio da sola',
+    (await cassa.evaluate(() => window.__stampe.length)) === 3
   );
 
-  await cassa.screenshot({ path: RISULTATI + '/cassa-da-incassare.png', fullPage: true });
+  await cassa.screenshot({ path: RISULTATI + '/cassa-da-fare.png', fullPage: true });
   await cassa.getByRole('button', { name: 'Fine serata' }).click();
   await cassa.waitForTimeout(1500);
   const fine = await cassa.innerText('.fine-serata');

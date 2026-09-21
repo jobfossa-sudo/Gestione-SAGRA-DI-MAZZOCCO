@@ -467,25 +467,30 @@
   text-decoration: line-through;
 }
 
-/* ---------- conferma bozza ---------- */
+/* ---------- da fare: elenco a sinistra, ordine aperto a destra ---------- */
 
-.conferma-bozza {
+.da-fare {
   display: grid;
   grid-template-columns: minmax(360px, 460px) minmax(320px, 1fr);
   gap: 20px;
   align-items: start;
 }
+/* Schermo stretto (tablet, portatile piccolo): le due colonne si incolonnano,
+   con l'ordine aperto per primo perché è quello su cui si lavora. */
 @media (max-width: 900px) {
-  .conferma-bozza {
+  .da-fare {
     grid-template-columns: minmax(0, 1fr);
   }
+  .da-fare .colonna-lavoro {
+    order: -1;
+  }
 }
-.conferma-bozza .riquadro {
+.da-fare .riquadro {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.conferma-bozza h2 {
+.da-fare h2 {
   font-size: 1rem;
   display: flex;
   align-items: center;
@@ -504,19 +509,50 @@
   letter-spacing: 0.06em;
   padding: 14px;
 }
+/* Sopra l'ordine aperto la casella del numero resta sempre a portata di mano,
+   ma occupa poco: campo e tasto sulla stessa riga. */
+.cerca-ordine.in-linea {
+  flex-direction: row;
+  align-items: end;
+  gap: 10px;
+}
+.cerca-ordine.in-linea label {
+  flex: 1;
+  min-width: 0;
+}
+.cerca-ordine.in-linea input {
+  font-size: 1.3rem;
+  padding: 10px;
+}
+.cerca-ordine.in-linea button {
+  width: auto;
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .cerca-ordine.in-linea {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cerca-ordine.in-linea button {
+    width: 100%;
+  }
+}
+.nessun-ordine {
+  margin-top: 14px;
+}
 
-/* Resoconto da far controllare al cliente */
-.resoconto {
+/* L'ordine su cui si sta lavorando */
+.lavoro-ordine {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  margin-top: 8px;
+  margin-top: 14px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--surface-alt);
   padding: 16px;
 }
-.testata-resoconto {
+.testata-ordine {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -559,13 +595,78 @@
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
-.bottoni-resoconto {
+/* La scala dei due passi: conferma e stampa, poi incasso e invio. Restano
+   sempre tutti e due sotto gli occhi, spenti o accesi secondo il momento. */
+.passi-ordine {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+.passo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 10px;
+}
+.segno-passo {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  font-weight: 800;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.corpo-passo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.corpo-passo .spiegazione {
+  margin: 0;
+}
+/* Il passo da fare adesso: acceso, con la cornice colorata. */
+.passo-ora {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+/* Quello già fatto: spento, con la spunta. */
+.passo-fatto {
+  color: var(--success);
+  opacity: 0.75;
+}
+/* Quello che verrà dopo: spento e smorzato, ma già visibile. */
+.passo-dopo {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+/* Ristampa, annullamento, "metti da parte": azioni di servizio, più discrete
+   dei due passi principali. */
+.azioni-minori {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
+.azioni-minori button {
+  flex: 1;
+  min-width: 140px;
+  width: auto;
+}
+/* Affiancato a "Ristampa foglio", l'annullamento deve distinguersi anche
+   senza passarci sopra il mouse: sui tocchi di un tablet il passaggio del
+   mouse non esiste. */
+.azioni-minori .bottone-annulla {
+  color: var(--danger);
+  border-color: var(--danger);
+}
 
-/* Elenco delle bozze ancora da incassare */
+/* Elenco di quello che la cassa ha ancora in mano */
 .elenco-bozze {
   list-style: none;
   margin: 8px 0 0;
@@ -576,12 +677,41 @@
 }
 .elenco-bozze li {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   gap: 12px;
   align-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 10px 12px;
+}
+.elenco-bozze li button {
+  width: auto;
+}
+/* Le righe senza tasto "Apri" tengono comunque la colonna, così i prezzi
+   restano incolonnati con quelli delle righe che ce l'hanno. */
+.vuoto-cella {
+  display: block;
+  width: 0;
+}
+/* "dal tavolo" / "da incassare": dice a colpo d'occhio a che punto è la riga. */
+.targhetta-stato {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: 1px;
+}
+.targhetta-stato.tavolo {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.targhetta-stato.incassare {
+  background: var(--success-soft);
+  color: var(--success);
 }
 .elenco-bozze li.richiamato {
   border-color: var(--accent);
@@ -1134,23 +1264,6 @@ body.trascinamento-in-corso {
 
 /* ---------- ordine confermato, in attesa di incasso ---------- */
 
-.scheda-incasso {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 8px;
-  border: 2px solid var(--accent);
-  border-radius: var(--radius);
-  background: var(--surface-alt);
-  padding: 16px;
-}
-.testata-incasso {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
 .codice-comanda {
   font-size: 2rem;
   font-weight: 800;
@@ -1158,17 +1271,9 @@ body.trascinamento-in-corso {
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
 }
-.bottoni-incasso {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 .bottone-secondario {
   background: transparent;
   color: var(--text-muted);
-}
-.da-incassare .elenco-bozze li {
-  grid-template-columns: auto 1fr auto auto;
 }
 
 /* ---------- fogli da stampare (A5) ---------- */

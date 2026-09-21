@@ -66,7 +66,7 @@ async function entra(browser, utente) {
   await cassa.getByLabel('Tavolo').fill('21');
   await cassa.getByLabel('Coperti').fill('2');
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
-  await cassa.getByRole('button', { name: 'Incassato: invia' }).click();
+  await cassa.getByRole('button', { name: 'Invia ordine' }).click();
   await cassa.waitForTimeout(3500);
 
   // In Distribuzione la copia cucina esce da sola.
