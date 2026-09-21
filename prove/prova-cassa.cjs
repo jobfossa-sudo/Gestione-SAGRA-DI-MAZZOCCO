@@ -160,8 +160,10 @@ function verifica(descrizione, condizione, extra = '') {
   verifica('c’è il quadrato degli ordini completati', /Ordini completati/.test(fine));
   verifica('c’è il quadrato dell’incasso della cassa A', /Incasso cassa A/.test(fine));
   verifica('c’è il quadrato dell’incasso totale', /Incasso totale/.test(fine));
-  const incassoA = (fine.match(/Incasso cassa A\s+([\d.,]+ €)/) || [])[1];
-  const incassoTotale = (fine.match(/Incasso totale\s+([\d.,]+ €)/) || [])[1];
+  // Attenzione: tra la cifra e il simbolo dell'euro c'è uno spazio unificatore
+  // (non un normale spazio), quindi si cattura solo la cifra.
+  const incassoA = (fine.match(/Incasso cassa A\s+([\d.,]+)/) || [])[1];
+  const incassoTotale = (fine.match(/Incasso totale\s+([\d.,]+)/) || [])[1];
   verifica(
     'con una cassa sola il totale coincide con il suo incasso',
     !!incassoA && incassoA === incassoTotale,

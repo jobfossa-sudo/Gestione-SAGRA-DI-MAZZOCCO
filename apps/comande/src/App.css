@@ -748,20 +748,51 @@
 
 /* ---------- fine serata ---------- */
 
+/* Due righe di quadrati — sopra i conteggi degli ordini, sotto gli incassi —
+   e in fondo gli elenchi di quello che resta da sistemare. */
 .fine-serata {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.riga-quadrati {
   display: grid;
-  /* Quadrati più stretti di prima: con tutto lo schermo a disposizione ne
-     stanno in fila parecchi, e ne arriveranno altri. */
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  /* Quadrati stretti: con tutto lo schermo ne stanno in fila parecchi, e ne
+     arriveranno altri. Quando non ci stanno più, vanno a capo da soli. */
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+.elenchi-fine-serata {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 20px;
   align-items: start;
+  margin-top: 4px;
 }
-.fine-serata .quadrato {
+.elenchi-fine-serata section {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;
   box-shadow: var(--shadow);
+}
+.fine-serata .quadrato {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+/* La spiegazione va in fondo al quadrato: così i numeri delle carte in fila
+   restano tutti alla stessa altezza, anche quando i testi sono di lunghezza
+   diversa. */
+.fine-serata .quadrato .spiegazione {
+  margin-top: auto;
+  margin-bottom: 0;
+  padding-top: 8px;
 }
 .fine-serata h2 {
   font-size: 1rem;

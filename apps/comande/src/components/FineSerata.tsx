@@ -5,34 +5,26 @@ import { annullaOrdine, messaggioErrore } from '../services/callables';
 import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
 
-/** Quanti ordini della lista al massimo si mostrano: a fine serata i
- * completati sono centinaia e riempirebbero lo schermo, mentre quello che
- * serve davvero è il numero. */
-const ULTIMI_MOSTRATI = 10;
-
-/** Un quadrato con un numero grande: il colpo d'occhio di fine serata. Il
- * contenuto sotto è facoltativo, così lo stesso quadrato vale sia per i
- * contatori con l'elenco sia per quelli con il solo numero. */
+/** Un quadrato con il solo numero in grande: il colpo d'occhio di fine
+ * serata. Niente elenchi qui dentro — quelli stanno tutti in fondo alla
+ * pagina, così la prima schermata si legge da lontano. */
 function Quadrato({
   titolo,
   valore,
   tono,
   spiegazione,
-  children,
 }: {
   titolo: string;
   valore: string;
   /** "incasso" colora il quadrato in modo diverso: sono soldi, non ordini. */
   tono?: 'ordini' | 'incasso' | 'incasso-totale';
   spiegazione?: string;
-  children?: React.ReactNode;
 }) {
   return (
     <section className={`quadrato quadrato-${tono ?? 'ordini'}`}>
       <h2>{titolo}</h2>
       <p className="valore-quadrato">{valore}</p>
       {spiegazione && <p className="spiegazione">{spiegazione}</p>}
-      {children}
     </section>
   );
 }
@@ -112,102 +104,89 @@ export function FineSerata({ amministratore }: { amministratore: boolean }) {
   }
   const casse = [...perCassa.entries()].sort(([a], [b]) => a.localeCompare(b));
 
-  const ultimiCompletati = [...completati].reverse().slice(0, ULTIMI_MOSTRATI);
+  // Gli elenchi stanno sotto i quadrati, e solo dove c'è qualcosa da fare:
+  // annullare un ordine abbandonato o andare a cercare una comanda rimasta
+  // indietro. Gli ordini completati non hanno elenco: non c'è niente da farci.
+  const daSistemare: { titolo: string; ordini: Ordine[]; puoAnnullare?: boolean }[] = [
+    { titolo: 'Confermati e non incassati', ordini: daPagare, puoAnnullare: true },
+    { titolo: 'Bozze mai confermate', ordini: bozze },
+    { titolo: 'Pagati non completati', ordini: inEvasione },
+  ].filter((gruppo) => gruppo.ordini.length > 0);
 
   return (
     <div className="fine-serata">
-      {casse.map(([lettera, conto]) => (
+      {/* Prima riga: quanti ordini, solo numeri. */}
+      <div className="riga-quadrati">
         <Quadrato
-          key={lettera || 'senza'}
-          titolo={lettera ? `Incasso cassa ${lettera}` : 'Incasso senza cassa'}
-          valore={euro(conto.totale)}
-          tono="incasso"
-          spiegazione={
-            lettera
-              ? `${conto.ordini} ${conto.ordini === 1 ? 'ordine pagato' : 'ordini pagati'}`
-              : `${conto.ordini} ${conto.ordini === 1 ? 'ordine' : 'ordini'} senza lettera di cassa`
-          }
+          titolo="Ordini completati"
+          valore={String(completati.length)}
+          spiegazione="Pagati e consegnati per intero."
         />
-      ))}
+        <Quadrato
+          titolo="Confermati e non incassati"
+          valore={String(daPagare.length)}
+          spiegazione="Numero già stampato, mai pagati."
+        />
+        <Quadrato
+          titolo="Bozze mai confermate"
+          valore={String(bozze.length)}
+          spiegazione="Inviati dal tavolo, mai passati in cassa."
+        />
+        <Quadrato
+          titolo="Pagati non completati"
+          valore={String(inEvasione.length)}
+          spiegazione="Pagati e in mano ai reparti, non ancora consegnati."
+        />
+      </div>
 
-      <Quadrato
-        titolo="Incasso totale"
-        valore={euro(incassoTotale)}
-        tono="incasso-totale"
-        spiegazione={`Tutte le casse insieme, ${pagati.length} ${pagati.length === 1 ? 'ordine pagato' : 'ordini pagati'}`}
-      />
+      {/* Seconda riga: quanto è stato incassato. */}
+      <div className="riga-quadrati">
+        {casse.map(([lettera, conto]) => (
+          <Quadrato
+            key={lettera || 'senza'}
+            titolo={lettera ? `Incasso cassa ${lettera}` : 'Incasso senza cassa'}
+            valore={euro(conto.totale)}
+            tono="incasso"
+            spiegazione={
+              lettera
+                ? `${conto.ordini} ${conto.ordini === 1 ? 'ordine pagato' : 'ordini pagati'}`
+                : `${conto.ordini} ${conto.ordini === 1 ? 'ordine' : 'ordini'} senza lettera di cassa`
+            }
+          />
+        ))}
+        <Quadrato
+          titolo="Incasso totale"
+          valore={euro(incassoTotale)}
+          tono="incasso-totale"
+          spiegazione={`Tutte le casse insieme, ${pagati.length} ${pagati.length === 1 ? 'ordine pagato' : 'ordini pagati'}`}
+        />
+      </div>
 
-      <Quadrato
-        titolo="Ordini completati"
-        valore={String(completati.length)}
-        spiegazione="Ordini pagati e consegnati per intero: qui non c'è più niente da fare."
-      >
-        {completati.length === 0 ? (
-          <p className="vuoto">Nessun ordine completato.</p>
-        ) : (
-          <>
-            <ul>
-              {ultimiCompletati.map((o) => (
-                <RigaOrdine key={o.id} ordine={o} amministratore={false} />
-              ))}
-            </ul>
-            {completati.length > ULTIMI_MOSTRATI && (
-              <p className="spiegazione">
-                Qui sopra gli ultimi {ULTIMI_MOSTRATI}, più altri {completati.length - ULTIMI_MOSTRATI} prima di
-                questi.
-              </p>
-            )}
-          </>
-        )}
-      </Quadrato>
+      {daSistemare.length > 0 && (
+        <div className="elenchi-fine-serata">
+          {daSistemare.map((gruppo) => (
+            <section key={gruppo.titolo}>
+              <h2>
+                {gruppo.titolo} <span className="contatore">{gruppo.ordini.length}</span>
+              </h2>
+              <ul>
+                {gruppo.ordini.map((o) => (
+                  <RigaOrdine
+                    key={o.id}
+                    ordine={o}
+                    amministratore={amministratore}
+                    puoAnnullare={gruppo.puoAnnullare}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
 
-      <Quadrato
-        titolo="Confermati e non incassati"
-        valore={String(daPagare.length)}
-        spiegazione="Ordini con il numero già stampato che nessuno ha pagato: annullandoli le porzioni tornano libere."
-      >
-        {daPagare.length === 0 ? (
-          <p className="vuoto">Nessun ordine in attesa di pagamento.</p>
-        ) : (
-          <ul>
-            {daPagare.map((o) => (
-              <RigaOrdine key={o.id} ordine={o} amministratore={amministratore} puoAnnullare />
-            ))}
-          </ul>
-        )}
-      </Quadrato>
-
-      <Quadrato
-        titolo="Bozze mai confermate"
-        valore={String(bozze.length)}
-        spiegazione="Ordini inviati dal tavolo ma mai passati in cassa: non sono mai partiti."
-      >
-        {bozze.length === 0 ? (
-          <p className="vuoto">Nessuna bozza in sospeso.</p>
-        ) : (
-          <ul>
-            {bozze.map((o) => (
-              <RigaOrdine key={o.id} ordine={o} amministratore={amministratore} />
-            ))}
-          </ul>
-        )}
-      </Quadrato>
-
-      <Quadrato
-        titolo="Pagati non completati"
-        valore={String(inEvasione.length)}
-        spiegazione="Ordini pagati e inviati ai reparti, ma non ancora consegnati del tutto."
-      >
-        {inEvasione.length === 0 ? (
-          <p className="vuoto">Nessun ordine in sospeso.</p>
-        ) : (
-          <ul>
-            {inEvasione.map((o) => (
-              <RigaOrdine key={o.id} ordine={o} amministratore={amministratore} />
-            ))}
-          </ul>
-        )}
-      </Quadrato>
+      {daSistemare.length === 0 && (
+        <p className="vuoto">Non è rimasto niente in sospeso: la serata è a posto.</p>
+      )}
     </div>
   );
 }
