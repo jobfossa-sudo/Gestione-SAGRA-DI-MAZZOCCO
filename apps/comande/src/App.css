@@ -73,13 +73,19 @@
 .app-cassa main {
   flex: 1;
   padding: 24px;
-  max-width: 1200px;
   width: 100%;
-  margin: 0 auto;
+}
+/* Il limite di larghezza sta sul contenuto, non su main: così una singola
+   sotto-scheda (per esempio Fine serata) può chiedere tutto lo schermo
+   mettendosi la classe "larga", senza che l'area intera debba farlo. */
+.app-cassa main > * {
+  max-width: 1200px;
+  margin-inline: auto;
 }
 /* Le schermate da compilare usano tutto lo schermo: lo spazio in più va alle
    colonne che ne hanno bisogno, non a distanziare quelle che ci sono già. */
-.app-cassa main.larga {
+.app-cassa main.larga > *,
+.app-cassa main > .larga {
   max-width: none;
 }
 
@@ -744,11 +750,13 @@
 
 .fine-serata {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  /* Quadrati più stretti di prima: con tutto lo schermo a disposizione ne
+     stanno in fila parecchi, e ne arriveranno altri. */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 20px;
   align-items: start;
 }
-.fine-serata section {
+.fine-serata .quadrato {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -761,6 +769,38 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 4px;
+}
+/* Il numero è la cosa che si guarda da lontano a fine serata: grande, e
+   con le cifre tutte della stessa larghezza così non balla mentre cambia. */
+.valore-quadrato {
+  margin: 2px 0 6px;
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+/* I quadrati degli incassi sono soldi, non ordini: colore diverso, niente
+   elenco sotto, e il totale più marcato degli altri. */
+.fine-serata .quadrato-incasso,
+.fine-serata .quadrato-incasso-totale {
+  background: var(--success-soft);
+  border-color: var(--success);
+}
+.quadrato-incasso .valore-quadrato,
+.quadrato-incasso-totale .valore-quadrato {
+  color: var(--success);
+}
+.fine-serata .quadrato-incasso-totale {
+  border-width: 2px;
+}
+.quadrato-incasso-totale .valore-quadrato {
+  font-size: 2.8rem;
+}
+.quadrato-incasso h2,
+.quadrato-incasso-totale h2 {
+  color: var(--success);
 }
 .contatore {
   font-size: 0.78rem;

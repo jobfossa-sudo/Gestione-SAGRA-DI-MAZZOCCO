@@ -14,8 +14,11 @@ export function AreaCassa({ amministratore }: { amministratore: boolean }) {
   // resta dimenticato a fine serata.
   const inSospeso = useOrdiniAperti().filter((o) => o.stato === 'bozza' || o.stato === 'da_pagare').length;
 
+  // Fine serata è fatta di quadrati che si affiancano: più schermo c'è, più
+  // contatori stanno in fila. Le altre due schede restano strette, che si
+  // leggono meglio di corsa.
   return (
-    <div className="area">
+    <div className={scheda === 'Fine serata' ? 'area larga' : 'area'}>
       <nav className="sotto-schede">
         {SCHEDE.map((s) => (
           <button key={s} type="button" className={s === scheda ? 'attiva' : ''} onClick={() => setScheda(s)}>

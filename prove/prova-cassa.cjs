@@ -157,6 +157,33 @@ function verifica(descrizione, condizione, extra = '') {
   await cassa.waitForTimeout(1500);
   const fine = await cassa.innerText('.fine-serata');
   verifica('a fine serata si vedono gli ordini confermati e non incassati', /Confermati e non incassati/.test(fine));
+  verifica('c’è il quadrato degli ordini completati', /Ordini completati/.test(fine));
+  verifica('c’è il quadrato dell’incasso della cassa A', /Incasso cassa A/.test(fine));
+  verifica('c’è il quadrato dell’incasso totale', /Incasso totale/.test(fine));
+  const incassoA = (fine.match(/Incasso cassa A\s+([\d.,]+ €)/) || [])[1];
+  const incassoTotale = (fine.match(/Incasso totale\s+([\d.,]+ €)/) || [])[1];
+  verifica(
+    'con una cassa sola il totale coincide con il suo incasso',
+    !!incassoA && incassoA === incassoTotale,
+    `cassa A ${incassoA}, totale ${incassoTotale}`
+  );
+  verifica('e non è zero: qualcosa è stato incassato', !!incassoA && !/^0[.,]00/.test(incassoA), incassoA);
+
+  // I quadrati devono prendersi tutto lo schermo, le altre schede no.
+  await cassa.setViewportSize({ width: 1600, height: 900 });
+  await cassa.waitForTimeout(800);
+  const largaFine = await cassa.evaluate(() =>
+    Math.round(document.querySelector('.fine-serata').getBoundingClientRect().width)
+  );
+  verifica('Fine serata usa tutto lo schermo', largaFine > 1400, `${largaFine}px su 1600`);
+  await cassa.getByRole('button', { name: /Da fare/ }).click();
+  await cassa.waitForTimeout(800);
+  const largaDaFare = await cassa.evaluate(() =>
+    Math.round(document.querySelector('.da-fare').getBoundingClientRect().width)
+  );
+  verifica('le altre schede restano strette', largaDaFare <= 1200, `${largaDaFare}px`);
+  await cassa.getByRole('button', { name: 'Fine serata' }).click();
+  await cassa.waitForTimeout(800);
 
   // Il foglio catturato, disegnato come uscirebbe su carta.
   const anteprima = await browser.newPage();

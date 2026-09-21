@@ -177,6 +177,26 @@ export function useOrdiniAperti(): Ordine[] {
   return ordini;
 }
 
+/** Ordini della serata già consegnati del tutto. Servono ai conti di fine
+ * serata: quanti ne sono stati chiusi e, insieme a quelli ancora in
+ * lavorazione, quanto ha incassato ciascuna cassa. */
+export function useOrdiniCompletati(): Ordine[] {
+  const [ordini, setOrdini] = useState<Ordine[]>([]);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, `serate/${SERATA_ID_OGGI}/ordini`),
+      where('stato', '==', 'completata'),
+      orderBy('numero')
+    );
+    return onSnapshot(q, (snapshot) => {
+      setOrdini(snapshot.docs.map((doc) => doc.data() as Ordine));
+    });
+  }, []);
+
+  return ordini;
+}
+
 /** L'impaginazione dei biglietti, decisa dall'amministratore. Un biglietto
  * mai modificato non ha un documento: vale quella di partenza. */
 export function useBiglietti(): Record<TipoBiglietto, Biglietto> {
