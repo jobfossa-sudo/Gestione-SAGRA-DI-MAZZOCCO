@@ -161,15 +161,18 @@ function verifica(descrizione, condizione, extra = '') {
   verifica('c’è il quadrato dell’incasso della cassa A', /Incasso cassa A/.test(fine));
   verifica('c’è il quadrato dell’incasso totale', /Incasso totale/.test(fine));
   // Attenzione: tra la cifra e il simbolo dell'euro c'è uno spazio unificatore
-  // (non un normale spazio), quindi si cattura solo la cifra.
-  const incassoA = (fine.match(/Incasso cassa A\s+([\d.,]+)/) || [])[1];
-  const incassoTotale = (fine.match(/Incasso totale\s+([\d.,]+)/) || [])[1];
+  // (non un normale spazio), quindi si cattura solo la cifra. E i numeri sono
+  // scritti all'italiana: 1.234,50.
+  const cifra = (testo) => Number(testo.replace(/\./g, '').replace(',', '.'));
+  const incassiCasse = [...fine.matchAll(/Incasso cassa [A-Z]\s+([\d.,]+)/g)].map((m) => cifra(m[1]));
+  const incassoTotale = cifra((fine.match(/Incasso totale\s+([\d.,]+)/) || [])[1] ?? '0');
+  const somma = incassiCasse.reduce((s, n) => s + n, 0);
   verifica(
-    'con una cassa sola il totale coincide con il suo incasso',
-    !!incassoA && incassoA === incassoTotale,
-    `cassa A ${incassoA}, totale ${incassoTotale}`
+    'il totale è la somma di tutte le casse',
+    incassiCasse.length > 0 && Math.abs(somma - incassoTotale) < 0.005,
+    `${incassiCasse.length} casse, somma ${somma.toFixed(2)}, totale ${incassoTotale.toFixed(2)}`
   );
-  verifica('e non è zero: qualcosa è stato incassato', !!incassoA && !/^0[.,]00/.test(incassoA), incassoA);
+  verifica('e non è zero: qualcosa è stato incassato', incassoTotale > 0, incassoTotale.toFixed(2));
 
   // I quadrati devono prendersi tutto lo schermo, le altre schede no.
   await cassa.setViewportSize({ width: 1600, height: 900 });

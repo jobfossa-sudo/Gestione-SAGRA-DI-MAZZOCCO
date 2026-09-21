@@ -19,6 +19,9 @@
   --success-soft: #eaf6ee;
   --danger: #b91c1c;
   --danger-soft: #fdecec;
+  /* Giallo: serve a staccare un totale dalle voci che lo compongono. */
+  --oro: #a16207;
+  --oro-soft: #fdf6e0;
 
   /* Settori di preparazione (pannelli e stampanti). */
   --cucina: #b45309;
@@ -78,6 +81,9 @@
   --success-soft: #12251a;
   --danger: #f87171;
   --danger-soft: #2a1414;
+  /* Sul fondo scuro il giallo scuro sparirebbe: qui serve chiaro. */
+  --oro: #fbbf24;
+  --oro-soft: #2a2008;
 
   --cucina: #fbbf24;
   --griglia: #fb7185;

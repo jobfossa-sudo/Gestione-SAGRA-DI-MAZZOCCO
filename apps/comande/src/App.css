@@ -812,26 +812,31 @@
   color: var(--accent);
 }
 
-/* I quadrati degli incassi sono soldi, non ordini: colore diverso, niente
-   elenco sotto, e il totale più marcato degli altri. */
-.fine-serata .quadrato-incasso,
-.fine-serata .quadrato-incasso-totale {
+/* I quadrati degli incassi sono soldi, non ordini: verdi, senza elenco
+   sotto. */
+.fine-serata .quadrato-incasso {
   background: var(--success-soft);
   border-color: var(--success);
 }
 .quadrato-incasso .valore-quadrato,
-.quadrato-incasso-totale .valore-quadrato {
+.quadrato-incasso h2 {
   color: var(--success);
 }
+
+/* Il totale è giallo: non è una cassa come le altre, è la loro somma, e si
+   deve riconoscere senza leggere il titolo. Anche più grande e con la
+   cornice doppia. */
 .fine-serata .quadrato-incasso-totale {
+  background: var(--oro-soft);
+  border-color: var(--oro);
   border-width: 2px;
+}
+.quadrato-incasso-totale .valore-quadrato,
+.quadrato-incasso-totale h2 {
+  color: var(--oro);
 }
 .quadrato-incasso-totale .valore-quadrato {
   font-size: 2.8rem;
-}
-.quadrato-incasso h2,
-.quadrato-incasso-totale h2 {
-  color: var(--success);
 }
 .contatore {
   font-size: 0.78rem;
