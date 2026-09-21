@@ -147,6 +147,31 @@ async function entra(browser, utente) {
     /già stato consegnato/.test(await distribuzione.innerText('.esito-errore'))
   );
 
+  // PROVVISORIO — il tasto "Consegnato" sostituisce il lettore finché non
+  // c'è. Manda al server lo stesso codice a barre del foglio, quindi il giro
+  // provato è quello vero. Da togliere insieme al tasto.
+  await cassa.getByRole('button', { name: 'Aggiungi Patatine fritte' }).click();
+  await cassa.getByLabel('Tavolo').fill('22');
+  await cassa.getByLabel('Coperti').fill('2');
+  await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
+  await cassa.getByRole('button', { name: 'Invia ordine' }).click();
+  await cassa.waitForTimeout(3500);
+  await distribuzione.waitForTimeout(2500);
+
+  const tastiConsegnato = distribuzione.getByRole('button', { name: 'Consegnato' });
+  if ((await tastiConsegnato.count()) > 0) {
+    const codiceVassoio = ((await distribuzione.innerText('.elenco-vassoi')).match(/[A-Z]\d{4}/) || [])[0];
+    await tastiConsegnato.first().click();
+    await distribuzione.waitForTimeout(2500);
+    verifica(
+      'PROVVISORIO: il tasto "Consegnato" chiude l’ordine come farebbe il lettore',
+      new RegExp(codiceVassoio + ' consegnato').test(await distribuzione.innerText('.esito-ok')),
+      codiceVassoio
+    );
+  } else {
+    verifica('PROVVISORIO: c’era un vassoio su cui provare il tasto "Consegnato"', false);
+  }
+
   await distribuzione.screenshot({ path: RISULTATI + '/distribuzione.png', fullPage: true });
   await browser.close();
   const falliti = esiti.filter((e) => !e.ok).length;

@@ -1459,13 +1459,29 @@ body.trascinamento-in-corso {
 }
 .elenco-vassoi li {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   gap: 12px;
   align-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-alt);
   padding: 10px 12px;
+}
+.elenco-vassoi li button {
+  width: auto;
+}
+/* PROVVISORIO — aiuto per provare senza lettore di codici a barre. Il bordo
+   tratteggiato serve a ricordare che è un pezzo da togliere, non parte
+   dell'app vera. */
+.bottone-provvisorio {
+  border-style: dashed;
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.avviso-provvisorio {
+  border-left: 3px dashed var(--border-strong);
+  padding-left: 10px;
 }
 .elenco-vassoi .numero {
   font-weight: 800;

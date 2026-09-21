@@ -38,12 +38,10 @@ export function Distribuzione() {
     }
   }, [inLavorazione]);
 
-  /** Il lettore di codici a barre si comporta come una tastiera: scrive il
-   * codice nella casella e preme Invio. La casella resta sempre pronta, così
-   * chi lavora non deve cliccare da nessuna parte. */
-  async function leggi(e: React.FormEvent) {
-    e.preventDefault();
-    const letto = codice.trim();
+  /** Chiude l'ordine a cui appartiene il codice a barre. È l'unica strada:
+   * che il codice arrivi dal lettore o dal tasto provvisorio qui sotto, il
+   * server riceve e controlla sempre la stessa cosa. */
+  async function chiudiConCodice(letto: string) {
     if (!letto || inCorso) return;
     setInCorso(true);
     setEsito(null);
@@ -60,6 +58,14 @@ export function Distribuzione() {
       setInCorso(false);
       casella.current?.focus();
     }
+  }
+
+  /** Il lettore di codici a barre si comporta come una tastiera: scrive il
+   * codice nella casella e preme Invio. La casella resta sempre pronta, così
+   * chi lavora non deve cliccare da nessuna parte. */
+  function leggi(e: React.FormEvent) {
+    e.preventDefault();
+    void chiudiConCodice(codice.trim());
   }
 
   return (
@@ -104,12 +110,22 @@ export function Distribuzione() {
           Ordini pagati e non ancora consegnati. La copia cucina esce da sola appena l'ordine arriva; se la stampa
           si inceppa, usa Ristampa.
         </p>
+        {/* PROVVISORIO — da togliere insieme al tasto "Consegnato". */}
+        <p className="spiegazione avviso-provvisorio">
+          Il tasto <strong>Consegnato</strong> serve solo finché non c'è il lettore di codici a barre: chiude
+          l'ordine come se il codice fosse stato letto. Con il lettore in mano, si toglie.
+        </p>
         {inLavorazione.length === 0 ? (
           <p className="vuoto">Nessun ordine in lavorazione.</p>
         ) : (
           <ul className="elenco-vassoi">
             {inLavorazione.map((ordine) => (
-              <RigaVassoio key={ordine.id} ordine={ordine} />
+              <RigaVassoio
+                key={ordine.id}
+                ordine={ordine}
+                inCorso={inCorso}
+                onConsegnato={() => chiudiConCodice(ordine.codiceBarre ?? '')}
+              />
             ))}
           </ul>
         )}
@@ -118,7 +134,15 @@ export function Distribuzione() {
   );
 }
 
-function RigaVassoio({ ordine }: { ordine: Ordine }) {
+function RigaVassoio({
+  ordine,
+  inCorso,
+  onConsegnato,
+}: {
+  ordine: Ordine;
+  inCorso: boolean;
+  onConsegnato: () => void;
+}) {
   return (
     <li>
       <span className="numero">{ordine.codice ?? `n. ${ordine.numero}`}</span>
@@ -130,6 +154,18 @@ function RigaVassoio({ ordine }: { ordine: Ordine }) {
       </span>
       <button type="button" onClick={() => stampa([{ tipo: 'copiaCucina', ordine }])}>
         Ristampa
+      </button>
+      {/* PROVVISORIO — da togliere quando arriva il lettore di codici a barre.
+          Manda al server lo stesso codice che leggerebbe lo scanner, così il
+          giro provato è quello vero e non una scorciatoia. */}
+      <button
+        type="button"
+        className="bottone-provvisorio"
+        disabled={inCorso || !ordine.codiceBarre}
+        title="Chiude l'ordine come se il codice a barre fosse stato letto"
+        onClick={onConsegnato}
+      >
+        Consegnato
       </button>
     </li>
   );
