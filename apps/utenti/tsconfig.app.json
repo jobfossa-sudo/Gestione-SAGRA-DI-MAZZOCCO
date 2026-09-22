@@ -18,6 +18,7 @@
 
     "paths": {
       "@sagra-mazzocco/shared": ["../../shared/src/index.ts"],
+      "@sagra-mazzocco/shared/carattere": ["../../shared/src/carattere.ts"],
       "@sagra-mazzocco/shared/tema": ["../../shared/src/tema.ts"]
     },
 

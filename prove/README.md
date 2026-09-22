@@ -27,6 +27,9 @@ salvata su GitHub.
 - `prova-biglietti.cjs` — la composizione dei biglietti: blocchi accesi,
   spenti e trascinati, immagini, carta e stampa di prova.
 - `prova-offline.cjs` — cosa si vede quando la rete cade.
+- `prova-carattere.cjs` — i tasti che rimpiccioliscono e ingrandiscono le
+  scritte: in Comande, sul telefono del cliente e nell'app Utenti. Controlla
+  anche che il biglietto da stampare resti della sua misura.
 
 Le prove del server (senza browser) stanno invece in `functions/scripts/`:
 `test-rules.js` e `test-functions.js`.

@@ -3,6 +3,7 @@ import { useCategorie, useProdotti } from '../hooks';
 import { creaOrdineBozza, messaggioErrore } from '../services/callables';
 import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
+import { SelettoreCarattere } from './SelettoreCarattere';
 import { SelettoreTema } from './SelettoreTema';
 
 /** La pagina che il cliente apre inquadrando il QR. Non serve nessun account:
@@ -96,6 +97,7 @@ export function MenuQr({ tavoloIniziale }: { tavoloIniziale: number | null }) {
       <header className="testata-qr">
         <span className="occhiello">Sagra di Mazzocco</span>
         <span className="tavolo-qr">{tavoloValido ? `Tavolo ${Number(tavolo)}` : 'Il menù'}</span>
+        <SelettoreCarattere />
         <SelettoreTema />
       </header>
 

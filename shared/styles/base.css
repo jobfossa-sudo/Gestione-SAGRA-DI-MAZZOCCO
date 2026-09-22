@@ -299,6 +299,20 @@ label {
   white-space: nowrap;
 }
 
+/* Stessa pillola del tema, con le lettere al posto dei simboli: A− rimpicciolisce,
+   A riporta alla misura normale, A+ ingrandisce. Le due A sono disegnate di
+   grandezza diversa perché si capisca da che parte si va senza leggere. */
+.selettore-carattere button {
+  font-weight: 700;
+  min-width: 2.6rem;
+}
+.selettore-carattere .a-piccola {
+  font-size: 0.8rem;
+}
+.selettore-carattere .a-grande {
+  font-size: 1.15rem;
+}
+
 /* Nella schermata di accesso sta sotto il modulo, in mezzo. */
 .login .selettore-tema {
   align-self: center;

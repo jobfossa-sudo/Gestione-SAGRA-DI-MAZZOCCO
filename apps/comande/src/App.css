@@ -79,7 +79,10 @@
    sotto-scheda (per esempio Fine serata) può chiedere tutto lo schermo
    mettendosi la classe "larga", senza che l'area intera debba farlo. */
 .app-cassa main > * {
-  max-width: 1200px;
+  /* In rem, non in pixel: se chi lavora ingrandisce le scritte, la pagina
+     si allarga insieme a loro invece di strozzarle in una colonna sempre
+     larga uguale. */
+  max-width: 70rem;
   margin-inline: auto;
 }
 /* Le schermate da compilare usano tutto lo schermo: lo spazio in più va alle
@@ -158,13 +161,13 @@
      La misura della colonna di sinistra la detta la tabella: è larga quanto
      le sue colonne messe in fila, e se domani l'amministratore aggiunge un
      piatto dal nome lungo si allarga da sé, fino al tetto qui sotto. */
-  grid-template-columns: fit-content(760px) minmax(340px, 1fr);
+  grid-template-columns: fit-content(45rem) minmax(20rem, 1fr);
   gap: 24px;
   /* Alta quanto lo schermo: a scorrere è il menù dentro la sua finestra, non
      la pagina. Tavolo e coperti restano in cima, i tre tasti in fondo, e non
      si perde mai di vista né l'uno né l'altro. Il numero tolto è quanto
      occupano la barra in cima, le linguette e i margini. */
-  height: calc(100vh - 190px);
+  height: calc(100vh - 11.5rem);
   align-items: stretch;
 }
 .colonna-comanda {
@@ -1677,6 +1680,9 @@ body.trascinamento-in-corso {
 .foglio-qr {
   text-align: center;
   color: #2a231d;
+  /* Come il biglietto: il cartello da appendere ai tavoli è carta, e la carta
+     non segue la grandezza scelta sullo schermo di chi lo stampa. */
+  font-size: 12.75pt;
 }
 .banda-qr {
   background: linear-gradient(135deg, #c2410c 0%, #9f1239 100%);
@@ -2012,6 +2018,11 @@ body.trascinamento-in-corso {
 .foglio-composto {
   box-sizing: border-box;
   font-family: Arial, Helvetica, sans-serif;
+  /* Misura sua, in punti tipografici, invece di ereditare quella della
+     pagina: la carta non cambia a seconda di chi ha ingrandito le scritte sul
+     proprio schermo. Sono gli stessi 17px di prima (12,75pt), così il foglio
+     esce identico a com'è sempre uscito. */
+  font-size: 12.75pt;
   display: flex;
   flex-direction: column;
   gap: 2mm;
@@ -2210,7 +2221,7 @@ body.trascinamento-in-corso {
   gap: 8px;
   /* In una serata piena sono centinaia: l'elenco scorre per conto suo invece
      di allungare la pagina all'infinito. */
-  max-height: calc(100vh - 420px);
+  max-height: calc(100vh - 25rem);
   overflow-y: auto;
 }
 .riga-riepilogo {

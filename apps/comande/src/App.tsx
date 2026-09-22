@@ -13,6 +13,7 @@ import { MenuQr } from './components/MenuQr';
 import { QrMenu } from './components/QrMenu';
 import { Pannelli } from './components/Pannelli';
 import { Distribuzione } from './components/Distribuzione';
+import { SelettoreCarattere } from './components/SelettoreCarattere';
 import { SelettoreTema } from './components/SelettoreTema';
 import { useUtenteAutenticato } from './hooks';
 import { auth } from './services/firebase';
@@ -86,6 +87,7 @@ function App() {
             nuovo.
           </p>
         </div>
+        <SelettoreCarattere />
         <SelettoreTema />
         <button type="button" onClick={() => signOut(auth)}>
           Esci
@@ -127,6 +129,7 @@ function App() {
           <span>
             {utente.displayName} · {nomeRuolo}
           </span>
+          <SelettoreCarattere />
           <SelettoreTema />
           <button type="button" onClick={() => signOut(auth)}>
             Esci

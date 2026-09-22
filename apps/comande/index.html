@@ -20,6 +20,19 @@
           scelta === 'scuro' ||
           (scelta !== 'chiaro' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.dataset.tema = scuro ? 'scuro' : 'chiaro';
+
+        // Stessa cosa per la grandezza delle scritte: applicata qui, la
+        // pagina non si vede saltare da una misura all'altra all'apertura.
+        // La scelta la gestisce shared/src/carattere.ts.
+        var misura = 0;
+        try {
+          misura = Number(localStorage.getItem('carattere'));
+        } catch (e) {
+          /* browser che vieta la memoria locale: si usa quella normale */
+        }
+        if ([15, 17, 19, 21].indexOf(misura) >= 0) {
+          document.documentElement.style.fontSize = misura + 'px';
+        }
       })();
     </script>
   </head>

@@ -2,6 +2,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
 import { emailDaNomeUtente } from '@sagra-mazzocco/shared';
 import { auth } from '../services/firebase';
+import { SelettoreCarattere } from './SelettoreCarattere';
 import { SelettoreTema } from './SelettoreTema';
 
 function messaggioAccesso(err: unknown): string {
@@ -71,6 +72,7 @@ export function Login() {
           {inCorso ? 'Accesso in corso…' : 'Entra'}
         </button>
       </form>
+      <SelettoreCarattere />
       <SelettoreTema />
     </div>
   );

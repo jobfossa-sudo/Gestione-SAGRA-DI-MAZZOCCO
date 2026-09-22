@@ -8,6 +8,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Netlify non potrebbe trovarla.
 const shared = fileURLToPath(new URL('../../shared/src/index.ts', import.meta.url))
 const tema = fileURLToPath(new URL('../../shared/src/tema.ts', import.meta.url))
+const carattere = fileURLToPath(new URL('../../shared/src/carattere.ts', import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -44,6 +45,7 @@ export default defineConfig({
     // Il più specifico va per primo, altrimenti "…/shared" cattura anche
     // "…/shared/tema".
     alias: [
+      { find: '@sagra-mazzocco/shared/carattere', replacement: carattere },
       { find: '@sagra-mazzocco/shared/tema', replacement: tema },
       { find: '@sagra-mazzocco/shared', replacement: shared },
     ],
