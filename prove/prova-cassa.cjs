@@ -185,11 +185,19 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
   verifica('un cliente dal QR manda il suo ordine', !!bozza.numero, 'numero ' + bozza.numero);
 
   await cassa.getByLabel('Ordine dal QR n.').fill(String(bozza.numero));
-  await cassa.getByRole('button', { name: 'Richiama' }).click();
-  await cassa.waitForTimeout(1500);
+  // L'ordine appena partito dal telefono arriva al banco da solo, ma ci mette
+  // il tempo che ci mette: con l'archivio pieno, più che con l'archivio vuoto.
+  // Si ritenta finché non c'è, invece di fidarsi di un'attesa a occhio. In
+  // cassa lo stesso lo rifarebbe la cassiera, premendo Richiama un'altra volta.
+  let inMano = false;
+  for (let tentativo = 0; tentativo < 12 && !inMano; tentativo++) {
+    await cassa.getByRole('button', { name: 'Richiama' }).click();
+    await cassa.waitForTimeout(700);
+    inMano = await cassa.locator('.avviso-dal-tavolo').isVisible().catch(() => false);
+  }
   verifica(
     'l’ordine del cliente viene in mano alla cassa',
-    /arrivato dal tavolo 7/.test(await cassa.innerText('.colonna-comanda'))
+    inMano && /arrivato dal tavolo 7/.test(await cassa.innerText('.colonna-comanda'))
   );
   verifica(
     'tavolo e coperti arrivano da lui, non si ridigitano',
@@ -257,7 +265,48 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
   await cassa.waitForTimeout(800);
   verifica('e si ristampa il foglio perso', (await cassa.evaluate(() => window.__stampe.length)) === 4);
 
+  // Cercare un ordine per codice: è il caso vero, un cliente che torna al
+  // banco col foglio in mano e una lamentela.
+  await cassa.getByLabel('Cerca ordine').fill(codice);
+  await cassa.waitForTimeout(600);
+  const trovate = cassa.locator('.riga-riepilogo');
+  verifica('cercando il codice resta un ordine solo', (await trovate.count()) === 1, codice);
+  verifica('ed è quello giusto', (await trovate.first().innerText()).includes(codice));
+  verifica(
+    'trovato da solo si apre già sulle sue voci',
+    (await trovate.first().locator('.voci-riepilogo li').count()) > 0
+  );
+  verifica('e si vede quanti ordini sono rimasti', /1 ordine su/.test(await cassa.innerText('.esito-filtro')));
+
+  // Anche mezzo codice basta, e il numero progressivo pure: sul telefono del
+  // cliente c'è solo quello.
+  await cassa.getByLabel('Cerca ordine').fill(codice.slice(1, 4));
+  await cassa.waitForTimeout(600);
+  verifica('basta un pezzo di codice', (await trovate.count()) >= 1, codice.slice(1, 4));
+
+  await cassa.getByLabel('Cerca ordine').fill('ZZZZ');
+  await cassa.waitForTimeout(600);
+  verifica('cercando una cosa che non c’è lo dice', /Nessun ordine con questi filtri/.test(await cassa.innerText('.esito-filtro')));
+  await cassa.getByRole('button', { name: 'Mostra tutti' }).click();
+  await cassa.waitForTimeout(600);
+  verifica('e "Mostra tutti" riporta l’elenco intero', (await trovate.count()) === ordiniDopo, `${ordiniDopo} righe`);
+
+  // I filtri per stato: ce n'è uno solo per ogni stato che stasera esiste
+  // davvero, col suo conteggio addosso.
+  const filtroInCorso = cassa.locator('.filtro').filter({ hasText: /in preparazione/i });
+  verifica('c’è il filtro degli ordini in preparazione', (await filtroInCorso.count()) === 1);
+  await filtroInCorso.click();
+  await cassa.waitForTimeout(600);
+  const stati = await trovate.locator('.targhetta-stato').allInnerTexts();
+  verifica(
+    'filtrando resta solo quello stato',
+    stati.length > 0 && stati.every((s) => /in preparazione/i.test(s)),
+    `${stati.length} righe`
+  );
+  verifica('e il filtro scelto si vede acceso', (await cassa.locator('.filtro.scelto').innerText()).match(/in preparazione/i) !== null);
   await cassa.screenshot({ path: RISULTATI + '/cassa-riepilogo.png', fullPage: true });
+  await cassa.getByRole('button', { name: 'Mostra tutti' }).click();
+  await cassa.waitForTimeout(600);
 
   await cassa.getByRole('button', { name: 'Ordini QR' }).click();
   await cassa.waitForTimeout(1500);
@@ -313,7 +362,18 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
   const tempiPrima = await cassa.locator('.riga-tempo').count();
   const distribuzione = await entra(browser, 'distribuzione');
   await distribuzione.waitForTimeout(2500);
-  await distribuzione.getByRole('button', { name: 'Consegnato' }).first().click();
+  // Il tasto resta spento finché l'ordine non ha il suo codice a barre: si
+  // consegna il primo vassoio pronto, non per forza il primo dell'elenco.
+  const consegnati = distribuzione.getByRole('button', { name: 'Consegnato' });
+  await consegnati.first().waitFor();
+  let consegnato = false;
+  for (let i = 0; i < (await consegnati.count()) && !consegnato; i++) {
+    if (await consegnati.nth(i).isEnabled()) {
+      await consegnati.nth(i).click();
+      consegnato = true;
+    }
+  }
+  verifica('in distribuzione c’è un vassoio pronto da consegnare', consegnato);
   await distribuzione.waitForTimeout(3500);
   await cassa.waitForTimeout(2500);
   const conTempi = await cassa.innerText('.fine-serata');

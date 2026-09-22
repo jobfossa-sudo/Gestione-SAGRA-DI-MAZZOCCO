@@ -2084,6 +2084,100 @@ body.trascinamento-in-corso {
 
 /* ---------- riepilogo degli ordini (dal banco e dal QR) ---------- */
 
+/* La riga per cercare un ordine e restringere l'elenco. Sta sopra l'elenco e
+   non scorre con lui: serve proprio quando l'elenco è lungo. */
+.barra-filtri {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.casella-cerca {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.casella-cerca input {
+  width: 15rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 8px 10px;
+}
+.filtri-stato {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.filtro {
+  width: auto;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+/* Il tasto porta il colore del suo stato, gli stessi della striscia sulle
+   righe: si cerca il filtro guardando il colore, non leggendo. */
+.filtro.attesa {
+  color: var(--accent);
+}
+.filtro.corso {
+  color: var(--tempo);
+}
+.filtro.fatto {
+  color: var(--success);
+}
+/* Quello scelto si riempie del proprio colore: a colpo d'occhio si vede che
+   l'elenco sotto non è tutto. */
+.filtro.scelto {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+.filtro.scelto.attesa {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.filtro.scelto.corso {
+  background: var(--tempo);
+  border-color: var(--tempo);
+  color: #fff;
+}
+.filtro.scelto.fatto {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+.filtro .quanti {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+  margin-left: 2px;
+}
+.esito-filtro {
+  margin: -4px 0 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.come-link {
+  width: auto;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .elenco-riepilogo {
   list-style: none;
   margin: 0;
@@ -2093,7 +2187,7 @@ body.trascinamento-in-corso {
   gap: 8px;
   /* In una serata piena sono centinaia: l'elenco scorre per conto suo invece
      di allungare la pagina all'infinito. */
-  max-height: calc(100vh - 340px);
+  max-height: calc(100vh - 420px);
   overflow-y: auto;
 }
 .riga-riepilogo {
@@ -2117,6 +2211,13 @@ body.trascinamento-in-corso {
 .riga-riepilogo.stato-annullato {
   border-left-color: var(--border-strong);
   opacity: 0.65;
+}
+/* L'unico ordine rimasto dopo una ricerca: si stacca dal fondo, così chi l'ha
+   cercato lo trova senza rileggere il codice cifra per cifra. */
+.riga-riepilogo.evidenziata {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  opacity: 1;
 }
 .sommario-ordine {
   display: flex;
