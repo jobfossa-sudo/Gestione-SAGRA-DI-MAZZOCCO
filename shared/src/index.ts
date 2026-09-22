@@ -42,9 +42,13 @@ export const CATEGORIE_INIZIALI: Categoria[] = [
  * a due altre non obbliga a rinumerare tutto. */
 export const PASSO_ORDINE = 10;
 
-/** bozza: inviato dal QR, non ancora in cassa. da_pagare: confermato in cassa,
- * numero assegnato, resoconto stampato, porzioni già tenute da parte; aspetta
- * il pagamento. in_evasione: incassato e inviato ai reparti. */
+/** bozza: inviato dal QR, non ancora passato in cassa. in_evasione: incassato
+ * e in mano ai reparti. completata: consegnato.
+ *
+ * da_pagare non lo produce più nessuno: era lo stato di un ordine confermato
+ * e stampato che aspettava il pagamento. La cassa ora conferma a pagamento
+ * avvenuto, e l'ordine nasce già in evasione. Lo stato resta qui perché gli
+ * ordini di prima ce l'hanno scritto e vanno ancora mostrati e annullati. */
 export type StatoOrdine =
   | 'bozza'
   | 'da_pagare'
@@ -591,16 +595,6 @@ export interface CreaOrdineCassaRichiesta {
 export interface ConfermaOrdineRichiesta {
   serataId: string;
   numero: number;
-}
-
-export interface InviaOrdineRichiesta {
-  serataId: string;
-  ordineId: string;
-}
-
-export interface InviaOrdineRisposta {
-  ordineId: string;
-  codice: string;
 }
 
 export interface SegnaCopiaCucinaStampataRichiesta {

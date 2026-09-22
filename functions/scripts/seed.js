@@ -5,8 +5,11 @@
 //
 // Non tocca mai i dati reali (solo gli emulatori locali).
 
-process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
+// Le porte le decide chi lancia lo script: il sistema di tutti i giorni usa
+// quelle di firebase.json, le prove delle funzioni quelle di
+// firebase.prove.json, così non si pestano i piedi.
+process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
 
 const admin = require('firebase-admin');
 admin.initializeApp({ projectId: 'gestione-sagra-mazzocco' });

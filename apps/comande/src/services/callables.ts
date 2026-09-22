@@ -11,8 +11,6 @@ import type {
   CreaOrdineCassaRichiesta,
   CreaOrdineRisposta,
   ImpostaPorzioniRichiesta,
-  InviaOrdineRichiesta,
-  InviaOrdineRisposta,
   SegnaEsauritoRichiesta,
   ProdottoRisposta,
   SegnaSottoOrdineProntoRichiesta,
@@ -38,7 +36,6 @@ export const confermaOrdine = httpsCallable<ConfermaOrdineRichiesta, CreaOrdineR
 );
 
 /** Il cliente ha pagato: l'ordine parte verso i reparti. */
-export const inviaOrdine = httpsCallable<InviaOrdineRichiesta, InviaOrdineRisposta>(functions, 'inviaOrdine');
 
 export const annullaOrdine = httpsCallable<AnnullaOrdineRichiesta, AnnullaOrdineRisposta>(
   functions,

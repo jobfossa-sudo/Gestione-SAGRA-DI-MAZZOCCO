@@ -1,12 +1,22 @@
 // Verifica il comportamento delle Cloud Functions (logica ordini e ruoli)
-// contro gli emulatori Firestore + Functions + Auth. Va eseguito con:
+// contro gli emulatori Firestore + Functions + Auth. Vuole un archivio
+// vergine, quindi gira su emulatori suoi, su porte diverse da quelle del
+// sistema locale di tutti i giorni: così si può provare mentre qualcuno sta
+// usando l'app, senza cancellargli i dati sotto il naso. Va eseguito con:
 //
-//   firebase emulators:exec --only firestore,functions,auth \
+//   firebase emulators:exec --config firebase.prove.json \
 //     "node functions/scripts/seed.js && node functions/scripts/test-functions.js"
 //
 // Non tocca mai i dati reali (solo gli emulatori locali).
 
-process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+// Le porte arrivano da firebase.prove.json: emulators:exec le mette negli
+// ambienti, e i valori qui sotto servono solo se si lancia lo script a mano.
+const FIRESTORE = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8081';
+const AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9098';
+const [FUNZIONI_HOST, FUNZIONI_PORTA] = (process.env.FUNCTIONS_EMULATOR_HOST ?? '127.0.0.1:5002').split(':');
+
+process.env.FIRESTORE_EMULATOR_HOST = FIRESTORE;
+process.env.FIREBASE_AUTH_EMULATOR_HOST = AUTH;
 
 const admin = require('firebase-admin');
 const { initializeApp } = require('firebase/app');
@@ -18,9 +28,9 @@ const db = admin.firestore();
 
 const clientApp = initializeApp({ projectId: 'gestione-sagra-mazzocco', apiKey: 'fake-per-emulatore' });
 const auth = getAuth(clientApp);
-connectAuthEmulator(auth, 'http://127.0.0.1:9099');
+connectAuthEmulator(auth, `http://${AUTH}`);
 const functions = getFunctions(clientApp);
-connectFunctionsEmulator(functions, '127.0.0.1', 5001);
+connectFunctionsEmulator(functions, FUNZIONI_HOST, Number(FUNZIONI_PORTA));
 
 const inizializzaSistema = httpsCallable(functions, 'inizializzaSistema');
 const creaUtente = httpsCallable(functions, 'creaUtente');
@@ -38,16 +48,13 @@ const segnaSottoOrdinePronto = httpsCallable(functions, 'segnaSottoOrdinePronto'
 const consegnaSottoOrdine = httpsCallable(functions, 'consegnaSottoOrdine');
 const annullaOrdine = httpsCallable(functions, 'annullaOrdine');
 const impostaLetteraCassa = httpsCallable(functions, 'impostaLetteraCassa');
-const inviaOrdine = httpsCallable(functions, 'inviaOrdine');
 const segnaCopiaCucinaStampata = httpsCallable(functions, 'segnaCopiaCucinaStampata');
 const chiudiOrdine = httpsCallable(functions, 'chiudiOrdine');
 
-/** Il giro completo della cassa: conferma (numero e resoconto), poi incasso e
- * invio ai reparti. Restituisce l'esito della conferma. */
+/** La cassa conferma a pagamento avvenuto: un'unica chiamata che crea
+ * l'ordine, scala le porzioni e manda le comande ai reparti. */
 async function creaEInvia(dati) {
-  const conferma = await creaOrdineCassa(dati);
-  await inviaOrdine({ serataId: dati.serataId, ordineId: conferma.data.ordineId });
-  return conferma;
+  return creaOrdineCassa(dati);
 }
 
 const SERATA_ID = new Date().toISOString().slice(0, 10);
@@ -113,7 +120,6 @@ async function main() {
     'confermaOrdine (cassa conferma la bozza per numero)',
     confermaOrdine({ serataId: SERATA_ID, numero: bozza1.numero })
   );
-  await assertOk('la cassa incassa e invia la bozza confermata', inviaOrdine({ serataId: SERATA_ID, ordineId: conferma1.ordineId }));
 
   const sottoOrdiniOrdine1 = await db
     .collection(`serate/${SERATA_ID}/sottoOrdini`)
@@ -237,16 +243,13 @@ async function main() {
   );
 
   // --- 5. Annullamento: solo amministratore -----------------------------------
+  // La cassa annulla da sé: con la conferma a pagamento avvenuto un errore si
+  // scopre a ordine già partito, e non si può dipendere dall'amministratore.
   await accediCome('cassa');
-  await assertRifiutato(
-    'la cassa non può annullare ordini',
-    annullaOrdine({ serataId: SERATA_ID, ordineId: ordineCassa.ordineId }),
-    'permission-denied'
-  );
+  await assertOk('la cassa annulla un ordine', annullaOrdine({ serataId: SERATA_ID, ordineId: ordineCassa.ordineId }));
   await accediCome('admin');
-  await assertOk('l’amministratore annulla un ordine', annullaOrdine({ serataId: SERATA_ID, ordineId: ordineCassa.ordineId }));
   await assertRifiutato(
-    'un ordine già annullato non si annulla di nuovo',
+    'un ordine già annullato non si annulla di nuovo, nemmeno da amministratore',
     annullaOrdine({ serataId: SERATA_ID, ordineId: ordineCassa.ordineId }),
     'failed-precondition'
   );
@@ -637,96 +640,69 @@ async function main() {
   await accediCome('admin');
   await impostaLetteraCassa({ uid: uidCassa, letteraCassa: 'A' });
 
-  // --- 16. Conferma, pagamento, invio ----------------------------------------
+  // --- 16. La conferma fa tutto in una volta sola ---------------------------
   await accediCome('admin');
   await impostaPorzioni({ serataId: SERATA_ID, prodottoId: 'torta', porzioniMassime: 2 });
 
   await accediCome('cassa');
-  const daPagare = await assertOk(
-    'la cassa conferma un ordine (numero e resoconto)',
+  const incassato = await assertOk(
+    'la cassa conferma un ordine, a cliente già pagato',
     creaOrdineCassa({ serataId: SERATA_ID, tavolo: 8, coperti: 2, items: [{ prodottoId: 'torta', quantita: 2 }] })
   );
-  const docDaPagare = (await db.doc(`serate/${SERATA_ID}/ordini/${daPagare.ordineId}`).get()).data();
-  record('l’ordine confermato resta in attesa di pagamento', docDaPagare.stato === 'da_pagare', `stato: ${docDaPagare.stato}`);
-  const comandePrima = await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', daPagare.ordineId).get();
-  record('prima dell’incasso non arriva nessuna comanda ai reparti', comandePrima.size === 0, `comande: ${comandePrima.size}`);
-  const tortaTenuta = (await db.doc(`serate/${SERATA_ID}/disponibilita/torta`).get()).data();
-  record('le porzioni sono già tenute da parte alla conferma', tortaTenuta.venduti === 2, `venduti: ${tortaTenuta.venduti}`);
+  const docIncassato = (await db.doc(`serate/${SERATA_ID}/ordini/${incassato.ordineId}`).get()).data();
+  record(
+    'l’ordine nasce già pagato e già in lavorazione',
+    docIncassato.stato === 'in_evasione' && docIncassato.pagatoAt != null,
+    `stato: ${docIncassato.stato}`
+  );
+  const comande = await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', incassato.ordineId).get();
+  record(
+    'le comande sono già ai reparti, con il numero di comanda',
+    comande.size === 1 && comande.docs[0].data().codice === `C${incassato.codice}`,
+    comande.docs.map((d) => d.data().codice).join(', ')
+  );
+  const tortaVenduta = (await db.doc(`serate/${SERATA_ID}/disponibilita/torta`).get()).data();
+  record('le porzioni sono scalate nella stessa operazione', tortaVenduta.venduti === 2, `venduti: ${tortaVenduta.venduti}`);
+  const tortaFinita = (await db.doc('prodotti/torta').get()).data();
+  record('con l’ultima porzione venduta il piatto risulta finito', tortaFinita.esauritoSerata === SERATA_ID);
   await assertRifiutato(
-    'un’altra cassa non può vendere le porzioni tenute da parte',
+    'un’altra cassa non può vendere porzioni che non ci sono più',
     creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'torta', quantita: 1 }] }),
     'failed-precondition'
   );
 
-  await accediCome('cucina');
-  await assertRifiutato(
-    'la cucina non può inviare un ordine',
-    inviaOrdine({ serataId: SERATA_ID, ordineId: daPagare.ordineId }),
-    'permission-denied'
-  );
-  await accediCome('cassa');
-  await assertOk('incassato: la cassa invia l’ordine', inviaOrdine({ serataId: SERATA_ID, ordineId: daPagare.ordineId }));
-  const docInviato = (await db.doc(`serate/${SERATA_ID}/ordini/${daPagare.ordineId}`).get()).data();
-  record('l’ordine inviato è in evasione e ricorda quando è stato pagato', docInviato.stato === 'in_evasione' && docInviato.pagatoAt != null);
-  const comandeDopo = await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', daPagare.ordineId).get();
-  record(
-    'dopo l’incasso la comanda arriva in cucina con il numero di comanda',
-    comandeDopo.size === 1 && comandeDopo.docs[0].data().codice === `C${daPagare.codice}`,
-    comandeDopo.docs.map((d) => d.data().codice).join(', ')
-  );
-  await assertRifiutato(
-    'un ordine non si invia due volte',
-    inviaOrdine({ serataId: SERATA_ID, ordineId: daPagare.ordineId }),
-    'failed-precondition'
-  );
-  const comandeDoppie = await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', daPagare.ordineId).get();
-  record('…e le comande non si duplicano', comandeDoppie.size === 1);
-  await assertRifiutato(
-    'la cassa non può annullare un ordine già incassato',
-    annullaOrdine({ serataId: SERATA_ID, ordineId: daPagare.ordineId }),
-    'permission-denied'
-  );
-
-  // Il cliente se ne va senza pagare.
-  await accediCome('admin');
-  await impostaPorzioni({ serataId: SERATA_ID, prodottoId: 'torta', porzioniMassime: 3 });
-  await accediCome('cassa');
-  const abbandonato = await assertOk(
-    'la cassa conferma un ordine che non verrà pagato',
-    creaOrdineCassa({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'torta', quantita: 1 }] })
-  );
-  const tortaFinita = (await db.doc('prodotti/torta').get()).data();
-  record('con l’ultima porzione tenuta da parte il piatto risulta finito', tortaFinita.esauritoSerata === SERATA_ID);
-  await assertOk('la cassa annulla l’ordine non pagato', annullaOrdine({ serataId: SERATA_ID, ordineId: abbandonato.ordineId }));
-  const tortaLiberata = (await db.doc(`serate/${SERATA_ID}/disponibilita/torta`).get()).data();
+  // Un errore si scopre a ordine già partito: la cassa deve poterlo annullare
+  // da sé, senza andare a cercare l'amministratore.
+  await assertOk('la cassa annulla un ordine già partito', annullaOrdine({ serataId: SERATA_ID, ordineId: incassato.ordineId }));
+  const tortaTornata = (await db.doc(`serate/${SERATA_ID}/disponibilita/torta`).get()).data();
   const tortaDiNuovo = (await db.doc('prodotti/torta').get()).data();
   record(
-    'annullandolo la porzione torna vendibile',
-    tortaLiberata.venduti === 2 && tortaDiNuovo.esauritoSerata === null,
-    `venduti: ${tortaLiberata.venduti}, esaurito: ${tortaDiNuovo.esauritoSerata}`
+    'annullandolo le porzioni tornano vendibili',
+    tortaTornata.venduti === 0 && tortaDiNuovo.esauritoSerata === null,
+    `venduti: ${tortaTornata.venduti}, esaurito: ${tortaDiNuovo.esauritoSerata}`
   );
   await assertRifiutato(
-    'un ordine annullato non si può inviare',
-    inviaOrdine({ serataId: SERATA_ID, ordineId: abbandonato.ordineId }),
+    'un ordine annullato non si annulla due volte',
+    annullaOrdine({ serataId: SERATA_ID, ordineId: incassato.ordineId }),
     'failed-precondition'
   );
 
-  // Dal QR: la bozza confermata segue lo stesso giro.
+  // Dal QR: la bozza confermata salta anche lei lo stato intermedio.
   await signOut(auth);
   const bozzaGiro = await creaOrdineBozza({ serataId: SERATA_ID, tavolo: 6, coperti: 4, items: [{ prodottoId: 'birra', quantita: 2 }] });
   await accediCome('cassa');
-  await assertRifiutato(
-    'una bozza non ancora confermata non si può inviare',
-    inviaOrdine({ serataId: SERATA_ID, ordineId: bozzaGiro.data.ordineId }),
-    'failed-precondition'
-  );
   const bozzaConfermata = await assertOk('la cassa conferma la bozza', confermaOrdine({ serataId: SERATA_ID, numero: bozzaGiro.data.numero }));
   const docBozza = (await db.doc(`serate/${SERATA_ID}/ordini/${bozzaConfermata.ordineId}`).get()).data();
   const comandeBozza = await db.collection(`serate/${SERATA_ID}/sottoOrdini`).where('ordineId', '==', bozzaConfermata.ordineId).get();
   record(
-    'la bozza confermata aspetta il pagamento, senza comande',
-    docBozza.stato === 'da_pagare' && comandeBozza.size === 0 && /^A\d{4}$/.test(docBozza.codice),
+    'la bozza confermata parte subito verso i reparti',
+    docBozza.stato === 'in_evasione' && comandeBozza.size > 0 && /^A\d{4}$/.test(docBozza.codice),
     `stato: ${docBozza.stato}, comande: ${comandeBozza.size}, codice: ${docBozza.codice}`
+  );
+  await assertRifiutato(
+    'la stessa bozza non si conferma due volte',
+    confermaOrdine({ serataId: SERATA_ID, numero: bozzaGiro.data.numero }),
+    'failed-precondition'
   );
 
   // --- 17. Distribuzione: copia cucina e lettura del codice a barre ---------
@@ -735,24 +711,6 @@ async function main() {
     'la cassa batte un ordine da portare al tavolo',
     creaOrdineCassa({ serataId: SERATA_ID, tavolo: 9, coperti: 4, items: [{ prodottoId: 'acqua', quantita: 2 }] })
   );
-  const letturaPrimaDelPagamento = (
-    await db.doc(`serate/${SERATA_ID}/ordini/${perVassoio.ordineId}`).get()
-  ).data();
-
-  await accediCome('distribuzione');
-  await assertRifiutato(
-    'la copia cucina non esce per un ordine non pagato',
-    segnaCopiaCucinaStampata({ serataId: SERATA_ID, ordineId: perVassoio.ordineId }),
-    'failed-precondition'
-  );
-  await assertRifiutato(
-    'un foglio non pagato non chiude niente',
-    chiudiOrdine({ serataId: SERATA_ID, codiceBarre: letturaPrimaDelPagamento.codiceBarre }),
-    'failed-precondition'
-  );
-
-  await accediCome('cassa');
-  await inviaOrdine({ serataId: SERATA_ID, ordineId: perVassoio.ordineId });
   await assertRifiutato(
     'la cassa non gestisce la distribuzione',
     segnaCopiaCucinaStampata({ serataId: SERATA_ID, ordineId: perVassoio.ordineId }),
