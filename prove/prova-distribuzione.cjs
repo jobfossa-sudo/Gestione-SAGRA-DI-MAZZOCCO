@@ -65,9 +65,8 @@ async function entra(browser, utente) {
   await cassa.getByRole('button', { name: 'Aggiungi Pasta al ragù' }).click();
   await cassa.getByLabel('Tavolo').fill('21');
   await cassa.getByLabel('Coperti').fill('2');
-  await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
-  await cassa.getByRole('button', { name: 'Invia ordine' }).click();
-  await cassa.waitForTimeout(3500);
+  await cassa.getByRole('button', { name: 'Conferma ordine' }).click();
+  await cassa.waitForTimeout(4000);
 
   // In Distribuzione la copia cucina esce da sola.
   await distribuzione.waitForTimeout(3000);
@@ -153,9 +152,8 @@ async function entra(browser, utente) {
   await cassa.getByRole('button', { name: 'Aggiungi Patatine fritte' }).click();
   await cassa.getByLabel('Tavolo').fill('22');
   await cassa.getByLabel('Coperti').fill('2');
-  await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
-  await cassa.getByRole('button', { name: 'Invia ordine' }).click();
-  await cassa.waitForTimeout(3500);
+  await cassa.getByRole('button', { name: 'Conferma ordine' }).click();
+  await cassa.waitForTimeout(4000);
   await distribuzione.waitForTimeout(2500);
 
   const tastiConsegnato = distribuzione.getByRole('button', { name: 'Consegnato' });

@@ -43,7 +43,7 @@ function verifica(descrizione, condizione, extra = '') {
   await pagina.getByRole('button', { name: 'Aggiungi Pasta al ragù' }).click();
   await pagina.getByLabel('Tavolo').fill('5');
   await pagina.getByLabel('Coperti').fill('2');
-  await pagina.getByRole('button', { name: 'Conferma e stampa' }).click();
+  await pagina.getByRole('button', { name: 'Conferma ordine' }).click();
   await pagina.waitForTimeout(6000);
   const errore = await pagina.innerText('.piede-comanda');
   verifica('l’ordine non parte e lo dice in chiaro', /collegamento/i.test(errore), errore.split('\n').slice(-2).join(' '));

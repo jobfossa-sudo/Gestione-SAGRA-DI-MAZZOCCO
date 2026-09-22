@@ -148,14 +148,14 @@
 
 .nuovo-ordine {
   display: grid;
-  /* A sinistra la comanda — tavolo e coperti, il menù, i due passi — a destra
+  /* A sinistra la comanda — tavolo e coperti, il menù, i tre tasti — a destra
      lo scontrino. La larghezza minima della colonna di sinistra è quella che
      serve davvero alla tabella dei piatti: strozzata di più, le colonne si
      accavallano e il tasto "+" finisce sotto il prezzo. */
   grid-template-columns: minmax(660px, 1.5fr) minmax(340px, 1fr);
   gap: 24px;
   /* Alta quanto lo schermo: a scorrere è il menù dentro la sua finestra, non
-     la pagina. Tavolo e coperti restano in cima, i due tasti in fondo, e non
+     la pagina. Tavolo e coperti restano in cima, i tre tasti in fondo, e non
      si perde mai di vista né l'uno né l'altro. Il numero tolto è quanto
      occupano la barra in cima, le linguette e i margini. */
   height: calc(100vh - 190px);
@@ -167,7 +167,7 @@
   gap: 16px;
   min-width: 0;
   min-height: 0;
-  /* Ultima spiaggia: se schermo basso, avviso e piede non lasciano al menù
+  /* Ultima spiaggia: se su uno schermo basso testata e piede non lasciano al menù
      nemmeno la sua altezza minima, a scorrere torna la colonna intera. Meglio
      scorrere che un menù ridotto a una fessura. */
   overflow-y: auto;
@@ -224,9 +224,37 @@
 .testata-comanda .campi-tavolo {
   margin: 0;
 }
-/* Un ordine confermato e mai incassato, rimasto indietro dopo un ricarico
-   della pagina: si fa notare senza occupare il banco, che intanto serve. */
-.avviso-rimasto {
+/* Il richiamo di un ordine dal telefono sta nella stessa riga di tavolo e
+   coperti: è l'altro modo di cominciare un ordine, non un'altra schermata. */
+.richiama-qr {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  margin-left: auto;
+}
+.richiama-qr label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.richiama-qr input {
+  width: 6.5rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.06em;
+  padding: 8px;
+}
+.richiama-qr button {
+  width: auto;
+  white-space: nowrap;
+  padding: 9px 16px;
+}
+/* Quando in mano alla cassa c'è un ordine arrivato dal tavolo: le voci non si
+   toccano, ed è giusto che si veda. */
+.avviso-dal-tavolo {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -239,7 +267,7 @@
   font-size: 0.9rem;
   color: var(--oro);
 }
-.avviso-rimasto button {
+.avviso-dal-tavolo button {
   width: auto;
   white-space: nowrap;
   padding: 7px 16px;
@@ -253,13 +281,25 @@
   flex-direction: column;
   gap: 4px;
 }
-/* Nel piede la colonna è larga: i due passi stanno affiancati e il piede si
-   dimezza in altezza, che essendo incollato in fondo è spazio tolto al menù.
-   Altrove (colonna stretta) restano incolonnati come prima. */
-.piede-comanda .passi-ordine {
+/* I tre tasti su una riga sola: al centro quello che si preme cento volte a
+   sera, grande il doppio degli altri due. */
+.tasti-cassa {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  align-items: start;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+.tasti-cassa button {
+  width: 100%;
+}
+.bottone-conferma {
+  font-size: 1.15rem;
+  padding: 16px;
+}
+@media (max-width: 720px) {
+  .tasti-cassa {
+    grid-template-columns: 1fr;
+  }
 }
 /* Il totale sta sulla stessa riga dei passi quando c'è posto: è il numero che
    la cassiera dice ad alta voce, non deve stare in una riga tutta sua. */
@@ -472,54 +512,6 @@
   text-align: right;
 }
 
-/* ---------- riepilogo ordine ---------- */
-
-.colonna-riepilogo {
-  position: sticky;
-  top: 92px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  box-shadow: var(--shadow);
-}
-.colonna-riepilogo h2 {
-  font-size: 1.05rem;
-}
-
-.carrello {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.carrello li {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 0.92rem;
-}
-.carrello .quantita {
-  font-weight: 700;
-  color: var(--accent);
-  margin-right: 6px;
-  font-variant-numeric: tabular-nums;
-}
-.carrello .prezzo {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-}
-.carrello-vuoto {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  padding: 8px 0;
-}
-
 .campi-tavolo {
   display: flex;
   gap: 10px;
@@ -535,13 +527,6 @@
   color: var(--danger);
 }
 
-/* La cassiera vede sempre con quale lettera escono i suoi ordini. */
-.testata-riepilogo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
 .targhetta-cassa {
   font-size: 0.85rem;
   font-weight: 800;
@@ -593,238 +578,15 @@
 .rimaste.poche {
   color: var(--danger);
 }
-.carrello li.non-disponibile {
-  color: var(--danger);
-  text-decoration: line-through;
-}
 
-/* ---------- bozze dai tavoli: elenco a sinistra, ordine aperto a destra ---------- */
-
-.bozze {
-  display: grid;
-  grid-template-columns: minmax(360px, 460px) minmax(320px, 1fr);
-  gap: 20px;
-  align-items: start;
-}
-/* Schermo stretto (tablet, portatile piccolo): le due colonne si incolonnano,
-   con l'ordine aperto per primo perché è quello su cui si lavora. */
-@media (max-width: 900px) {
-  .bozze {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .bozze .colonna-lavoro {
-    order: -1;
-  }
-}
-.bozze .riquadro {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.bozze h2 {
-  font-size: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.cerca-ordine {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 8px;
-}
-.cerca-ordine input {
-  font-size: 1.6rem;
-  font-weight: 700;
-  text-align: center;
-  letter-spacing: 0.06em;
-  padding: 14px;
-}
-/* Sopra l'ordine aperto la casella del numero resta sempre a portata di mano,
-   ma occupa poco: campo e tasto sulla stessa riga. */
-.cerca-ordine.in-linea {
-  flex-direction: row;
-  align-items: end;
-  gap: 10px;
-}
-.cerca-ordine.in-linea label {
-  flex: 1;
-  min-width: 0;
-}
-.cerca-ordine.in-linea input {
-  font-size: 1.3rem;
-  padding: 10px;
-}
-.cerca-ordine.in-linea button {
-  width: auto;
-  white-space: nowrap;
-}
-@media (max-width: 520px) {
-  .cerca-ordine.in-linea {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .cerca-ordine.in-linea button {
-    width: 100%;
-  }
-}
-.nessun-ordine {
-  margin-top: 14px;
-}
-
-/* L'ordine su cui si sta lavorando */
-.lavoro-ordine {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--surface-alt);
-  padding: 16px;
-}
-.testata-ordine {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.numero-ordine {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-.provenienza {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-.voci-resoconto {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
-}
-.voci-resoconto li {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 10px;
-  align-items: baseline;
-  font-size: 0.98rem;
-}
-.voci-resoconto .quantita {
-  font-weight: 700;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-.voci-resoconto .prezzo {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-}
-/* La scala dei due passi: conferma e stampa, poi incasso e invio. Restano
-   sempre tutti e due sotto gli occhi, spenti o accesi secondo il momento. */
-.passi-ordine {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+/* Il tondino numerato dei quattro passi sul cartello del QR: la forma gliela
+   dà ".istruzioni-qr .passo", ma senza questa regola resterebbe un testo in
+   linea, e larghezza e altezza non conterebbero niente. */
 .passo {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  padding: 10px;
-}
-.segno-passo {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid currentColor;
-  font-weight: 800;
-  font-size: 0.9rem;
-  line-height: 1;
-}
-.corpo-passo {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.corpo-passo .spiegazione {
-  margin: 0;
-}
-/* Il passo da fare adesso: acceso, con la cornice colorata. */
-.passo-ora {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-/* Quello già fatto: spento, con la spunta. */
-.passo-fatto {
-  color: var(--success);
-  opacity: 0.75;
-}
-/* Quello che verrà dopo: spento e smorzato, ma già visibile. */
-.passo-dopo {
-  color: var(--text-muted);
-  opacity: 0.5;
-}
-/* Ristampa, annullamento, "metti da parte": azioni di servizio, più discrete
-   dei due passi principali. */
-.azioni-minori {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.azioni-minori button {
-  flex: 1;
-  min-width: 140px;
-  width: auto;
-}
-/* Affiancato a "Ristampa foglio", l'annullamento deve distinguersi anche
-   senza passarci sopra il mouse: sui tocchi di un tablet il passaggio del
-   mouse non esiste. */
-.azioni-minori .bottone-annulla {
-  color: var(--danger);
-  border-color: var(--danger);
+  display: block;
 }
 
-/* Elenco di quello che la cassa ha ancora in mano */
-.elenco-bozze {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.elenco-bozze li {
-  display: grid;
-  grid-template-columns: auto 1fr auto auto;
-  gap: 12px;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 10px 12px;
-}
-.elenco-bozze li button {
-  width: auto;
-}
-/* Le righe senza tasto "Apri" tengono comunque la colonna, così i prezzi
-   restano incolonnati con quelli delle righe che ce l'hanno. */
-.vuoto-cella {
-  display: block;
-  width: 0;
-}
-/* "dal tavolo" / "da incassare": dice a colpo d'occhio a che punto è la riga. */
+/* Dice a colpo d'occhio a che punto è un ordine nel riepilogo. */
 .targhetta-stato {
   display: inline-block;
   margin-left: 8px;
@@ -835,40 +597,6 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   vertical-align: 1px;
-}
-.targhetta-stato.tavolo {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.targhetta-stato.incassare {
-  background: var(--success-soft);
-  color: var(--success);
-}
-.elenco-bozze li.richiamato {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.elenco-bozze .numero {
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  color: var(--accent);
-}
-.elenco-bozze .dettagli {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.85rem;
-  min-width: 0;
-}
-.elenco-bozze .voci {
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.elenco-bozze .prezzo {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- fine serata ---------- */
@@ -1514,15 +1242,6 @@ body.trascinamento-in-corso {
   width: auto;
 }
 
-/* ---------- ordine confermato, in attesa di incasso ---------- */
-
-.codice-comanda {
-  font-size: 2rem;
-  font-weight: 800;
-  color: var(--accent);
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
-}
 .bottone-secondario {
   background: transparent;
   color: var(--text-muted);
@@ -2361,4 +2080,124 @@ body.trascinamento-in-corso {
 }
 .anteprima-biglietto .spiegazione {
   margin-bottom: 10px;
+}
+
+/* ---------- riepilogo degli ordini (dal banco e dal QR) ---------- */
+
+.elenco-riepilogo {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* In una serata piena sono centinaia: l'elenco scorre per conto suo invece
+     di allungare la pagina all'infinito. */
+  max-height: calc(100vh - 340px);
+  overflow-y: auto;
+}
+.riga-riepilogo {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+/* La striscia a sinistra dice a colpo d'occhio come sta andando l'ordine,
+   senza doverne leggere la targhetta. */
+.riga-riepilogo.stato-attesa {
+  border-left-color: var(--accent);
+}
+.riga-riepilogo.stato-corso {
+  border-left-color: var(--tempo);
+}
+.riga-riepilogo.stato-fatto {
+  border-left-color: var(--success);
+}
+.riga-riepilogo.stato-annullato {
+  border-left-color: var(--border-strong);
+  opacity: 0.65;
+}
+.sommario-ordine {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.sommario-ordine .numero {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 5rem;
+}
+.sommario-ordine .dettagli {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 14rem;
+}
+.sommario-ordine .prezzo {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.azioni-riga {
+  display: flex;
+  gap: 8px;
+}
+.azioni-riga button {
+  width: auto;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+}
+/* Nel riepilogo la targhetta sta su una riga sua, non in coda a una frase:
+   il margine che le serve in linea qui darebbe solo un rientro storto. */
+.sommario-ordine .targhetta-stato {
+  margin-left: 0;
+  align-self: flex-start;
+}
+.targhetta-stato.attesa {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.targhetta-stato.corso {
+  background: var(--tempo-soft);
+  color: var(--tempo);
+}
+.targhetta-stato.fatto {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.targhetta-stato.annullato {
+  background: var(--surface);
+  color: var(--text-muted);
+}
+/* Il dettaglio delle voci, aperto solo su richiesta: l'elenco deve restare
+   leggibile da lontano, e trenta righe di piatti non lo sono. */
+.voci-riepilogo {
+  list-style: none;
+  margin: 10px 0 2px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+.voci-riepilogo li {
+  display: flex;
+  gap: 10px;
+}
+.voci-riepilogo .voce {
+  flex: 1;
+}
+.voci-riepilogo .quantita {
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 2rem;
+}
+.voci-riepilogo .prezzo {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
 }

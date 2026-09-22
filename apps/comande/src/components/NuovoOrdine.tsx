@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Ordine } from '@sagra-mazzocco/shared';
 import { useCategorie, useDisponibilita, useLetteraCassa, useOrdiniAperti, useProdotti, useUtenteAutenticato } from '../hooks';
-import { creaOrdineCassa, messaggioErrore } from '../services/callables';
+import { confermaOrdine, creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
 import { AnteprimaBiglietto } from './AnteprimaBiglietto';
-import { Passo, PassiOrdine } from './PassiOrdine';
+import { stampa } from './AreaStampa';
 
 /** Colonne della tabella: serve alle intestazioni di portata, che occupano
  * un'unica cella a tutta larghezza. */
@@ -25,19 +25,17 @@ export function NuovoOrdine() {
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [messaggioSuccesso, setMessaggioSuccesso] = useState<string | null>(null);
-  /** L'ordine appena confermato, che aspetta l'incasso: finché è qui prende il
-   * posto del carrello, così la cassiera non batte un altro ordine per sbaglio
-   * mentre il cliente sta pagando. */
-  const [ordineDaIncassareId, setOrdineDaIncassareId] = useState<string | null>(null);
-  /** Vero solo se la conferma è appena avvenuta qui: è quella che fa partire
-   * la stampa. Riprendendo un ordine già confermato non si ristampa niente. */
-  const [confermatoQui, setConfermatoQui] = useState(false);
+  /** Numero digitato nella casella per richiamare un ordine dal QR. */
+  const [numeroQr, setNumeroQr] = useState('');
+  /** L'ordine arrivato dal tavolo che si sta incassando. Quando c'è, il
+   * carrello lo ricopia ma non si tocca: le voci le ha scelte il cliente e il
+   * server confermerà quelle, non quelle che si vedono qui. */
+  const [bozza, setBozza] = useState<Ordine | null>(null);
+  /** L'ordine appena confermato, di cui si aspetta il documento vero per
+   * stamparne il foglio definitivo con numero e codice a barre. */
+  const [daStampareId, setDaStampareId] = useState<string | null>(null);
   const ordiniAperti = useOrdiniAperti();
-  const ordineDaIncassare = ordiniAperti.find((o) => o.id === ordineDaIncassareId && o.stato === 'da_pagare') ?? null;
-  /** Dalla conferma all'incasso il banco è impegnato: il menù resta sotto gli
-   * occhi con l'ordine battuto sopra, ma non si tocca più, così non si
-   * aggiunge un piatto a un conto già stampato. */
-  const bloccato = ordineDaIncassareId !== null;
+  const bloccato = bozza !== null;
 
   // Alla cassa il menù si legge per portate, come sul cartello: il settore che
   // prepara il piatto qui non serve.
@@ -126,31 +124,16 @@ export function NuovoOrdine() {
     [letteraCassa, tavolo, tavoloValido, coperti, copertiValidi, selezionati, carrello, totale]
   );
 
-  /** L'ordine ha lasciato il banco — incassato o annullato: si ricomincia da
-   * zero. */
-  function liberaCassa() {
-    setOrdineDaIncassareId(null);
-    setConfermatoQui(false);
+  /** Il banco torna vuoto: si ricomincia da zero. Non c'è niente da disfare in
+   * archivio, perché finché non si conferma non è stato scritto niente. */
+  function azzera() {
     setCarrello({});
     setTavolo('');
     setCoperti('');
+    setNumeroQr('');
+    setBozza(null);
+    setErrore(null);
   }
-
-  /** Un ordine confermato, stampato e mai incassato rimasto in giro: succede
-   * se la pagina si ricarica o il browser si chiude mentre il cliente paga.
-   * Va segnalato, perché il banco è l'unico posto dell'app in cui un ordine
-   * della cassa compare: senza, non si potrebbe più né incassarlo né
-   * annullarlo. Si segnala e basta, senza riprenderlo d'ufficio: chi apre la
-   * schermata di solito ha un cliente davanti, e si troverebbe il banco
-   * occupato da un ordine di un'ora prima. */
-  const rimastiInSospeso =
-    ordineDaIncassareId === null
-      ? ordiniAperti.filter((o) => o.stato === 'da_pagare' && o.tipo === 'cassa' && o.cassa === letteraCassa)
-      : [];
-  // Il più recente: è quello che con ogni probabilità si stava incassando
-  // quando la pagina si è ricaricata. Se ce ne fosse più d'uno si va a ritroso,
-  // uno alla volta, man mano che vengono sistemati.
-  const rimastoInSospeso = rimastiInSospeso[rimastiInSospeso.length - 1];
 
   function cambiaQuantita(prodottoId: string, delta: number) {
     setCarrello((prec) => {
@@ -161,28 +144,83 @@ export function NuovoOrdine() {
     });
   }
 
-  /** Conferma: l'ordine prende il numero di comanda e il foglio per il cliente
-   * va in stampa. Ai reparti non arriva niente finché non si incassa. */
-  async function confermaOrdine() {
+  /** Si digita il numero che il cliente ha sullo schermo del telefono e il suo
+   * ordine viene in mano alla cassa. Le voci le ha scelte lui e non si toccano:
+   * il server confermerà quelle che ha in archivio, non quelle che si vedono
+   * qui, quindi lasciarle modificare sarebbe una bugia. */
+  function richiamaBozza(e: React.FormEvent) {
+    e.preventDefault();
+    setErrore(null);
+    setMessaggioSuccesso(null);
+    const cercato = Number(numeroQr);
+    const dalTavolo = ordiniAperti.filter((o) => o.tipo === 'qr');
+    const trovata = dalTavolo.find((o) => o.numero === cercato && o.stato === 'bozza');
+    if (!trovata) {
+      const gia = dalTavolo.find((o) => o.numero === cercato);
+      setErrore(
+        gia
+          ? `L'ordine n. ${cercato} è già passato in cassa: lo trovi nella scheda Ordini.`
+          : `Nessun ordine dal tavolo con numero ${cercato} in questa serata. Controlla il numero sullo schermo del cliente.`
+      );
+      return;
+    }
+    setBozza(trovata);
+    setCarrello(Object.fromEntries(trovata.items.map((item) => [item.prodottoId, item.quantita])));
+    setTavolo(String(trovata.tavolo ?? ''));
+    setCoperti(String(trovata.coperti ?? ''));
+    setNumeroQr('');
+  }
+
+  /** Il conto da far vedere al cliente prima che paghi. Non è il foglio
+   * definitivo: non ha numero di comanda né codice a barre, perché l'ordine
+   * ancora non esiste. Si può ristampare quante volte si vuole. */
+  function stampaResoconto() {
+    stampa([{ tipo: 'resoconto', ordine: ordineProvvisorio }]);
+  }
+
+  /** Il cliente ha pagato. Qui succede tutto in una volta: l'ordine viene
+   * scritto, le porzioni scalate, le comande partono verso i reparti. Poi si
+   * stampa il foglio definitivo e il banco torna libero. */
+  async function conferma() {
     setErrore(null);
     setMessaggioSuccesso(null);
     setInCorso(true);
     try {
-      const items = Object.entries(carrello).map(([prodottoId, quantita]) => ({ prodottoId, quantita }));
-      const risultato = await creaOrdineCassa({
-        serataId: SERATA_ID_OGGI,
-        items,
-        tavolo: Number(tavolo),
-        coperti: Number(coperti),
-      });
-      setConfermatoQui(true);
-      setOrdineDaIncassareId(risultato.data.ordineId);
+      const risultato = bozza
+        ? await confermaOrdine({ serataId: SERATA_ID_OGGI, numero: bozza.numero })
+        : await creaOrdineCassa({
+            serataId: SERATA_ID_OGGI,
+            items: Object.entries(carrello).map(([prodottoId, quantita]) => ({ prodottoId, quantita })),
+            tavolo: Number(tavolo),
+            coperti: Number(coperti),
+          });
+      setDaStampareId(risultato.data.ordineId);
+      setMessaggioSuccesso(`Ordine ${risultato.data.codice} incassato e inviato ai reparti — ${euro(risultato.data.totale)}`);
+      azzera();
     } catch (err) {
       setErrore(messaggioErrore(err));
     } finally {
       setInCorso(false);
     }
   }
+
+  /** Il foglio definitivo si stampa dal documento vero, non da quello che c'era
+   * sullo schermo: numero di comanda e codice a barre li mette il server, e il
+   * cliente deve avere in mano quello che è stato davvero registrato. Arriva
+   * con un attimo di ritardo, appena l'ordine compare tra quelli in corso. */
+  const giaStampati = useRef(new Set<string>());
+  useEffect(() => {
+    if (!daStampareId || giaStampati.current.has(daStampareId)) return;
+    // Deve avere il numero di comanda addosso. Un ordine arrivato dal tavolo
+    // era già in elenco come bozza, e senza questo controllo si stamperebbe
+    // quella versione lì — senza numero e senza codice a barre — invece di
+    // aspettare che arrivi l'aggiornamento con la conferma.
+    const ordine = ordiniAperti.find((o) => o.id === daStampareId && o.codice);
+    if (!ordine) return;
+    giaStampati.current.add(daStampareId);
+    setDaStampareId(null);
+    stampa([{ tipo: 'resoconto', ordine }]);
+  }, [daStampareId, ordiniAperti]);
 
   return (
     <div className="nuovo-ordine">
@@ -216,17 +254,37 @@ export function NuovoOrdine() {
               />
             </label>
           </div>
+          {/* Il cliente che ha ordinato dal tavolo arriva con un numero sullo
+              schermo del telefono: si digita qui e il suo ordine viene in
+              mano alla cassa, senza cambiare schermata. */}
+          <form className="richiama-qr" onSubmit={richiamaBozza}>
+            <label>
+              Ordine dal QR n.
+              <input
+                type="number"
+                min="1"
+                placeholder="000"
+                value={numeroQr}
+                onChange={(e) => setNumeroQr(e.target.value)}
+                disabled={bloccato}
+              />
+            </label>
+            <button type="submit" disabled={bloccato || !numeroQr.trim()}>
+              Richiama
+            </button>
+          </form>
+
           {letteraCassa && <span className="targhetta-cassa">Cassa {letteraCassa}</span>}
         </div>
 
-        {rimastoInSospeso && (
-          <p className="avviso-rimasto">
+        {bozza && (
+          <p className="avviso-dal-tavolo">
             <span>
-              L'ordine <strong>{rimastoInSospeso.codice}</strong> è confermato e stampato, ma non risulta
-              incassato: {euro(rimastoInSospeso.totale)}, tavolo {rimastoInSospeso.tavolo ?? '—'}.
+              Ordine <strong>n. {bozza.numero}</strong> arrivato dal tavolo {bozza.tavolo ?? '—'}: le voci le ha
+              scelte il cliente e non si cambiano.
             </span>
-            <button type="button" onClick={() => setOrdineDaIncassareId(rimastoInSospeso.id)}>
-              Riprendilo
+            <button type="button" onClick={azzera}>
+              Lascialo stare
             </button>
           </p>
         )}
@@ -334,8 +392,8 @@ export function NuovoOrdine() {
           </div>
         )}
 
-        {/* In fondo alla colonna il totale e i due passi: si arriva qui dopo
-            aver battuto l'ordine, ed è l'ultima cosa che si guarda. */}
+        {/* In fondo alla colonna il totale e i tre tasti: il conto da far
+            vedere, l'incasso e il ripensamento. */}
         <div className="riquadro piede-comanda">
           {letteraCassa === null && (
             <p className="errore">
@@ -349,46 +407,32 @@ export function NuovoOrdine() {
           {messaggioSuccesso && <p className="successo">{messaggioSuccesso}</p>}
 
           <p className="totale">
-            {bloccato ? 'Da incassare' : 'Totale'}{' '}
-            <strong>{euro(ordineDaIncassare ? ordineDaIncassare.totale : totale)}</strong>
+            Totale <strong>{euro(totale)}</strong>
           </p>
 
-          {ordineDaIncassare ? (
-            // Da qui in poi comanda la scala condivisa: è la stessa di
-            // "Conferma ordine", con ristampa e annullamento al seguito.
-            <PassiOrdine
-              ordine={ordineDaIncassare}
-              stampaSubito={confermatoQui}
-              onFatto={(testo) => {
-                setMessaggioSuccesso(testo);
-                liberaCassa();
-              }}
-            />
-          ) : ordineDaIncassareId !== null ? (
-            <p className="spiegazione">Sto preparando il foglio…</p>
-          ) : (
-            <div className="passi-ordine">
-              <Passo numero={1} stato="ora">
-                <button
-                  type="button"
-                  className="bottone-principale"
-                  disabled={numeroArticoli === 0 || inCorso || avvisoPorzioni !== null || mancaTavolo || !letteraCassa}
-                  onClick={confermaOrdine}
-                >
-                  {inCorso ? 'Conferma in corso…' : 'Conferma e stampa'}
-                </button>
-                <p className="spiegazione">
-                  La conferma dà il numero di comanda e stampa il foglio per il cliente.
-                </p>
-              </Passo>
-              <Passo numero={2} stato="dopo">
-                <button type="button" className="bottone-principale" disabled>
-                  Invia ordine
-                </button>
-                <p className="spiegazione">Si accende dopo la conferma, quando il cliente ha pagato.</p>
-              </Passo>
-            </div>
-          )}
+          <div className="tasti-cassa">
+            <button type="button" disabled={numeroArticoli === 0 || inCorso} onClick={stampaResoconto}>
+              Stampa resoconto
+            </button>
+            <button
+              type="button"
+              className="bottone-principale bottone-conferma"
+              disabled={
+                numeroArticoli === 0 || inCorso || avvisoPorzioni !== null || mancaTavolo || !letteraCassa
+              }
+              onClick={conferma}
+            >
+              {inCorso ? 'Conferma in corso…' : 'Conferma ordine'}
+            </button>
+            <button type="button" className="bottone-secondario" disabled={inCorso} onClick={azzera}>
+              Azzera
+            </button>
+          </div>
+          <p className="spiegazione">
+            <strong>Stampa resoconto</strong> dà al cliente il conto da controllare, senza registrare niente.{' '}
+            <strong>Conferma ordine</strong> si preme a pagamento avvenuto: l'ordine parte verso i reparti e
+            esce il foglio definitivo.
+          </p>
         </div>
       </div>
 
@@ -397,12 +441,8 @@ export function NuovoOrdine() {
       <div className="colonna-anteprima">
         <AnteprimaBiglietto
           tipo="resoconto"
-          ordine={ordineDaIncassare ?? ordineProvvisorio}
-          nota={
-            ordineDaIncassare
-              ? 'Il foglio appena stampato per il cliente.'
-              : 'Il foglio per il cliente, come sarà alla conferma. Numero di comanda e codice a barre li assegna la conferma.'
-          }
+          ordine={ordineProvvisorio}
+          nota="Il conto come uscirà dalla stampante. Numero di comanda e codice a barre li assegna la conferma, quindi qui il loro posto resta vuoto."
         />
       </div>
     </div>

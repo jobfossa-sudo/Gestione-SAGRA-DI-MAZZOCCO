@@ -61,26 +61,37 @@ function verifica(descrizione, condizione, extra = '') {
   const cassa = await browser.newPage();
   await cassa.addInitScript(() => {
     window.__stampe = [];
-    window.print = () => window.__stampe.push('foglio');
+    // Si cattura il foglio intero, non solo il fatto che sia uscito: serve a
+    // controllare che porti davvero numero di comanda e tavolo.
+    window.print = () => {
+      const area = document.querySelector('.area-stampa');
+      window.__stampe.push(area ? area.innerHTML : '(nessuna area di stampa)');
+    };
   });
   await cassa.goto(URL);
   await cassa.getByLabel('Nome utente').fill('cassa');
   await cassa.getByLabel('Password').fill('prova1234');
   await cassa.getByRole('button', { name: 'Entra' }).click();
   await cassa.waitForTimeout(2500);
-  await cassa.getByRole('button', { name: /Bozze/ }).click();
+  // La cassa non cambia schermata: digita il numero che il cliente ha sul
+  // telefono e l'ordine le arriva sul banco, dove sta già lavorando.
+  await cassa.getByLabel('Ordine dal QR n.').fill(numero);
+  await cassa.getByRole('button', { name: 'Richiama' }).click();
   await cassa.waitForTimeout(1500);
+  const banco = await cassa.innerText('.colonna-comanda');
   verifica(
-    'in cassa l’ordine dal tavolo compare tra quelli arrivati',
-    /dal tavolo/i.test(await cassa.innerText('.bozze')) &&
-      /Gnocchi al pomodoro/.test(await cassa.innerText('.bozze'))
+    'in cassa l’ordine dal tavolo arriva sul banco',
+    /arrivato dal tavolo 7/.test(banco) && /Gnocchi/.test(await cassa.innerText('.anteprima-biglietto')),
+    banco.split('\n').find((r) => /arrivato dal tavolo/.test(r)) ?? ''
   );
-  await cassa.getByLabel('Numero ordine').fill(numero);
-  await cassa.getByRole('button', { name: "Richiama l'ordine" }).click();
-  await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
-  await cassa.waitForTimeout(3000);
-  const scheda = await cassa.innerText('.bozze');
-  verifica('la cassa conferma e stampa il foglio', /[A-Z]\d{4}/.test(scheda) && /Tavolo 7/.test(scheda), scheda.match(/[A-Z]\d{4}/)[0]);
+  await cassa.getByRole('button', { name: 'Conferma ordine' }).click();
+  await cassa.waitForTimeout(4000);
+  const foglioComanda = ((await cassa.evaluate(() => window.__stampe)).slice(-1)[0] ?? '').replace(/<[^>]+>/g, ' ');
+  verifica(
+    'la cassa conferma e stampa il foglio',
+    /[A-Z]\d{4}/.test(foglioComanda) && /TAVOLO\s+7/i.test(foglioComanda),
+    (foglioComanda.match(/[A-Z]\d{4}/) || ['nessuno'])[0]
+  );
 
   // L'amministratore stampa il cartello con il QR del menù.
   const admin = await browser.newPage();

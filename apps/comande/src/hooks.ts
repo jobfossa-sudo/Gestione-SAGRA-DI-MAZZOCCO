@@ -177,6 +177,23 @@ export function useOrdiniAperti(): Ordine[] {
   return ordini;
 }
 
+/** Tutti gli ordini della serata, dal più recente: quelli dei tavoli ancora
+ * da incassare, quelli in lavorazione, quelli consegnati e quelli annullati.
+ * Serve al riepilogo, che deve far vedere anche gli annullati — sapere che un
+ * ordine è stato annullato è metà del lavoro di chi controlla la serata. */
+export function useOrdiniSerata(): Ordine[] {
+  const [ordini, setOrdini] = useState<Ordine[]>([]);
+
+  useEffect(() => {
+    const q = query(collection(db, `serate/${SERATA_ID_OGGI}/ordini`), orderBy('numero', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      setOrdini(snapshot.docs.map((doc) => doc.data() as Ordine));
+    });
+  }, []);
+
+  return ordini;
+}
+
 /** Ordini della serata già consegnati del tutto. Servono ai conti di fine
  * serata: quanti ne sono stati chiusi e, insieme a quelli ancora in
  * lavorazione, quanto ha incassato ciascuna cassa. */
