@@ -43,6 +43,29 @@ function verifica(descrizione, condizione, extra = '') {
   await cassa.getByRole('button', { name: 'Aggiungi Birra' }).click();
   await cassa.getByLabel('Tavolo').fill('12');
   await cassa.getByLabel('Coperti').fill('3');
+
+  // --- Anteprima del biglietto, mentre l'ordine si sta ancora battendo ---
+  await cassa.waitForTimeout(1200);
+  const anteprimaPrima = await cassa.innerText('.anteprima-biglietto');
+  verifica(
+    'il biglietto si vede in anteprima mentre si batte l’ordine',
+    /Pasta al ragù/.test(anteprimaPrima) && /Birra/.test(anteprimaPrima)
+  );
+  verifica(
+    'l’anteprima è il foglio vero, non un disegno a parte',
+    (await cassa.locator('.anteprima-biglietto .foglio-composto').count()) === 1
+  );
+  verifica(
+    'il foglio è rimpicciolito per stare nella colonna',
+    /scale\(0\.\d+\)/.test(await cassa.locator('.foglio-in-scala').evaluate((e) => e.style.transform)),
+    await cassa.locator('.foglio-in-scala').evaluate((e) => e.style.transform)
+  );
+  verifica(
+    'prima della conferma il numero di comanda resta in bianco',
+    !/[A-Z]\d{4}/.test(anteprimaPrima),
+    (anteprimaPrima.match(/[A-Z]\d{4}/) || ['nessuno'])[0]
+  );
+
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
   await cassa.waitForTimeout(3000);
 
@@ -51,6 +74,13 @@ function verifica(descrizione, condizione, extra = '') {
   const codice = (testoIncasso.match(/[A-Z]\d{4}/) || [])[0];
   verifica('la scheda mostra il numero di comanda', !!codice, codice);
   verifica('il tasto per inviare si è acceso', await cassa.getByRole('button', { name: 'Invia ordine' }).isEnabled());
+
+  const anteprimaDopo = await cassa.innerText('.anteprima-biglietto');
+  verifica('dopo la conferma l’anteprima passa all’ordine vero', anteprimaDopo.includes(codice), codice);
+  verifica(
+    'e il codice a barre compare disegnato',
+    (await cassa.locator('.anteprima-biglietto .codice-a-barre rect').count()) > 0
+  );
 
   const stampe = await cassa.evaluate(() => window.__stampe);
   verifica('il foglio per il cliente è andato in stampa da solo', stampe.length === 1);

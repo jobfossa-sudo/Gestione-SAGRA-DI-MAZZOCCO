@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
+import type { Ordine } from '@sagra-mazzocco/shared';
 import { useCategorie, useDisponibilita, useLetteraCassa, useOrdiniAperti, useProdotti, useUtenteAutenticato } from '../hooks';
 import { creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
+import { AnteprimaBiglietto } from './AnteprimaBiglietto';
 import { Passo, PassiOrdine, TestataOrdine, VociOrdine } from './PassiOrdine';
 
 /** Colonne della tabella: serve alle intestazioni di portata, che occupano
@@ -82,6 +84,39 @@ export function NuovoOrdine() {
     }
     return null;
   }, [selezionati, carrello, disponibilita]);
+
+  /** L'ordine come sarà una volta confermato, costruito dal carrello mentre lo
+   * si batte: serve solo all'anteprima del biglietto. I campi che riempie il
+   * server restano vuoti — il numero di comanda e il codice a barre arrivano
+   * con la conferma — e l'anteprima lascia il loro posto in bianco. Dopo la
+   * conferma non serve più: al suo posto si mostra l'ordine vero. */
+  const ordineProvvisorio: Ordine = useMemo(
+    () => ({
+      id: 'anteprima',
+      serataId: SERATA_ID_OGGI,
+      numero: 0,
+      cassa: letteraCassa ?? null,
+      codice: null,
+      codiceBarre: null,
+      stato: 'bozza',
+      tipo: 'cassa',
+      tavolo: tavoloValido ? Number(tavolo) : null,
+      coperti: copertiValidi ? Number(coperti) : null,
+      items: selezionati.map((prodotto) => ({
+        prodottoId: prodotto.id,
+        nome: prodotto.nome,
+        settore: prodotto.settore,
+        prezzo: prodotto.prezzo,
+        quantita: carrello[prodotto.id],
+      })),
+      totale,
+      createdAt: { seconds: 0, nanoseconds: 0 },
+      confirmedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+    }),
+    [letteraCassa, tavolo, tavoloValido, coperti, copertiValidi, selezionati, carrello, totale]
+  );
 
   function cambiaQuantita(prodottoId: string, delta: number) {
     setCarrello((prec) => {
@@ -224,106 +259,122 @@ export function NuovoOrdine() {
         )}
       </div>
 
-      <div className="colonna-riepilogo">
-        <div className="testata-riepilogo">
-          <h2>{ordineDaIncassare ? 'Da incassare' : 'Riepilogo ordine'}</h2>
-          {letteraCassa && <span className="targhetta-cassa">Cassa {letteraCassa}</span>}
-        </div>
-
-        {ordineDaIncassare && (
-          <div className="lavoro-ordine">
-            <TestataOrdine ordine={ordineDaIncassare} />
-            <VociOrdine ordine={ordineDaIncassare} etichettaTotale="Da incassare" />
-            <PassiOrdine
-              ordine={ordineDaIncassare}
-              stampaSubito
-              onFatto={(testo) => {
-                setMessaggioSuccesso(testo);
-                setOrdineDaIncassareId(null);
-              }}
-              onChiudi={() => setOrdineDaIncassareId(null)}
-              etichettaChiudi="Metti da parte"
-            />
+      {/* Riepilogo e anteprima stanno insieme: restano fermi mentre si
+          scorre il menù, e se non ci stanno in altezza scorrono loro. */}
+      <div className="colonna-destra">
+        <div className="colonna-riepilogo">
+          <div className="testata-riepilogo">
+            <h2>{ordineDaIncassare ? 'Da incassare' : 'Riepilogo ordine'}</h2>
+            {letteraCassa && <span className="targhetta-cassa">Cassa {letteraCassa}</span>}
           </div>
-        )}
-        {!ordineDaIncassare && ordineDaIncassareId !== null && <p className="spiegazione">Sto preparando il foglio…</p>}
-        {!ordineDaIncassare && ordineDaIncassareId === null && (
-          <>
-        {letteraCassa === null && (
-          <p className="errore">
-            Al tuo account non è stata assegnata la lettera della cassa (A, B…): chiedi all'amministratore di
-            impostarla nell'app Utenti, altrimenti gli ordini non partono.
-          </p>
-        )}
 
-        {selezionati.length === 0 ? (
-          <p className="carrello-vuoto">Tocca i prodotti per aggiungerli all'ordine.</p>
-        ) : (
-          <ul className="carrello">
-            {selezionati.map((p) => {
-              const quantita = carrello[p.id];
-              const rimaste = porzioniRimaste(p.id);
-              const troppe = p.esauritoSerata === SERATA_ID_OGGI || (rimaste !== null && quantita > rimaste);
-              return (
-                <li key={p.id} className={troppe ? 'non-disponibile' : undefined}>
-                  <span>
-                    <span className="quantita">{quantita}×</span>
-                    {p.nome}
-                  </span>
-                  <span className="prezzo">{euro(p.prezzo * quantita)}</span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {avvisoPorzioni && <p className="errore">{avvisoPorzioni}</p>}
-
-        <div className="campi-tavolo">
-          <label>
-            Tavolo
-            <input type="number" min="1" placeholder="—" required aria-invalid={mancaTavolo && !tavoloValido} value={tavolo} onChange={(e) => setTavolo(e.target.value)} />
-          </label>
-          <label>
-            Coperti
-            <input type="number" min="1" placeholder="—" required aria-invalid={mancaTavolo && !copertiValidi} value={coperti} onChange={(e) => setCoperti(e.target.value)} />
-          </label>
-        </div>
-
-        <p className="totale">
-          Totale <strong>{euro(totale)}</strong>
-        </p>
-
-        {mancaTavolo && <p className="avviso-campi">Scrivi il tavolo e i coperti prima di confermare.</p>}
-
-        {/* La stessa scala a due passi della scheda "Da fare": il secondo
-            gradino è spento, ma si vede già che l'ordine non è finito qui. */}
-        <div className="passi-ordine">
-          <Passo numero={1} stato="ora">
-            <button
-              type="button"
-              className="bottone-principale"
-              disabled={numeroArticoli === 0 || inCorso || avvisoPorzioni !== null || mancaTavolo || !letteraCassa}
-              onClick={confermaOrdine}
-            >
-              {inCorso ? 'Conferma in corso…' : 'Conferma e stampa'}
-            </button>
-            <p className="spiegazione">
-              La conferma dà il numero di comanda e stampa il foglio per il cliente.
+          {ordineDaIncassare && (
+            <div className="lavoro-ordine">
+              <TestataOrdine ordine={ordineDaIncassare} />
+              <VociOrdine ordine={ordineDaIncassare} etichettaTotale="Da incassare" />
+              <PassiOrdine
+                ordine={ordineDaIncassare}
+                stampaSubito
+                onFatto={(testo) => {
+                  setMessaggioSuccesso(testo);
+                  setOrdineDaIncassareId(null);
+                }}
+                onChiudi={() => setOrdineDaIncassareId(null)}
+                etichettaChiudi="Metti da parte"
+              />
+            </div>
+          )}
+          {!ordineDaIncassare && ordineDaIncassareId !== null && <p className="spiegazione">Sto preparando il foglio…</p>}
+          {!ordineDaIncassare && ordineDaIncassareId === null && (
+            <>
+          {letteraCassa === null && (
+            <p className="errore">
+              Al tuo account non è stata assegnata la lettera della cassa (A, B…): chiedi all'amministratore di
+              impostarla nell'app Utenti, altrimenti gli ordini non partono.
             </p>
-          </Passo>
-          <Passo numero={2} stato="dopo">
-            <button type="button" className="bottone-principale" disabled>
-              Invia ordine
-            </button>
-            <p className="spiegazione">Si accende dopo la conferma, quando il cliente ha pagato.</p>
-          </Passo>
-        </div>
-          </>
-        )}
+          )}
 
-        {errore && <p className="errore">{errore}</p>}
-        {messaggioSuccesso && <p className="successo">{messaggioSuccesso}</p>}
+          {selezionati.length === 0 ? (
+            <p className="carrello-vuoto">Tocca i prodotti per aggiungerli all'ordine.</p>
+          ) : (
+            <ul className="carrello">
+              {selezionati.map((p) => {
+                const quantita = carrello[p.id];
+                const rimaste = porzioniRimaste(p.id);
+                const troppe = p.esauritoSerata === SERATA_ID_OGGI || (rimaste !== null && quantita > rimaste);
+                return (
+                  <li key={p.id} className={troppe ? 'non-disponibile' : undefined}>
+                    <span>
+                      <span className="quantita">{quantita}×</span>
+                      {p.nome}
+                    </span>
+                    <span className="prezzo">{euro(p.prezzo * quantita)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {avvisoPorzioni && <p className="errore">{avvisoPorzioni}</p>}
+
+          <div className="campi-tavolo">
+            <label>
+              Tavolo
+              <input type="number" min="1" placeholder="—" required aria-invalid={mancaTavolo && !tavoloValido} value={tavolo} onChange={(e) => setTavolo(e.target.value)} />
+            </label>
+            <label>
+              Coperti
+              <input type="number" min="1" placeholder="—" required aria-invalid={mancaTavolo && !copertiValidi} value={coperti} onChange={(e) => setCoperti(e.target.value)} />
+            </label>
+          </div>
+
+          <p className="totale">
+            Totale <strong>{euro(totale)}</strong>
+          </p>
+
+          {mancaTavolo && <p className="avviso-campi">Scrivi il tavolo e i coperti prima di confermare.</p>}
+
+          {/* La stessa scala a due passi della scheda "Da fare": il secondo
+              gradino è spento, ma si vede già che l'ordine non è finito qui. */}
+          <div className="passi-ordine">
+            <Passo numero={1} stato="ora">
+              <button
+                type="button"
+                className="bottone-principale"
+                disabled={numeroArticoli === 0 || inCorso || avvisoPorzioni !== null || mancaTavolo || !letteraCassa}
+                onClick={confermaOrdine}
+              >
+                {inCorso ? 'Conferma in corso…' : 'Conferma e stampa'}
+              </button>
+              <p className="spiegazione">
+                La conferma dà il numero di comanda e stampa il foglio per il cliente.
+              </p>
+            </Passo>
+            <Passo numero={2} stato="dopo">
+              <button type="button" className="bottone-principale" disabled>
+                Invia ordine
+              </button>
+              <p className="spiegazione">Si accende dopo la conferma, quando il cliente ha pagato.</p>
+            </Passo>
+          </div>
+            </>
+          )}
+
+          {errore && <p className="errore">{errore}</p>}
+          {messaggioSuccesso && <p className="successo">{messaggioSuccesso}</p>}
+        </div>
+
+        <div className="colonna-anteprima">
+          <AnteprimaBiglietto
+            tipo="resoconto"
+            ordine={ordineDaIncassare ?? ordineProvvisorio}
+            nota={
+              ordineDaIncassare
+                ? 'Il foglio appena stampato per il cliente.'
+                : 'Il foglio per il cliente, come sarà alla conferma. Numero di comanda e codice a barre li assegna la conferma.'
+            }
+          />
+        </div>
       </div>
     </div>
   );

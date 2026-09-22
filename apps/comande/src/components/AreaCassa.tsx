@@ -15,10 +15,13 @@ export function AreaCassa({ amministratore }: { amministratore: boolean }) {
   const inSospeso = useOrdiniAperti().filter((o) => o.stato === 'bozza' || o.stato === 'da_pagare').length;
 
   // Fine serata è fatta di quadrati che si affiancano: più schermo c'è, più
-  // contatori stanno in fila. Le altre due schede restano strette, che si
-  // leggono meglio di corsa.
+  // contatori stanno in fila. Nuovo ordine ha tre colonne — menù, riepilogo e
+  // anteprima del biglietto — e in 1200px l'anteprima verrebbe un francobollo
+  // illeggibile.
+  const aTuttoSchermo = scheda === 'Fine serata' || scheda === 'Nuovo ordine';
+
   return (
-    <div className={scheda === 'Fine serata' ? 'area larga' : 'area'}>
+    <div className={aTuttoSchermo ? 'area larga' : 'area'}>
       <nav className="sotto-schede">
         {SCHEDE.map((s) => (
           <button key={s} type="button" className={s === scheda ? 'attiva' : ''} onClick={() => setScheda(s)}>

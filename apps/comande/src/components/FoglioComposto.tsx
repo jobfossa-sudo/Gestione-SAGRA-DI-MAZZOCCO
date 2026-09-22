@@ -51,9 +51,12 @@ function Blocco({
       );
 
     case 'codice':
+      // Nell'anteprima di un ordine non ancora confermato il numero di comanda
+      // non esiste ancora: lo assegna la conferma. Si lascia il posto vuoto,
+      // invece di scrivere un "n. 0" che non vuol dire niente.
       return (
         <p className="blocco blocco-codice" style={stileTesto(blocco)}>
-          {ordine.codice ?? `n. ${ordine.numero}`}
+          {ordine.codice ?? (ordine.numero > 0 ? `n. ${ordine.numero}` : '—')}
         </p>
       );
 

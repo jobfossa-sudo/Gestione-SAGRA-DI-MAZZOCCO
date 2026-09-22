@@ -148,9 +148,33 @@
 
 .nuovo-ordine {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+  /* Due colonne, non tre: la tabella dei piatti ha bisogno di larghezza sua —
+     strozzata, le colonne si accavallano e il tasto "+" finisce sotto il
+     prezzo — e l'anteprima resa più stretta ancora non si leggerebbe. Sta
+     quindi sotto il riepilogo, nella stessa colonna, dove è pure più larga di
+     quanto sarebbe stata in una terza colonna. */
+  grid-template-columns: minmax(620px, 1.5fr) minmax(360px, 1fr);
   gap: 24px;
   align-items: start;
+}
+/* Riepilogo e anteprima viaggiano insieme e restano fermi mentre si scorre il
+   menù. Quando insieme superano l'altezza dello schermo scorrono loro, invece
+   di far sparire il totale sotto il bordo. */
+.colonna-destra {
+  position: sticky;
+  top: 92px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  /* Quanto tolto allo schermo: la barra in cima, le linguette, i margini
+     sopra e sotto. È misurato su dove la colonna si trova a pagina ferma, non
+     su dove va a incollarsi scorrendo: la cassa guarda l'anteprima senza
+     scorrere niente, e un foglio tagliato dal bordo non l'avrebbe vista. */
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+}
+.nuovo-ordine .colonna-riepilogo {
+  position: static;
 }
 
 /* Elenco dei piatti, raggruppato per portata come in Gestione menù. Le
@@ -949,6 +973,12 @@
   }
   .nuovo-ordine {
     grid-template-columns: 1fr;
+  }
+  /* Su telefono non c'è niente da tenere fermo: si scorre e basta. */
+  .colonna-destra {
+    position: static;
+    max-height: none;
+    overflow: visible;
   }
   .colonna-riepilogo {
     position: static;
@@ -2185,4 +2215,45 @@ body.trascinamento-in-corso {
 .foglio-composto .voci-foglio {
   width: 100%;
   border-collapse: collapse;
+}
+
+/* ---------- anteprima del biglietto da stampare ---------- */
+
+/* Dentro la cornice c'è il foglio vero, rimpicciolito con una lente: le
+   misure restano in millimetri, quindi quello che si vede è esattamente
+   quello che uscirà dalla stampante. L'altezza della cornice la calcola la
+   schermata, perché la lente non cambia lo spazio che un elemento occupa. */
+.anteprima-biglietto .cornice-stampa {
+  background: var(--border);
+  border-radius: var(--radius);
+  /* Il foglio resta largo quanto è davvero, anche quando la lente lo
+     rimpicciolisce: quello che esce dalla cornice si taglia, e il centraggio
+     lo fa il contenitore. */
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  /* Senza questo il foglio verrebbe stirato all'altezza della cornice, e la
+     sua altezza vera — quella da cui si ricava di quanto rimpicciolirlo —
+     diventerebbe quella della cornice: il conto si morderebbe la coda. */
+  align-items: flex-start;
+}
+/* Largo quanto il foglio e non quanto la colonna: è la misura da cui si
+   ricava di quanto rimpicciolire. Da blocco normale misurerebbe la colonna,
+   e la lente resterebbe ferma a uno. */
+.foglio-in-scala {
+  display: inline-block;
+  flex: none;
+  /* Dal centro in alto: così un foglio più stretto della cornice resta in
+     mezzo invece di accostarsi a sinistra. */
+  transform-origin: top center;
+}
+/* Il foglio è carta: bianco e nero anche a tema scuro, altrimenti
+   l'anteprima mostrerebbe colori che la stampante non stamperà mai. */
+.foglio-in-scala .foglio-composto {
+  background: #fff;
+  color: #000;
+  margin: 0;
+}
+.anteprima-biglietto .spiegazione {
+  margin-bottom: 10px;
 }
