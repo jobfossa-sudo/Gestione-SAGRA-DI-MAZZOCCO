@@ -369,6 +369,9 @@
   color: var(--text-muted);
   font-weight: 700;
   padding: 6px 10px 4px;
+  /* Stesso trucco della fascia: le lettere restano di 12,75px, sparisce
+     solo lo spazio che l'interlinea aggiunge sopra e sotto. */
+  line-height: 1;
 }
 /* Righe fitte apposta: più piatti stanno sotto gli occhi insieme, e si scorre
    di meno. L'altezza della riga la decidono l'imbottitura e i tondini della
@@ -421,7 +424,21 @@
 }
 .tabella-ordine .riga-categoria td {
   background: none;
-  padding: 6px 10px 2px;
+  padding: 3px 10px 1px;
+}
+/* Nel banco della cassa la fascia della portata serve solo a dire dove
+   finiscono i primi e cominciano i secondi: si abbassa togliendole
+   imbottitura e interlinea, mentre le lettere restano della grandezza di
+   prima. line-height: 1 vuol dire che la riga e' alta quanto il carattere e
+   basta, senza lo spazio che di solito ci sta sopra e sotto.
+   In Gestione menu' la stessa fascia non si tocca: li' il nome della portata
+   si clicca per cambiarlo, e l'area da colpire deve restare grande. */
+.tabella-ordine .testata-portata {
+  padding: 1px 10px;
+}
+.tabella-ordine .nome-portata {
+  padding: 0 8px;
+  line-height: 1;
 }
 .tabella-ordine tbody:first-of-type .riga-categoria td {
   padding-top: 4px;
