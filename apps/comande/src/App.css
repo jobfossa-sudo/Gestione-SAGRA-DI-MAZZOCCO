@@ -154,13 +154,48 @@
      accavallano e il tasto "+" finisce sotto il prezzo. */
   grid-template-columns: minmax(660px, 1.5fr) minmax(340px, 1fr);
   gap: 24px;
-  align-items: start;
+  /* Alta quanto lo schermo: a scorrere è il menù dentro la sua finestra, non
+     la pagina. Tavolo e coperti restano in cima, i due tasti in fondo, e non
+     si perde mai di vista né l'uno né l'altro. Il numero tolto è quanto
+     occupano la barra in cima, le linguette e i margini. */
+  height: calc(100vh - 190px);
+  align-items: stretch;
 }
 .colonna-comanda {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: 0;
+  min-height: 0;
+}
+/* La cornice passa dalla tabella alla finestra che la contiene: così bordo,
+   angoli e ombra restano fermi mentre le righe scorrono. */
+.colonna-comanda .tabella-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+.colonna-comanda .tabella-ordine {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+/* L'intestazione della tabella resta attaccata in cima mentre si scorre:
+   senza, a meta' menu non si sa piu' quale colonna e' quale. */
+.colonna-comanda .tabella-ordine thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+/* Lo scontrino non ha bisogno di stare attaccato a niente: la pagina non
+   scorre piu'. */
+.colonna-anteprima {
+  align-self: start;
 }
 /* Tavolo e coperti stanno in cima: sono la prima cosa che si chiede al
    cliente, e finiscono sulla copia che va in cucina. */
@@ -174,15 +209,12 @@
 .testata-comanda .campi-tavolo {
   margin: 0;
 }
-/* Il piede sta in fondo alla colonna, ma incollato al bordo basso dello
-   schermo: con un menù lungo i due tasti finirebbero sotto, e in cassa non si
-   scorre per confermare un ordine. */
+/* Il piede è l'ultima riga della colonna, che finisce dove finisce lo
+   schermo: i due tasti sono sempre lì, senza doversi incollare a niente. */
 .piede-comanda {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  position: sticky;
-  bottom: 12px;
 }
 /* Nel piede la colonna è larga: i due passi stanno affiancati e il piede si
    dimezza in altezza, che essendo incollato in fondo è spazio tolto al menù.
@@ -198,13 +230,6 @@
   padding-top: 8px;
   margin-bottom: 4px;
 }
-/* Lo scontrino resta fermo mentre si scorre il menù: è il controllo che si fa
-   con la coda dell'occhio mentre si batte. */
-.colonna-anteprima {
-  position: sticky;
-  top: 92px;
-}
-
 /* Elenco dei piatti, raggruppato per portata come in Gestione menù. Le
    larghezze sono in percentuale: le proporzioni tengono a ogni zoom. */
 .tabella-ordine {
@@ -245,9 +270,9 @@
   font-weight: 700;
   padding: 10px 10px 6px;
 }
-/* Righe fitte apposta: il menù deve starci tutto senza scorrere, e l'altezza
-   della riga la decidono l'imbottitura e i tondini della quantità, non la
-   grandezza del testo — che resta quella di prima. */
+/* Righe fitte apposta: più piatti stanno sotto gli occhi insieme, e si scorre
+   di meno. L'altezza della riga la decidono l'imbottitura e i tondini della
+   quantità, non la grandezza del testo — che resta quella di prima. */
 .tabella-ordine td {
   padding: 2px 10px;
   line-height: 1.25;
@@ -1005,12 +1030,13 @@
   }
   .nuovo-ordine {
     grid-template-columns: 1fr;
+    /* Su telefono non si incastra niente: scorre la pagina, come sempre. */
+    height: auto;
   }
-  /* Su telefono non c'è niente da tenere fermo: si scorre e basta. */
-  .colonna-destra {
-    position: static;
-    max-height: none;
-    overflow: visible;
+  .colonna-comanda .tabella-scroll {
+    flex: none;
+    overflow-x: auto;
+    overflow-y: visible;
   }
   .colonna-riepilogo {
     position: static;

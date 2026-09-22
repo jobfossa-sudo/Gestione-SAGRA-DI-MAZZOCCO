@@ -77,6 +77,23 @@ function verifica(descrizione, condizione, extra = '') {
     .evaluate((e) => Number(getComputedStyle(e).fontSize.replace('px', '')));
   verifica('e sono scritti più in grande del testo normale', corpoTavolo > 20, corpoTavolo + 'px');
 
+  // Il menù scorre dentro la sua finestra: tavolo, coperti e i due tasti non
+  // si muovono, e la pagina non si allunga.
+  const scorrimento = await cassa.evaluate(() => {
+    const finestra = document.querySelector('.tabella-scroll');
+    const piede = document.querySelector('.piede-comanda').getBoundingClientRect();
+    return {
+      menuScorre: finestra.scrollHeight > finestra.clientHeight,
+      paginaFerma: document.documentElement.scrollHeight <= window.innerHeight + 2,
+      tastiInVista: Math.round(piede.bottom) <= window.innerHeight,
+      intestazioneAttaccata: getComputedStyle(document.querySelector('.tabella-ordine thead th')).position === 'sticky',
+    };
+  });
+  verifica('il menù scorre dentro la sua finestra', scorrimento.menuScorre);
+  verifica('e la pagina non si allunga dietro di lui', scorrimento.paginaFerma);
+  verifica('i due tasti restano in vista senza scorrere', scorrimento.tastiInVista);
+  verifica('l’intestazione della tabella resta in cima mentre si scorre', scorrimento.intestazioneAttaccata);
+
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
   await cassa.waitForTimeout(3000);
 
