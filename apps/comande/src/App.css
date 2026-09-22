@@ -468,9 +468,10 @@
   padding: 0 8px;
   line-height: 1;
 }
-.tabella-ordine tbody:first-of-type .riga-categoria td {
-  padding-top: 4px;
-}
+/* Nessuna eccezione per la prima portata: quando sopra c'era piu' aria, le si
+   toglieva un po' di spazio per non staccarla dall'intestazione. Ora che lo
+   spazio e' gia' stretto per tutte, quell'eccezione faceva solo la prima
+   striscia un pixel piu' alta delle altre. */
 
 .controlli-quantita {
   display: flex;
