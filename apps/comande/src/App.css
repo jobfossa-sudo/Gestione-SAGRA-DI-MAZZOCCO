@@ -154,8 +154,11 @@
      (strozzata di più, le colonne si accavallano e il tasto "+" finisce sotto
      il prezzo), il massimo è quello oltre il quale si allargherebbe solo il
      bianco tra il nome del piatto e il suo prezzo. Quel che avanza va allo
-     scontrino, che più è grande più si legge da lontano. */
-  grid-template-columns: minmax(660px, 700px) minmax(340px, 1fr);
+     scontrino, che più è grande più si legge da lontano.
+     La misura della colonna di sinistra la detta la tabella: è larga quanto
+     le sue colonne messe in fila, e se domani l'amministratore aggiunge un
+     piatto dal nome lungo si allarga da sé, fino al tetto qui sotto. */
+  grid-template-columns: fit-content(760px) minmax(340px, 1fr);
   gap: 24px;
   /* Alta quanto lo schermo: a scorrere è il menù dentro la sua finestra, non
      la pagina. Tavolo e coperti restano in cima, i tre tasti in fondo, e non
@@ -174,6 +177,15 @@
      nemmeno la sua altezza minima, a scorrere torna la colonna intera. Meglio
      scorrere che un menù ridotto a una fessura. */
   overflow-y: auto;
+}
+/* A dire quanto è larga la colonna dev'essere solo la tabella. Tavolo e
+   coperti in cima, e i tasti col loro spiegone in fondo, starebbero volentieri
+   tutti su una riga sola — e chiederebbero cento pixel più del menù, che poi
+   resterebbe mezzo vuoto. Larghezza zero li toglie dal conto; il minimo al
+   100% li riporta larghi quanto la colonna una volta decisa. */
+.colonna-comanda > :not(.tabella-scroll) {
+  width: 0;
+  min-width: 100%;
 }
 /* La cornice passa dalla tabella alla finestra che la contiene: così bordo,
    angoli e ombra restano fermi mentre le righe scorrono. */
@@ -318,11 +330,14 @@
   }
 }
 /* Elenco dei piatti, raggruppato per portata come in Gestione menù. Le
-   larghezze sono in percentuale: le proporzioni tengono a ogni zoom. */
+   colonne si misurano su quello che contengono — il prezzo largo quanto un
+   prezzo, la quantità quanto i suoi tondini — invece di dividersi la riga a
+   percentuali decise a tavolino. Così nessuna resta mezza vuota e nessuna
+   strozza il suo contenuto. */
 .tabella-ordine {
   width: 100%;
   min-width: 37rem;
-  table-layout: fixed;
+  table-layout: auto;
   border-collapse: collapse;
   font-size: 0.95rem;
   background: var(--surface);
@@ -330,23 +345,18 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
 }
-.tabella-ordine .col-piatto {
-  width: 24%;
-}
+/* Lo spazio che avanza dopo che ognuna ha preso il suo va tutto alle note:
+   sono l'unica colonna di testo libero, e l'unica che può allungarsi senza
+   che nessuno debba contarne i caratteri. */
 .tabella-ordine .col-note {
-  width: 26%;
+  width: 100%;
 }
-.tabella-ordine .col-prezzo {
-  width: 11%;
-}
-.tabella-ordine .col-rimaste {
-  width: 10%;
-}
-.tabella-ordine .col-quantita {
-  width: 18%;
-}
-.tabella-ordine .col-totale {
-  width: 11%;
+/* Niente a capo: un nome spezzato su due righe alza la riga, e con le righe
+   di altezze diverse l'elenco balla mentre si scorre. Le note sono l'unica
+   eccezione, qui sotto. */
+.tabella-ordine th,
+.tabella-ordine td {
+  white-space: nowrap;
 }
 .tabella-ordine th {
   text-align: left;
@@ -388,13 +398,14 @@
 .tabella-ordine .colonna-piatto {
   font-weight: 600;
 }
+/* L'unica che va a capo. Prima veniva tagliata con i puntini: una nota
+   tagliata è una nota che non si legge, e sono proprio le cose da dire alla
+   cucina. */
 .tabella-ordine .colonna-note {
   color: var(--text-muted);
   font-size: 0.86rem;
   font-style: italic;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 .tabella-ordine tr.selezionato td {
   background: var(--accent-soft);
@@ -538,6 +549,9 @@
   background: var(--accent-soft);
   border-radius: 999px;
   padding: 3px 12px;
+  /* Due parole sole: spezzate in due righe la pillola diventa un bottone
+     storto, e la lettera della cassa è la cosa da leggere in un colpo. */
+  white-space: nowrap;
 }
 
 .totale {

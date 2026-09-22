@@ -399,16 +399,49 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
 
   await cassa.getByRole('button', { name: 'Nuovo ordine', exact: true }).click();
   await cassa.waitForTimeout(900);
-  const misure = await cassa.evaluate(() => ({
-    banco: Math.round(document.querySelector('.nuovo-ordine').getBoundingClientRect().width),
-    menu: Math.round(document.querySelector('.colonna-comanda').getBoundingClientRect().width),
-  }));
+  const misure = await cassa.evaluate(() => {
+    const tabella = document.querySelector('.tabella-ordine');
+    // Quanto chiederebbe la tabella se nessuno le desse una misura: è quella
+    // che la colonna deve prendere.
+    const copia = tabella.cloneNode(true);
+    copia.style.cssText = 'width:max-content;position:absolute;left:-9999px';
+    document.body.appendChild(copia);
+    const naturale = Math.round(copia.getBoundingClientRect().width);
+    copia.remove();
+
+    // Celle tagliate (il contenuto non ci sta) e regola del a capo, cella per
+    // cella: le note devono poter andare a capo, tutte le altre no.
+    let tagliate = 0;
+    let sbagliate = 0;
+    let note = 0;
+    for (const cella of tabella.querySelectorAll('tbody tr:not(.riga-categoria) td')) {
+      const eNota = cella.classList.contains('colonna-note');
+      const aCapo = getComputedStyle(cella).whiteSpace !== 'nowrap';
+      if (eNota) note++;
+      if (aCapo !== eNota) sbagliate++;
+      if (!eNota && cella.scrollWidth > cella.clientWidth + 1) tagliate++;
+    }
+    return {
+      banco: Math.round(document.querySelector('.nuovo-ordine').getBoundingClientRect().width),
+      menu: Math.round(document.querySelector('.colonna-comanda').getBoundingClientRect().width),
+      naturale,
+      tagliate,
+      sbagliate,
+      note,
+    };
+  });
   verifica('il banco non si allarga a tutto schermo', misure.banco <= 1200, `${misure.banco}px su 1600`);
   verifica(
-    'e la colonna del menù resta stretta',
-    misure.menu >= 660 && misure.menu <= 700,
-    `${misure.menu}px`
+    'la colonna del menù è larga quanto la tabella chiede',
+    Math.abs(misure.menu - misure.naturale) <= 4,
+    `colonna ${misure.menu}px, tabella ${misure.naturale}px`
   );
+  verifica(
+    'va a capo solo la colonna delle note',
+    misure.note > 0 && misure.sbagliate === 0,
+    `${misure.note} note, ${misure.sbagliate} celle fuori regola`
+  );
+  verifica('e nessuna cella taglia quello che contiene', misure.tagliate === 0);
   await cassa.screenshot({ path: RISULTATI + '/cassa-nuovo-ordine.png', fullPage: true });
 
   await cassa.getByRole('button', { name: 'Ordini cassa' }).click();

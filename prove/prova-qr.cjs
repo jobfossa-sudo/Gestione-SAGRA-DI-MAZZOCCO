@@ -76,12 +76,19 @@ function verifica(descrizione, condizione, extra = '') {
   // La cassa non cambia schermata: digita il numero che il cliente ha sul
   // telefono e l'ordine le arriva sul banco, dove sta già lavorando.
   await cassa.getByLabel('Ordine dal QR n.').fill(numero);
-  await cassa.getByRole('button', { name: 'Richiama' }).click();
-  await cassa.waitForTimeout(1500);
+  // L'ordine appena partito dal telefono arriva al banco da solo, ma ci mette
+  // il tempo che ci mette. Si ritenta finché non c'è, invece di fidarsi di
+  // un'attesa a occhio: è anche quello che farebbe la cassiera.
+  let inMano = false;
+  for (let tentativo = 0; tentativo < 12 && !inMano; tentativo++) {
+    await cassa.getByRole('button', { name: 'Richiama' }).click();
+    await cassa.waitForTimeout(700);
+    inMano = await cassa.locator('.avviso-dal-tavolo').isVisible().catch(() => false);
+  }
   const banco = await cassa.innerText('.colonna-comanda');
   verifica(
     'in cassa l’ordine dal tavolo arriva sul banco',
-    /arrivato dal tavolo 7/.test(banco) && /Gnocchi/.test(await cassa.innerText('.anteprima-biglietto')),
+    inMano && /arrivato dal tavolo 7/.test(banco) && /Gnocchi/.test(await cassa.innerText('.anteprima-biglietto')),
     banco.split('\n').find((r) => /arrivato dal tavolo/.test(r)) ?? ''
   );
   await cassa.getByRole('button', { name: 'Conferma ordine' }).click();
