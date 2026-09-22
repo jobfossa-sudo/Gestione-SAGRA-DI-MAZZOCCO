@@ -251,12 +251,11 @@
   min-height: 0;
   overflow: auto;
 }
-/* I tasti stanno in fondo alla colonna e non si muovono da li': la mano li
-   trova sempre allo stesso posto, anche quando lo scontrino sopra cresce di
-   una riga a ogni piatto battuto. */
+/* I tasti stanno appena sotto lo scontrino, non in fondo alla colonna: si
+   guarda il conto e si preme subito li' sotto, senza scendere con gli occhi
+   fino in fondo allo schermo. */
 .colonna-anteprima .piede-comanda {
   flex: none;
-  margin-top: auto;
 }
 /* Tavolo e coperti stanno in cima: sono la prima cosa che si chiede al
    cliente, e finiscono sulla copia che va in cucina. */
@@ -397,9 +396,6 @@
   color: var(--text-muted);
   font-weight: 700;
   padding: 6px 10px 4px;
-  /* Stesso trucco della fascia: le lettere restano di 12,75px, sparisce
-     solo lo spazio che l'interlinea aggiunge sopra e sotto. */
-  line-height: 1;
 }
 /* Righe fitte apposta: più piatti stanno sotto gli occhi insieme, e si scorre
    di meno. L'altezza della riga la decidono l'imbottitura e i tondini della
@@ -450,25 +446,9 @@
 .tabella-ordine tr.esaurito .titolo-prodotto {
   text-decoration: line-through;
 }
-/* La riga della portata e' alta 30 punti: la striscia colorata ne occupa 22,
-   il resto e' l'aria che la stacca dai piatti sopra e sotto. */
 .tabella-ordine .riga-categoria td {
   background: none;
-  padding: 4px 10px 3px;
-}
-/* Nel banco della cassa la fascia della portata serve solo a dire dove
-   finiscono i primi e cominciano i secondi: si abbassa togliendole
-   imbottitura e interlinea, mentre le lettere restano della grandezza di
-   prima. line-height: 1 vuol dire che la riga e' alta quanto il carattere e
-   basta, senza lo spazio che di solito ci sta sopra e sotto.
-   In Gestione menu' la stessa fascia non si tocca: li' il nome della portata
-   si clicca per cambiarlo, e l'area da colpire deve restare grande. */
-.tabella-ordine .testata-portata {
-  padding: 1px 10px;
-}
-.tabella-ordine .nome-portata {
-  padding: 0 8px;
-  line-height: 1;
+  padding: 6px 10px 2px;
 }
 /* Nessuna eccezione per la prima portata: quando sopra c'era piu' aria, le si
    toglieva un po' di spazio per non staccarla dall'intestazione. Ora che lo
