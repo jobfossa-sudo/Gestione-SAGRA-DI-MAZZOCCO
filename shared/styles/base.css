@@ -52,7 +52,11 @@
      rem, quindi cambiare questa alza o abbassa l'app intera. Un po' più dei
      16px consueti, perché alla cassa si legge di sera e di fretta. */
   font-size: 17px;
-  line-height: 1.45;
+  /* Le righe stanno più vicine di quanto si usi di solito, ma le lettere
+     restano grandi uguali: il testo non rimpicciolisce, si stringe soltanto
+     lo spazio fra una riga e l'altra. Così sotto gli occhi ci stanno più
+     piatti, più ordini e più quadrati senza scorrere. */
+  line-height: 1.3;
   color: var(--text);
   background: var(--bg);
   color-scheme: light;

@@ -1614,6 +1614,12 @@ body.trascinamento-in-corso {
 .numero-inviato {
   text-align: center;
 }
+/* "Ordina altro" stava attaccato alla cifra da pagare: l'unico stacco glielo
+   dava lo spazio fra le righe, e il cliente col telefono in mano rischiava di
+   premerlo pensando di aver toccato il totale. */
+.numero-inviato button {
+  margin-top: 18px;
+}
 .numero-grande {
   font-size: 4.5rem;
   font-weight: 800;
