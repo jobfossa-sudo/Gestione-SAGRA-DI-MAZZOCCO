@@ -2283,12 +2283,12 @@ body.trascinamento-in-corso {
 }
 .sommario-ordine .dettagli {
   display: flex;
-  flex-direction: column;
-  /* Il dettaglio sta in mezzo alla riga. La targhetta dello stato qui sotto
-     si tiene il bordo sinistro tutto per se': staccata dalle parole, si legge
-     scorrendo l'elenco con l'occhio invece di doverla cercare. */
+  /* Tutto su una riga sola, sulla stessa linea di mezzo del numero di
+     comanda e del totale: la targhetta dello stato tiene il bordo sinistro,
+     il dettaglio sta al centro dello spazio che avanza. */
+  flex-direction: row;
   align-items: center;
-  gap: 3px;
+  gap: 12px;
   font-size: 0.85rem;
   color: var(--text-muted);
   flex: 1;
@@ -2307,12 +2307,20 @@ body.trascinamento-in-corso {
   padding: 7px 14px;
   font-size: 0.85rem;
 }
-/* Nel riepilogo la targhetta sta su una riga sua, non in coda a una frase:
-   il margine che le serve in linea qui darebbe solo un rientro storto. E resta
-   a sinistra mentre il dettaglio sopra di lei va al centro. */
+/* Il dettaglio prende tutto lo spazio che avanza e ci si mette in mezzo:
+   e' cosi' che resta incolonnato con quello delle righe sopra e sotto. */
+.sommario-ordine .dettagli > span:first-child {
+  flex: 1;
+  text-align: center;
+}
+/* La targhetta va prima del dettaglio anche se nel testo viene dopo: a
+   sinistra, larga quanto le serve, sulla linea di mezzo della riga. Il
+   margine che le serve in coda a una frase qui darebbe un rientro storto. */
 .sommario-ordine .targhetta-stato {
+  order: -1;
+  flex: none;
   margin-left: 0;
-  align-self: flex-start;
+  align-self: center;
 }
 .targhetta-stato.attesa {
   background: var(--accent-soft);
