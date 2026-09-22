@@ -227,8 +227,36 @@
 }
 /* Lo scontrino non ha bisogno di stare attaccato a niente: la pagina non
    scorre piu'. */
+/* Lo scontrino in alto e, sotto, il totale con i tre tasti. I tasti stanno
+   sempre in fondo alla colonna e sempre in vista: a cedere altezza, quando
+   ce n'e' poca, e' lo scontrino sopra. */
 .colonna-anteprima {
-  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+/* Lo scontrino resta alto quanto il foglio, non quanto la colonna: allungarlo
+   lascerebbe sotto la carta una fascia grigia vuota. Quando invece lo spazio
+   non basta — ordine lungo, schermo basso — si stringe e lo si scorre dentro
+   la sua cornice, invece di spingere i tasti fuori dallo schermo. */
+.colonna-anteprima .anteprima-biglietto {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.colonna-anteprima .cornice-stampa {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+/* I tasti stanno in fondo alla colonna e non si muovono da li': la mano li
+   trova sempre allo stesso posto, anche quando lo scontrino sopra cresce di
+   una riga a ogni piatto battuto. */
+.colonna-anteprima .piede-comanda {
+  flex: none;
+  margin-top: auto;
 }
 /* Tavolo e coperti stanno in cima: sono la prima cosa che si chiede al
    cliente, e finiscono sulla copia che va in cucina. */

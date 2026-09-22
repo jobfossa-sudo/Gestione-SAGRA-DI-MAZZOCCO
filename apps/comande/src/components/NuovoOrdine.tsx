@@ -391,9 +391,21 @@ export function NuovoOrdine() {
             </table>
           </div>
         )}
+      </div>
 
-        {/* In fondo alla colonna il totale e i tre tasti: il conto da far
-            vedere, l'incasso e il ripensamento. */}
+      {/* Lo scontrino: l'elenco dei piatti sta qui e solo qui. Prima compariva
+          anche in un riepilogo a fianco, che diceva le stesse cose due volte. */}
+      <div className="colonna-anteprima">
+        <AnteprimaBiglietto
+          tipo="resoconto"
+          ordine={ordineProvvisorio}
+          nota="Il conto come uscirà dalla stampante. Numero di comanda e codice a barre li assegna la conferma, quindi qui il loro posto resta vuoto."
+        />
+
+        {/* Il totale e i tre tasti stanno sotto allo scontrino, non in fondo
+            al menù: si premono dopo aver guardato il conto insieme al cliente,
+            e così l'occhio non deve attraversare la schermata. Il menù di
+            fianco si prende tutta l'altezza che avanza. */}
         <div className="riquadro piede-comanda">
           {letteraCassa === null && (
             <p className="errore">
@@ -434,16 +446,6 @@ export function NuovoOrdine() {
             esce il foglio definitivo.
           </p>
         </div>
-      </div>
-
-      {/* Lo scontrino: l'elenco dei piatti sta qui e solo qui. Prima compariva
-          anche in un riepilogo a fianco, che diceva le stesse cose due volte. */}
-      <div className="colonna-anteprima">
-        <AnteprimaBiglietto
-          tipo="resoconto"
-          ordine={ordineProvvisorio}
-          nota="Il conto come uscirà dalla stampante. Numero di comanda e codice a barre li assegna la conferma, quindi qui il loro posto resta vuoto."
-        />
       </div>
     </div>
   );

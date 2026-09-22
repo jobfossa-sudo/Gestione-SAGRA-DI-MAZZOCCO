@@ -113,14 +113,18 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
     const finestra = document.querySelector('.tabella-scroll');
     const piede = document.querySelector('.piede-comanda').getBoundingClientRect();
     return {
-      menuScorre: finestra.scrollHeight > finestra.clientHeight,
+      menuTuttoInVista: finestra.scrollHeight <= finestra.clientHeight + 1,
+      // Se i piatti fossero di più, a scorrere dovrebbe essere questa finestra
+      // e non la pagina: è lei ad avere lo scorrimento addosso.
+      finestraScorrevole: ['auto', 'scroll'].includes(getComputedStyle(finestra).overflowY),
       paginaFerma: document.documentElement.scrollHeight <= window.innerHeight + 2,
       tastiInVista: Math.round(piede.bottom) <= window.innerHeight,
       intestazioneAttaccata:
         getComputedStyle(document.querySelector('.tabella-ordine thead th')).position === 'sticky',
     };
   });
-  verifica('il menù scorre dentro la sua finestra', scorrimento.menuScorre);
+  verifica('il menù della sagra ci sta tutto, senza scorrere', scorrimento.menuTuttoInVista);
+  verifica('e con un menù più lungo scorrerebbe la sua finestra', scorrimento.finestraScorrevole);
   verifica('e la pagina non si allunga dietro di lui', scorrimento.paginaFerma);
   verifica('i tre tasti restano in vista senza scorrere', scorrimento.tastiInVista);
   verifica('l’intestazione della tabella resta in cima mentre si scorre', scorrimento.intestazioneAttaccata);
