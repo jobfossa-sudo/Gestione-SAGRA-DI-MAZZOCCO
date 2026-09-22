@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import type { Ordine } from '@sagra-mazzocco/shared';
+import { tempoEmissione, type Ordine } from '@sagra-mazzocco/shared';
 import { useLetteraCassa, useOrdiniAperti, useOrdiniCompletati, useUtenteAutenticato } from '../hooks';
 import { annullaOrdine, messaggioErrore } from '../services/callables';
-import { euro } from '../services/formato';
+import { durata, euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
 
 /** Un quadrato con il solo numero in grande: il colpo d'occhio di fine
@@ -16,8 +16,9 @@ function Quadrato({
 }: {
   titolo: string;
   valore: string;
-  /** "incasso" colora il quadrato in modo diverso: sono soldi, non ordini. */
-  tono?: 'ordini' | 'incasso' | 'incasso-totale';
+  /** Il tono colora il quadrato: i soldi non si devono confondere con i
+   * conteggi, e il tempo non è né l'una né l'altra cosa. */
+  tono?: 'ordini' | 'tempo' | 'incasso' | 'incasso-totale';
   spiegazione?: string;
 }) {
   return (
@@ -104,6 +105,25 @@ export function FineSerata({ amministratore }: { amministratore: boolean }) {
   }
   const casse = [...perCassa.entries()].sort(([a], [b]) => a.localeCompare(b));
 
+  // Gli ordini che hanno davvero avuto un numero di comanda: in attesa di
+  // pagamento, in mano ai reparti, consegnati. Le bozze mai confermate restano
+  // fuori — hanno già il loro quadrato — altrimenti provenienza e coperti
+  // racconterebbero due serate diverse.
+  const confermati = [...daPagare, ...inEvasione, ...completati];
+  const daCassa = confermati.filter((o) => o.tipo === 'cassa').length;
+  const daCellulare = confermati.filter((o) => o.tipo === 'qr').length;
+  const coperti = confermati.reduce((somma, o) => somma + (o.coperti ?? 0), 0);
+
+  // Quanto ci mette un ordine da quando parte verso i reparti a quando viene
+  // letto il suo codice a barre. Il più lento in cima: è quello su cui c'è da
+  // capire qualcosa.
+  const tempi = completati
+    .map((ordine) => ({ ordine, millisecondi: tempoEmissione(ordine) }))
+    .filter((riga): riga is { ordine: Ordine; millisecondi: number } => riga.millisecondi !== null)
+    .sort((a, b) => b.millisecondi - a.millisecondi);
+  const tempoMedio =
+    tempi.length > 0 ? tempi.reduce((somma, riga) => somma + riga.millisecondi, 0) / tempi.length : null;
+
   // Gli elenchi stanno sotto i quadrati, e solo dove c'è qualcosa da fare:
   // annullare un ordine abbandonato o andare a cercare una comanda rimasta
   // indietro. Gli ordini completati non hanno elenco: non c'è niente da farci.
@@ -115,7 +135,36 @@ export function FineSerata({ amministratore }: { amministratore: boolean }) {
 
   return (
     <div className="fine-serata">
-      {/* Prima riga: quanti ordini, solo numeri. */}
+      {/* Prima riga: com'è andata la serata nel suo insieme. */}
+      <div className="riga-quadrati">
+        <Quadrato
+          titolo="Ordini dalla cassa"
+          valore={String(daCassa)}
+          spiegazione="Composti al banco dal cassiere."
+        />
+        <Quadrato
+          titolo="Ordini dal cellulare"
+          valore={String(daCellulare)}
+          spiegazione="Arrivati dal QR del tavolo e poi confermati in cassa."
+        />
+        <Quadrato
+          titolo="Coperti"
+          valore={String(coperti)}
+          spiegazione={`Persone servite, da ${confermati.length} ${confermati.length === 1 ? 'comanda confermata' : 'comande confermate'}.`}
+        />
+        <Quadrato
+          titolo="Tempo medio di emissione"
+          valore={tempoMedio === null ? '—' : durata(tempoMedio)}
+          tono="tempo"
+          spiegazione={
+            tempoMedio === null
+              ? 'Si vede dopo la prima consegna della serata.'
+              : `Dall'invio ai reparti alla consegna, su ${tempi.length} ${tempi.length === 1 ? 'ordine consegnato' : 'ordini consegnati'}.`
+          }
+        />
+      </div>
+
+      {/* Seconda riga: a che punto sono gli ordini, solo numeri. */}
       <div className="riga-quadrati">
         <Quadrato
           titolo="Ordini completati"
@@ -139,7 +188,7 @@ export function FineSerata({ amministratore }: { amministratore: boolean }) {
         />
       </div>
 
-      {/* Seconda riga: quanto è stato incassato. */}
+      {/* Terza riga: quanto è stato incassato. */}
       <div className="riga-quadrati">
         {casse.map(([lettera, conto]) => (
           <Quadrato
@@ -186,6 +235,30 @@ export function FineSerata({ amministratore }: { amministratore: boolean }) {
 
       {daSistemare.length === 0 && (
         <p className="vuoto">Non è rimasto niente in sospeso: la serata è a posto.</p>
+      )}
+
+      {tempi.length > 0 && (
+        <section className="riquadro elenco-tempi">
+          <h2>
+            Tempi di emissione <span className="contatore">{tempi.length}</span>
+          </h2>
+          <p className="spiegazione">
+            Quanto è passato tra l'invio ai reparti e la lettura del codice a barre, ordine per ordine. Il più
+            lento sta in cima.
+          </p>
+          <ul>
+            {tempi.map(({ ordine, millisecondi }) => (
+              <li key={ordine.id} className="riga-tempo">
+                <span className="numero">{ordine.codice ?? `n. ${ordine.numero}`}</span>
+                <span className="dettagli">
+                  Tavolo {ordine.tavolo ?? '—'} · {ordine.coperti ?? '—'}{' '}
+                  {ordine.coperti === 1 ? 'coperto' : 'coperti'}
+                </span>
+                <span className="tempo">{durata(millisecondi)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

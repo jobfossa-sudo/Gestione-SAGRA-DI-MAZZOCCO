@@ -22,6 +22,9 @@
   /* Giallo: serve a staccare un totale dalle voci che lo compongono. */
   --oro: #a16207;
   --oro-soft: #fdf6e0;
+  /* Blu: i tempi non sono né soldi né conteggi, e non devono somigliarci. */
+  --tempo: #0e7490;
+  --tempo-soft: #e8f4f8;
 
   /* Settori di preparazione (pannelli e stampanti). */
   --cucina: #b45309;
@@ -84,6 +87,8 @@
   /* Sul fondo scuro il giallo scuro sparirebbe: qui serve chiaro. */
   --oro: #fbbf24;
   --oro-soft: #2a2008;
+  --tempo: #38bdf8;
+  --tempo-soft: #0c2430;
 
   --cucina: #fbbf24;
   --griglia: #fb7185;

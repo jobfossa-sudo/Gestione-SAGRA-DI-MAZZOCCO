@@ -152,6 +152,32 @@ function verifica(descrizione, condizione, extra = '') {
     (await cassa.evaluate(() => window.__stampe.length)) === 3
   );
 
+  // --- Un secondo ordine dal telefono, che stavolta viene incassato ---
+  const bozzaQr = await cassa.evaluate(async () => {
+    const { getFunctions, httpsCallable, connectFunctionsEmulator } = await import(
+      'https://www.gstatic.com/firebasejs/12.0.0/firebase-functions.js'
+    );
+    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js');
+    const app = initializeApp({ projectId: 'gestione-sagra-mazzocco', apiKey: 'finta' }, 'cliente-qr-2');
+    const funzioni = getFunctions(app);
+    connectFunctionsEmulator(funzioni, '127.0.0.1', 5001);
+    const crea = httpsCallable(funzioni, 'creaOrdineBozza');
+    const risposta = await crea({
+      serataId: new Date().toISOString().slice(0, 10),
+      tavolo: 9,
+      coperti: 4,
+      items: [{ prodottoId: 'gnocchi', quantita: 1 }],
+    });
+    return risposta.data;
+  });
+  await cassa.getByRole('button', { name: /Da fare/ }).click();
+  await cassa.getByLabel('Numero ordine').fill(String(bozzaQr.numero));
+  await cassa.getByRole('button', { name: "Richiama l'ordine" }).click();
+  await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
+  await cassa.waitForTimeout(3000);
+  await cassa.getByRole('button', { name: 'Invia ordine' }).click();
+  await cassa.waitForTimeout(3000);
+
   await cassa.screenshot({ path: RISULTATI + '/cassa-da-fare.png', fullPage: true });
   await cassa.getByRole('button', { name: 'Fine serata' }).click();
   await cassa.waitForTimeout(1500);
@@ -160,6 +186,25 @@ function verifica(descrizione, condizione, extra = '') {
   verifica('c’è il quadrato degli ordini completati', /Ordini completati/.test(fine));
   verifica('c’è il quadrato dell’incasso della cassa A', /Incasso cassa A/.test(fine));
   verifica('c’è il quadrato dell’incasso totale', /Incasso totale/.test(fine));
+  const conteggio = (etichetta) => {
+    const trovato = new RegExp(etichetta + '\\s+(\\d+)').exec(fine);
+    return trovato ? Number(trovato[1]) : null;
+  };
+  const ordiniCassa = conteggio('Ordini dalla cassa');
+  const ordiniCellulare = conteggio('Ordini dal cellulare');
+  const copertiServiti = conteggio('Coperti');
+  verifica('c’è il quadrato degli ordini presi in cassa', ordiniCassa !== null, String(ordiniCassa));
+  verifica('c’è il quadrato degli ordini arrivati dal telefono', ordiniCellulare > 0, String(ordiniCellulare));
+  verifica('c’è il quadrato dei coperti', copertiServiti > 0, String(copertiServiti));
+  // Le due provenienze devono coprire tutte le comande confermate, senza
+  // scoprire né contare due volte: la spiegazione del quadrato dei coperti dice
+  // quante sono.
+  const comandeConfermate = Number((fine.match(/da (\d+) comand/) || [])[1]);
+  verifica(
+    'cassa più telefono fa il totale delle comande confermate',
+    ordiniCassa + ordiniCellulare === comandeConfermate,
+    `${ordiniCassa} + ${ordiniCellulare} = ${comandeConfermate}`
+  );
   // Attenzione: tra la cifra e il simbolo dell'euro c'è uno spazio unificatore
   // (non un normale spazio), quindi si cattura solo la cifra. E i numeri sono
   // scritti all'italiana: 1.234,50.
@@ -173,6 +218,27 @@ function verifica(descrizione, condizione, extra = '') {
     `${incassiCasse.length} casse, somma ${somma.toFixed(2)}, totale ${incassoTotale.toFixed(2)}`
   );
   verifica('e non è zero: qualcosa è stato incassato', incassoTotale > 0, incassoTotale.toFixed(2));
+
+  // --- Tempo di emissione: si misura solo su una consegna vera ---
+  // L'archivio locale può già contenere ordini di prove precedenti o di
+  // qualcuno che stava usando l'app: si guarda quanto cambia, non quanto c'è.
+  verifica('c’è il quadrato del tempo medio di emissione', /Tempo medio di emissione/.test(fine));
+  const tempiPrima = await cassa.locator('.riga-tempo').count();
+  const distribuzione = await entra(browser, 'distribuzione');
+  await distribuzione.waitForTimeout(2000);
+  await distribuzione.getByRole('button', { name: 'Consegnato' }).first().click();
+  await distribuzione.waitForTimeout(3500);
+  await cassa.waitForTimeout(2500);
+  const conTempi = await cassa.innerText('.fine-serata');
+  const tempiDopo = await cassa.locator('.riga-tempo').count();
+  verifica(
+    'la consegna aggiunge una riga all’elenco dei tempi',
+    tempiDopo === tempiPrima + 1,
+    `${tempiPrima} → ${tempiDopo}`
+  );
+  const medio = (conTempi.match(/Tempo medio di emissione\s+([^\n]+)/) || [])[1] || '';
+  verifica('e il tempo medio è una durata, non un trattino', /^\d+\s*(s|min|h)/.test(medio), medio);
+  verifica('l’elenco dei tempi ha la sua intestazione', /Tempi di emissione/.test(conTempi));
 
   // I quadrati devono prendersi tutto lo schermo, le altre schede no.
   await cassa.setViewportSize({ width: 1600, height: 900 });

@@ -748,8 +748,9 @@
 
 /* ---------- fine serata ---------- */
 
-/* Due righe di quadrati — sopra i conteggi degli ordini, sotto gli incassi —
-   e in fondo gli elenchi di quello che resta da sistemare. */
+/* Tre righe di quadrati — com'è andata la serata, a che punto sono gli ordini,
+   quanto si è incassato — e in fondo gli elenchi: quello che resta da
+   sistemare e i tempi di emissione. */
 .fine-serata {
   display: flex;
   flex-direction: column;
@@ -810,6 +811,17 @@
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   color: var(--accent);
+}
+
+/* Il tempo medio è blu: in mezzo ai conteggi si deve capire al volo che non
+   è un numero di ordini. */
+.fine-serata .quadrato-tempo {
+  background: var(--tempo-soft);
+  border-color: var(--tempo);
+}
+.quadrato-tempo .valore-quadrato,
+.quadrato-tempo h2 {
+  color: var(--tempo);
 }
 
 /* I quadrati degli incassi sono soldi, non ordini: verdi, senza elenco
@@ -892,6 +904,38 @@
 .vuoto {
   font-size: 0.9rem;
   color: var(--text-muted);
+}
+
+/* I tempi di emissione, ordine per ordine. In una serata piena sono centinaia
+   di righe: l'elenco si ferma a un'altezza e scorre per conto suo, invece di
+   allungare la pagina all'infinito. */
+.elenco-tempi ul {
+  max-height: 420px;
+  overflow-y: auto;
+}
+.riga-tempo {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+.riga-tempo .numero {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.riga-tempo .dettagli {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.riga-tempo .tempo {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--tempo);
+  white-space: nowrap;
 }
 
 /* ---------- schermi stretti (tablet in verticale, telefono) ---------- */

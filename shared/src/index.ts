@@ -651,3 +651,20 @@ export interface AnnullaOrdineRichiesta {
 export interface AnnullaOrdineRisposta {
   ordineId: string;
 }
+
+/** Quanto è durata l'emissione di un ordine, in millisecondi: dal momento in
+ * cui la cassa lo manda ai reparti ("Invia ordine", dopo il pagamento) a
+ * quando in Distribuzione ne viene letto il codice a barre. Null se l'ordine
+ * non è ancora arrivato in fondo, oppure se è stato creato prima che l'orario
+ * di pagamento venisse registrato: meglio non contarlo che sballare la media. */
+export function tempoEmissione(ordine: Ordine): number | null {
+  if (!ordine.pagatoAt || !ordine.completedAt) return null;
+  const durata = millisecondiTimestamp(ordine.completedAt) - millisecondiTimestamp(ordine.pagatoAt);
+  return durata >= 0 ? durata : null;
+}
+
+/** Un orario di Firestore in millisecondi, senza dipendere dal SDK: il campo
+ * arriva come secondi + nanosecondi sia dal client che dal server. */
+export function millisecondiTimestamp(orario: FirestoreTimestampLike): number {
+  return orario.seconds * 1000 + orario.nanoseconds / 1e6;
+}
