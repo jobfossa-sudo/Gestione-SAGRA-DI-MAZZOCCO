@@ -450,9 +450,11 @@
 .tabella-ordine tr.esaurito .titolo-prodotto {
   text-decoration: line-through;
 }
+/* La riga della portata e' alta 30 punti: la striscia colorata ne occupa 22,
+   il resto e' l'aria che la stacca dai piatti sopra e sotto. */
 .tabella-ordine .riga-categoria td {
   background: none;
-  padding: 3px 10px 1px;
+  padding: 4px 10px 3px;
 }
 /* Nel banco della cassa la fascia della portata serve solo a dire dove
    finiscono i primi e cominciano i secondi: si abbassa togliendole
