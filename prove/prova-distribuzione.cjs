@@ -68,8 +68,13 @@ async function entra(browser, utente) {
   await cassa.getByRole('button', { name: 'Conferma ordine' }).click();
   await cassa.waitForTimeout(4000);
 
-  // In Distribuzione la copia cucina esce da sola.
-  await distribuzione.waitForTimeout(3000);
+  // In Distribuzione la copia cucina esce da sola. Si aspetta che esca, non
+  // un tot di secondi: quando la serata di prova è piena di ordini vecchi, la
+  // pagina all'apertura chiede al server la copia di tutti quanti, e la
+  // richiesta di questo qui si mette in coda dietro le loro.
+  await distribuzione
+    .waitForFunction((quante) => window.__stampe.length > quante, stampePrima, { timeout: 40000 })
+    .catch(() => {});
   const stampe = await distribuzione.evaluate(() => window.__stampe);
   verifica(
     'la copia cucina esce da sola appena l’ordine è pagato',
@@ -83,8 +88,16 @@ async function entra(browser, utente) {
   verifica('la copia cucina elenca i piatti', /Pasta al ragù/.test(copia));
   fs.writeFileSync(RISULTATI + '/foglio-copia-cucina.html', copia);
 
+  // Il numero di comanda di questo ordine, preso dal foglio appena uscito. Da
+  // qui in poi si guarda sempre lui: in una serata già lunga al tavolo 21 ci
+  // sono passati altri ordini, e "il primo al tavolo 21" sarebbe un altro.
+  const nostroCodice = (copia.replace(/<[^>]+>/g, ' ').match(/[A-Z]\d{4}/) || [])[0];
   const elenco = await distribuzione.innerText('.distribuzione');
-  verifica('il vassoio compare tra quelli da comporre', /Vassoi da comporre/.test(elenco) && /Tavolo 21/.test(elenco));
+  verifica(
+    'il vassoio compare tra quelli da comporre',
+    /Vassoi da comporre/.test(elenco) && elenco.includes(nostroCodice),
+    nostroCodice
+  );
 
   // Ristampa: esce un secondo foglio solo su richiesta.
   await distribuzione.getByRole('button', { name: 'Ristampa' }).first().click();
@@ -121,17 +134,30 @@ async function entra(browser, utente) {
   );
 
   // Il codice vero: chiude l'ordine.
-  const ordini = await db.collection(`serate/${SERATA}/ordini`).where('stato', '==', 'in_evasione').get();
-  const ordine = ordini.docs.map((d) => d.data()).find((o) => o.tavolo === 21);
+  const ordini = await db.collection(`serate/${SERATA}/ordini`).where('codice', '==', nostroCodice).get();
+  const ordine = ordini.docs[0].data();
   await casella.fill(ordine.codiceBarre);
   await casella.press('Enter');
   await distribuzione.waitForTimeout(2500);
   const esitoOk = await distribuzione.innerText('.esito-ok');
   verifica('la lettura del codice chiude l’ordine', /consegnato/.test(esitoOk), esitoOk);
-  verifica(
-    'il vassoio esce dall’elenco',
-    !/Tavolo 21/.test(await distribuzione.innerText('.distribuzione'))
-  );
+  // Si guarda l'elenco, non tutta la pagina: il numero di comanda compare
+  // anche nel messaggio di conferma ("A0161 consegnato — tavolo 21"), che è
+  // lì apposta e non vuol dire che il vassoio sia rimasto. E si aspetta che
+  // sparisca, invece di guardare una volta sola: l'elenco si aggiorna da sé
+  // quando il server risponde, e quanto ci mette non lo si sa.
+  const uscito = await distribuzione
+    .waitForFunction(
+      (codice) => {
+        const elenco = document.querySelector('.elenco-vassoi');
+        return !elenco || !elenco.innerText.includes(codice);
+      },
+      nostroCodice,
+      { timeout: 30000 }
+    )
+    .then(() => true)
+    .catch(() => false);
+  verifica('il vassoio esce dall’elenco', uscito, nostroCodice);
   verifica('la casella si svuota e resta pronta', (await casella.inputValue()) === '');
 
   await cucina.waitForTimeout(2500);

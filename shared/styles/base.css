@@ -142,7 +142,7 @@ button {
   background: var(--surface);
   color: var(--text);
   border-radius: var(--radius);
-  padding: 10px 16px;
+  padding: 7px 16px;
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
@@ -163,7 +163,7 @@ select {
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  padding: 11px 13px;
+  padding: 8px 13px;
   width: 100%;
 }
 

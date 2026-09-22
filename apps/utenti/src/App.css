@@ -10,7 +10,7 @@
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 14px 24px;
+  padding: 9px 24px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
@@ -39,10 +39,10 @@
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 14px 24px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 14px;
 }
 
 /* ---------- nuovo utente ---------- */
@@ -52,13 +52,13 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: 13px 18px;
   box-shadow: var(--shadow);
 }
 .nuovo-utente {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 9px;
 }
 .nuovo-utente .campi {
   display: grid;
@@ -118,7 +118,7 @@
 .spiegazione {
   font-size: 0.86rem;
   color: var(--text-muted);
-  margin: 6px 0 14px;
+  margin: 3px 0 9px;
 }
 .vuoto {
   font-size: 0.9rem;
@@ -140,11 +140,11 @@
   text-transform: uppercase;
   color: var(--text-muted);
   font-weight: 700;
-  padding: 0 10px 10px;
+  padding: 0 10px 6px;
   white-space: nowrap;
 }
 .tabella-utenti td {
-  padding: 10px;
+  padding: 6px 10px;
   border-top: 1px solid var(--border);
   vertical-align: middle;
 }

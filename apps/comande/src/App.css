@@ -14,7 +14,7 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 14px 24px;
+  padding: 9px 24px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -42,7 +42,7 @@
 .app-cassa nav button {
   border: none;
   background: transparent;
-  padding: 8px 18px;
+  padding: 6px 18px;
   font-weight: 600;
   font-size: 0.92rem;
   color: var(--text-muted);
@@ -72,7 +72,7 @@
 
 .app-cassa main {
   flex: 1;
-  padding: 24px;
+  padding: 14px 24px;
   width: 100%;
 }
 /* Il limite di larghezza sta sul contenuto, non su main: così una singola
@@ -97,7 +97,7 @@
 .app-cassa nav.sotto-schede {
   display: flex;
   gap: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   padding: 0;
   background: transparent;
   border: none;
@@ -108,7 +108,7 @@
   border: none;
   background: transparent;
   border-radius: 0;
-  padding: 10px 4px;
+  padding: 7px 4px;
   margin-right: 18px;
   font-weight: 600;
   font-size: 0.95rem;
@@ -167,13 +167,13 @@
      la pagina. Tavolo e coperti restano in cima, i tre tasti in fondo, e non
      si perde mai di vista né l'uno né l'altro. Il numero tolto è quanto
      occupano la barra in cima, le linguette e i margini. */
-  height: calc(100vh - 11.5rem);
+  height: calc(100vh - 8.5rem);
   align-items: stretch;
 }
 .colonna-comanda {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   min-width: 0;
   min-height: 0;
   /* Ultima spiaggia: se su uno schermo basso testata e piede non lasciano al menù
@@ -237,7 +237,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
-  padding: 14px 20px;
+  padding: 9px 20px;
 }
 .testata-comanda .campi-tavolo {
   margin: 0;
@@ -312,7 +312,7 @@
 }
 .bottone-conferma {
   font-size: 1.15rem;
-  padding: 16px;
+  padding: 12px;
 }
 @media (max-width: 720px) {
   .tasti-cassa {
@@ -368,7 +368,7 @@
   text-transform: uppercase;
   color: var(--text-muted);
   font-weight: 700;
-  padding: 10px 10px 6px;
+  padding: 6px 10px 4px;
 }
 /* Righe fitte apposta: più piatti stanno sotto gli occhi insieme, e si scorre
    di meno. L'altezza della riga la decidono l'imbottitura e i tondini della
@@ -421,7 +421,7 @@
 }
 .tabella-ordine .riga-categoria td {
   background: none;
-  padding: 10px 10px 2px;
+  padding: 6px 10px 2px;
 }
 .tabella-ordine tbody:first-of-type .riga-categoria td {
   padding-top: 4px;
@@ -562,7 +562,7 @@
   align-items: baseline;
   justify-content: space-between;
   border-top: 1px solid var(--border);
-  padding-top: 14px;
+  padding-top: 9px;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-muted);
@@ -627,14 +627,14 @@
 .fine-serata {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 .riga-quadrati {
   display: grid;
   /* Quadrati stretti: con tutto lo schermo ne stanno in fila parecchi, e ne
      arriveranno altri. Quando non ci stanno più, vanno a capo da soli. */
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 20px;
+  gap: 12px;
   align-items: stretch;
 }
 .elenchi-fine-serata {
@@ -657,7 +657,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: 13px 16px;
   box-shadow: var(--shadow);
 }
 /* La spiegazione va in fondo al quadrato: così i numeri delle carte in fila
@@ -794,7 +794,7 @@
   background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 14px;
+  padding: 6px 14px;
 }
 .riga-tempo .numero {
   font-weight: 700;
@@ -848,13 +848,13 @@
 .gestione-menu {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
 }
 .riquadro {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: 13px 18px;
   box-shadow: var(--shadow);
 }
 .riquadro h2 {
@@ -863,7 +863,7 @@
 .riquadro .spiegazione {
   font-size: 0.86rem;
   color: var(--text-muted);
-  margin: 6px 0 14px;
+  margin: 3px 0 9px;
   /* Anche a schermo intero il testo resta su righe corte: una riga lunga
      tutto il monitor si perde di vista. */
   max-width: 95ch;
@@ -2125,8 +2125,8 @@ body.trascinamento-in-corso {
   align-items: flex-end;
   gap: 18px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
-  padding-bottom: 14px;
+  margin-bottom: 9px;
+  padding-bottom: 9px;
   border-bottom: 1px solid var(--border);
 }
 .casella-cerca {
@@ -2218,10 +2218,10 @@ body.trascinamento-in-corso {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
   /* In una serata piena sono centinaia: l'elenco scorre per conto suo invece
      di allungare la pagina all'infinito. */
-  max-height: calc(100vh - 25rem);
+  max-height: calc(100vh - 21rem);
   overflow-y: auto;
 }
 .riga-riepilogo {
@@ -2229,7 +2229,7 @@ body.trascinamento-in-corso {
   border: 1px solid var(--border);
   border-left: 4px solid var(--border-strong);
   border-radius: var(--radius);
-  padding: 10px 14px;
+  padding: 6px 14px;
 }
 /* La striscia a sinistra dice a colpo d'occhio come sta andando l'ordine,
    senza doverne leggere la targhetta. */
@@ -2312,8 +2312,8 @@ body.trascinamento-in-corso {
    leggibile da lontano, e trenta righe di piatti non lo sono. */
 .voci-riepilogo {
   list-style: none;
-  margin: 10px 0 2px;
-  padding: 10px 0 0;
+  margin: 6px 0 2px;
+  padding: 6px 0 0;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;

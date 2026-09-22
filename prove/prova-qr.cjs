@@ -49,7 +49,12 @@ function verifica(descrizione, condizione, extra = '') {
   verifica('scritto il tavolo si può inviare', await invio.isEnabled());
   verifica('la testata mostra il tavolo dichiarato', /Tavolo 7/.test(await cliente.innerText('.testata-qr')));
   await invio.click();
-  await cliente.waitForTimeout(3000);
+  // Si aspetta la risposta del server, non un tot di secondi: quanto ci metta
+  // dipende da quanto è carica la serata di prova.
+  await cliente
+    .getByText('Ordine inviato')
+    .waitFor({ timeout: 40000 })
+    .catch(() => {});
 
   const inviato = await cliente.innerText('.menu-qr');
   verifica('il cliente riceve il numero da mostrare in cassa', /Ordine inviato/.test(inviato), inviato.split('\n')[3]);
@@ -80,9 +85,9 @@ function verifica(descrizione, condizione, extra = '') {
   // il tempo che ci mette. Si ritenta finché non c'è, invece di fidarsi di
   // un'attesa a occhio: è anche quello che farebbe la cassiera.
   let inMano = false;
-  for (let tentativo = 0; tentativo < 12 && !inMano; tentativo++) {
+  for (let tentativo = 0; tentativo < 40 && !inMano; tentativo++) {
     await cassa.getByRole('button', { name: 'Richiama' }).click();
-    await cassa.waitForTimeout(700);
+    await cassa.waitForTimeout(1000);
     inMano = await cassa.locator('.avviso-dal-tavolo').isVisible().catch(() => false);
   }
   const banco = await cassa.innerText('.colonna-comanda');
@@ -92,7 +97,11 @@ function verifica(descrizione, condizione, extra = '') {
     banco.split('\n').find((r) => /arrivato dal tavolo/.test(r)) ?? ''
   );
   await cassa.getByRole('button', { name: 'Conferma ordine' }).click();
-  await cassa.waitForTimeout(4000);
+  // Si aspetta che il foglio esca davvero: la conferma passa dal server, e
+  // quanto ci metta dipende da quanto è carica la serata di prova.
+  await cassa
+    .waitForFunction(() => window.__stampe.length > 0, undefined, { timeout: 40000 })
+    .catch(() => {});
   const foglioComanda = ((await cassa.evaluate(() => window.__stampe)).slice(-1)[0] ?? '').replace(/<[^>]+>/g, ' ');
   verifica(
     'la cassa conferma e stampa il foglio',

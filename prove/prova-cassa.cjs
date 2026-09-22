@@ -148,7 +148,11 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
 
   // --- Conferma: incassa, manda ai reparti e stampa il definitivo ----------
   await cassa.getByRole('button', { name: 'Conferma ordine' }).click();
-  await cassa.waitForTimeout(4000);
+  // Si aspetta che il secondo foglio esca davvero: la conferma fa un giro dal
+  // server, e quanto ci metta dipende da quanto è carica la serata di prova.
+  await cassa
+    .waitForFunction(() => window.__stampe.length >= 2, undefined, { timeout: 40000 })
+    .catch(() => {});
   const stampe = await cassa.evaluate(() => window.__stampe);
   verifica('la conferma stampa il foglio definitivo', stampe.length === 2, `fogli: ${stampe.length}`);
   const definitivo = stampe[1] || '';
@@ -190,9 +194,9 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
   // Si ritenta finché non c'è, invece di fidarsi di un'attesa a occhio. In
   // cassa lo stesso lo rifarebbe la cassiera, premendo Richiama un'altra volta.
   let inMano = false;
-  for (let tentativo = 0; tentativo < 12 && !inMano; tentativo++) {
+  for (let tentativo = 0; tentativo < 40 && !inMano; tentativo++) {
     await cassa.getByRole('button', { name: 'Richiama' }).click();
-    await cassa.waitForTimeout(700);
+    await cassa.waitForTimeout(1000);
     inMano = await cassa.locator('.avviso-dal-tavolo').isVisible().catch(() => false);
   }
   verifica(
@@ -318,10 +322,25 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
   const righeQr = cassa.locator('.riga-riepilogo');
   const daAnnullare = righeQr.filter({ hasText: codiceQr }).first();
   await daAnnullare.getByRole('button', { name: 'Annulla' }).click();
-  await cassa.waitForTimeout(3000);
+  // Si aspetta che la riga diventi "annullato", non un tot di secondi: la
+  // risposta del server arriva quando arriva, e in una serata piena di ordini
+  // ci mette di più.
+  const annullato = await cassa
+    .waitForFunction(
+      (cercato) => {
+        const riga = [...document.querySelectorAll('.riga-riepilogo')].find((r) =>
+          r.innerText.includes(cercato)
+        );
+        return riga ? /annullato/i.test(riga.innerText) : false;
+      },
+      codiceQr,
+      { timeout: 30000 }
+    )
+    .then(() => true)
+    .catch(() => false);
   verifica(
     'un ordine si annulla dal riepilogo',
-    /annullato/i.test(await righeQr.filter({ hasText: codiceQr }).first().innerText()),
+    annullato,
     (await righeQr.filter({ hasText: codiceQr }).first().innerText()).split('\n').slice(0, 2).join(' ')
   );
 
