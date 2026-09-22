@@ -167,13 +167,22 @@
   gap: 16px;
   min-width: 0;
   min-height: 0;
+  /* Ultima spiaggia: se schermo basso, avviso e piede non lasciano al menù
+     nemmeno la sua altezza minima, a scorrere torna la colonna intera. Meglio
+     scorrere che un menù ridotto a una fessura. */
+  overflow-y: auto;
 }
 /* La cornice passa dalla tabella alla finestra che la contiene: così bordo,
    angoli e ombra restano fermi mentre le righe scorrono. */
 .colonna-comanda .tabella-scroll {
   flex: 1;
-  min-height: 0;
+  /* Sotto questa altezza il menù non serve più a niente: si vedrebbero due
+     righe. Quando lo spazio non c'è, a cedere è la colonna, non la finestra. */
+  min-height: 190px;
   overflow: auto;
+  /* Quando qualcosa porta una riga in vista, si ferma sotto l'intestazione
+     incollata invece che dietro di lei. */
+  scroll-padding-top: 48px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -192,6 +201,12 @@
   z-index: 1;
   background: var(--surface);
 }
+/* L'intestazione incollata copre la riga che il browser porta in vista da sé
+   (tocco, tastiera, ricerca nella pagina): questo margine gli dice di
+   fermarsi un po' più sotto, così la riga resta cliccabile per intero. */
+.colonna-comanda .tabella-ordine tbody tr {
+  scroll-margin-top: 48px;
+}
 /* Lo scontrino non ha bisogno di stare attaccato a niente: la pagina non
    scorre piu'. */
 .colonna-anteprima {
@@ -209,6 +224,28 @@
 .testata-comanda .campi-tavolo {
   margin: 0;
 }
+/* Un ordine confermato e mai incassato, rimasto indietro dopo un ricarico
+   della pagina: si fa notare senza occupare il banco, che intanto serve. */
+.avviso-rimasto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--oro-soft);
+  border: 1px solid var(--oro);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  color: var(--oro);
+}
+.avviso-rimasto button {
+  width: auto;
+  white-space: nowrap;
+  padding: 7px 16px;
+  font-size: 0.85rem;
+}
+
 /* Il piede è l'ultima riga della colonna, che finisce dove finisce lo
    schermo: i due tasti sono sempre lì, senza doversi incollare a niente. */
 .piede-comanda {
@@ -229,6 +266,13 @@
 .piede-comanda .totale {
   padding-top: 8px;
   margin-bottom: 4px;
+}
+/* Su uno schermo basso lo spazio va al menù: le spiegazioni sotto i due tasti
+   sono per chi impara, i tasti dicono già da soli cosa fanno. */
+@media (max-height: 820px) {
+  .piede-comanda .passo .spiegazione {
+    display: none;
+  }
 }
 /* Elenco dei piatti, raggruppato per portata come in Gestione menù. Le
    larghezze sono in percentuale: le proporzioni tengono a ogni zoom. */
@@ -554,9 +598,9 @@
   text-decoration: line-through;
 }
 
-/* ---------- da fare: elenco a sinistra, ordine aperto a destra ---------- */
+/* ---------- bozze dai tavoli: elenco a sinistra, ordine aperto a destra ---------- */
 
-.da-fare {
+.bozze {
   display: grid;
   grid-template-columns: minmax(360px, 460px) minmax(320px, 1fr);
   gap: 20px;
@@ -565,19 +609,19 @@
 /* Schermo stretto (tablet, portatile piccolo): le due colonne si incolonnano,
    con l'ordine aperto per primo perché è quello su cui si lavora. */
 @media (max-width: 900px) {
-  .da-fare {
+  .bozze {
     grid-template-columns: minmax(0, 1fr);
   }
-  .da-fare .colonna-lavoro {
+  .bozze .colonna-lavoro {
     order: -1;
   }
 }
-.da-fare .riquadro {
+.bozze .riquadro {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.da-fare h2 {
+.bozze h2 {
   font-size: 1rem;
   display: flex;
   align-items: center;

@@ -8,7 +8,7 @@ import { PassiOrdine, TestataOrdine, VociOrdine } from './PassiOrdine';
  * aprono con un tocco: il numero va digitato a mano, è la barriera contro il
  * tasto premuto per sbaglio. Quelli già confermati sì: il controllo è già
  * stato fatto, e così una cassa che si è ricaricata li ritrova. */
-function RigaDaFare({
+function RigaBozza({
   ordine,
   aperto,
   onApri,
@@ -48,10 +48,13 @@ function RigaDaFare({
  * tavoli e quelli già confermati che aspettano di essere pagati. Un elenco
  * solo, perché a fine serata deve arrivare a zero, e a destra l'ordine su cui
  * si sta lavorando con i suoi due passi. */
-export function DaFare() {
-  const ordiniAperti = useOrdiniAperti();
-  const bozze = ordiniAperti.filter((o) => o.stato === 'bozza');
-  const daPagare = ordiniAperti.filter((o) => o.stato === 'da_pagare');
+export function Bozze() {
+  // Solo gli ordini arrivati dal telefono dei clienti. Quelli battuti al
+  // banco non compaiono qui: nascono già in mano alla cassa e da lì vanno ai
+  // reparti, senza mai passare per questo elenco.
+  const dalTavolo = useOrdiniAperti().filter((o) => o.tipo === 'qr');
+  const bozze = dalTavolo.filter((o) => o.stato === 'bozza');
+  const daPagare = dalTavolo.filter((o) => o.stato === 'da_pagare');
   // Prima i nuovi arrivi dal tavolo, poi chi sta pagando: è l'ordine in cui
   // le cose capitano al banco.
   const elenco = [...bozze, ...daPagare];
@@ -75,7 +78,7 @@ export function DaFare() {
     const cercato = Number(numero);
     const trovato = bozze.find((o) => o.numero === cercato);
     if (!trovato) {
-      const gia = ordiniAperti.find((o) => o.numero === cercato && o.stato !== 'bozza');
+      const gia = dalTavolo.find((o) => o.numero === cercato && o.stato !== 'bozza');
       setErrore(
         gia
           ? `L'ordine n. ${cercato} è già stato confermato in cassa: lo trovi qui a fianco come ${gia.codice}.`
@@ -93,21 +96,21 @@ export function DaFare() {
   }
 
   return (
-    <div className="da-fare">
+    <div className="bozze">
       <section className="riquadro colonna-elenco">
         <h2>
-          Da fare <span className="contatore">{elenco.length}</span>
+          Bozze <span className="contatore">{elenco.length}</span>
         </h2>
         <p className="spiegazione">
-          Ordini arrivati dal QR dei tavoli e ordini già confermati che aspettano il pagamento. A fine serata
-          questo elenco deve essere vuoto.
+          Ordini arrivati dal QR dei tavoli: quelli ancora da confermare e quelli già confermati che
+          aspettano il pagamento. A fine serata questo elenco deve essere vuoto.
         </p>
         {elenco.length === 0 ? (
           <p className="vuoto">Non c’è niente in sospeso.</p>
         ) : (
           <ul className="elenco-bozze">
             {elenco.map((o) => (
-              <RigaDaFare
+              <RigaBozza
                 key={o.id}
                 ordine={o}
                 aperto={o.id === apertoId}
@@ -159,7 +162,7 @@ export function DaFare() {
               ordine={aperto}
               onFatto={(testo) => chiudi(testo)}
               onChiudi={() => chiudi(null)}
-              etichettaChiudi={aperto.stato === 'da_pagare' ? 'Metti da parte' : 'Torna indietro'}
+              etichettaChiudi="Torna indietro"
             />
           </div>
         ) : (

@@ -29,6 +29,9 @@ export function NuovoOrdine() {
    * posto del carrello, così la cassiera non batte un altro ordine per sbaglio
    * mentre il cliente sta pagando. */
   const [ordineDaIncassareId, setOrdineDaIncassareId] = useState<string | null>(null);
+  /** Vero solo se la conferma è appena avvenuta qui: è quella che fa partire
+   * la stampa. Riprendendo un ordine già confermato non si ristampa niente. */
+  const [confermatoQui, setConfermatoQui] = useState(false);
   const ordiniAperti = useOrdiniAperti();
   const ordineDaIncassare = ordiniAperti.find((o) => o.id === ordineDaIncassareId && o.stato === 'da_pagare') ?? null;
   /** Dalla conferma all'incasso il banco è impegnato: il menù resta sotto gli
@@ -123,14 +126,31 @@ export function NuovoOrdine() {
     [letteraCassa, tavolo, tavoloValido, coperti, copertiValidi, selezionati, carrello, totale]
   );
 
-  /** L'ordine ha lasciato il banco — incassato, messo da parte o annullato:
-   * si ricomincia da zero. */
+  /** L'ordine ha lasciato il banco — incassato o annullato: si ricomincia da
+   * zero. */
   function liberaCassa() {
     setOrdineDaIncassareId(null);
+    setConfermatoQui(false);
     setCarrello({});
     setTavolo('');
     setCoperti('');
   }
+
+  /** Un ordine confermato, stampato e mai incassato rimasto in giro: succede
+   * se la pagina si ricarica o il browser si chiude mentre il cliente paga.
+   * Va segnalato, perché il banco è l'unico posto dell'app in cui un ordine
+   * della cassa compare: senza, non si potrebbe più né incassarlo né
+   * annullarlo. Si segnala e basta, senza riprenderlo d'ufficio: chi apre la
+   * schermata di solito ha un cliente davanti, e si troverebbe il banco
+   * occupato da un ordine di un'ora prima. */
+  const rimastiInSospeso =
+    ordineDaIncassareId === null
+      ? ordiniAperti.filter((o) => o.stato === 'da_pagare' && o.tipo === 'cassa' && o.cassa === letteraCassa)
+      : [];
+  // Il più recente: è quello che con ogni probabilità si stava incassando
+  // quando la pagina si è ricaricata. Se ce ne fosse più d'uno si va a ritroso,
+  // uno alla volta, man mano che vengono sistemati.
+  const rimastoInSospeso = rimastiInSospeso[rimastiInSospeso.length - 1];
 
   function cambiaQuantita(prodottoId: string, delta: number) {
     setCarrello((prec) => {
@@ -155,6 +175,7 @@ export function NuovoOrdine() {
         tavolo: Number(tavolo),
         coperti: Number(coperti),
       });
+      setConfermatoQui(true);
       setOrdineDaIncassareId(risultato.data.ordineId);
     } catch (err) {
       setErrore(messaggioErrore(err));
@@ -197,6 +218,18 @@ export function NuovoOrdine() {
           </div>
           {letteraCassa && <span className="targhetta-cassa">Cassa {letteraCassa}</span>}
         </div>
+
+        {rimastoInSospeso && (
+          <p className="avviso-rimasto">
+            <span>
+              L'ordine <strong>{rimastoInSospeso.codice}</strong> è confermato e stampato, ma non risulta
+              incassato: {euro(rimastoInSospeso.totale)}, tavolo {rimastoInSospeso.tavolo ?? '—'}.
+            </span>
+            <button type="button" onClick={() => setOrdineDaIncassareId(rimastoInSospeso.id)}>
+              Riprendilo
+            </button>
+          </p>
+        )}
 
         {prodotti.length === 0 ? (
           <p className="vuoto">Nessun prodotto disponibile.</p>
@@ -325,13 +358,11 @@ export function NuovoOrdine() {
             // "Conferma ordine", con ristampa e annullamento al seguito.
             <PassiOrdine
               ordine={ordineDaIncassare}
-              stampaSubito
+              stampaSubito={confermatoQui}
               onFatto={(testo) => {
                 setMessaggioSuccesso(testo);
                 liberaCassa();
               }}
-              onChiudi={liberaCassa}
-              etichettaChiudi="Metti da parte"
             />
           ) : ordineDaIncassareId !== null ? (
             <p className="spiegazione">Sto preparando il foglio…</p>

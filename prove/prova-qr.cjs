@@ -68,18 +68,18 @@ function verifica(descrizione, condizione, extra = '') {
   await cassa.getByLabel('Password').fill('prova1234');
   await cassa.getByRole('button', { name: 'Entra' }).click();
   await cassa.waitForTimeout(2500);
-  await cassa.getByRole('button', { name: /Da fare/ }).click();
+  await cassa.getByRole('button', { name: /Bozze/ }).click();
   await cassa.waitForTimeout(1500);
   verifica(
     'in cassa l’ordine dal tavolo compare tra quelli arrivati',
-    /dal tavolo/i.test(await cassa.innerText('.da-fare')) &&
-      /Gnocchi al pomodoro/.test(await cassa.innerText('.da-fare'))
+    /dal tavolo/i.test(await cassa.innerText('.bozze')) &&
+      /Gnocchi al pomodoro/.test(await cassa.innerText('.bozze'))
   );
   await cassa.getByLabel('Numero ordine').fill(numero);
   await cassa.getByRole('button', { name: "Richiama l'ordine" }).click();
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
   await cassa.waitForTimeout(3000);
-  const scheda = await cassa.innerText('.da-fare');
+  const scheda = await cassa.innerText('.bozze');
   verifica('la cassa conferma e stampa il foglio', /[A-Z]\d{4}/.test(scheda) && /Tavolo 7/.test(scheda), scheda.match(/[A-Z]\d{4}/)[0]);
 
   // L'amministratore stampa il cartello con il QR del menù.

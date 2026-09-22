@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { useOrdiniAperti } from '../hooks';
-import { DaFare } from './DaFare';
+import { Bozze } from './Bozze';
 import { FineSerata } from './FineSerata';
 import { NuovoOrdine } from './NuovoOrdine';
 
-const SCHEDE = ['Nuovo ordine', 'Da fare', 'Fine serata'] as const;
+const SCHEDE = ['Nuovo ordine', 'Bozze', 'Fine serata'] as const;
 type Scheda = (typeof SCHEDE)[number];
 
 export function AreaCassa() {
   const [scheda, setScheda] = useState<Scheda>('Nuovo ordine');
-  // Quanto resta in mano alla cassa: ordini arrivati dai tavoli più ordini
-  // confermati e non ancora incassati. Si vede dalla linguetta, così nessuno
-  // resta dimenticato a fine serata.
-  const inSospeso = useOrdiniAperti().filter((o) => o.stato === 'bozza' || o.stato === 'da_pagare').length;
+  // Quanti ordini dai tavoli aspettano la cassa. Si vede dalla linguetta,
+  // così nessuno resta dimenticato a fine serata. Gli ordini battuti al banco
+  // non si contano: non finiscono in quell'elenco.
+  const inSospeso = useOrdiniAperti().filter(
+    (o) => o.tipo === 'qr' && (o.stato === 'bozza' || o.stato === 'da_pagare')
+  ).length;
 
   // Fine serata è fatta di quadrati che si affiancano: più schermo c'è, più
   // contatori stanno in fila. Nuovo ordine ha tre colonne — menù, riepilogo e
@@ -26,12 +28,12 @@ export function AreaCassa() {
         {SCHEDE.map((s) => (
           <button key={s} type="button" className={s === scheda ? 'attiva' : ''} onClick={() => setScheda(s)}>
             {s}
-            {s === 'Da fare' && inSospeso > 0 && <span className="contatore">{inSospeso}</span>}
+            {s === 'Bozze' && inSospeso > 0 && <span className="contatore">{inSospeso}</span>}
           </button>
         ))}
       </nav>
       {scheda === 'Nuovo ordine' && <NuovoOrdine />}
-      {scheda === 'Da fare' && <DaFare />}
+      {scheda === 'Bozze' && <Bozze />}
       {scheda === 'Fine serata' && <FineSerata />}
     </div>
   );

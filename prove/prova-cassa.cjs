@@ -9,7 +9,10 @@ const fs = require('fs');
 const URL = 'http://127.0.0.1:5173/';
 
 async function entra(browser, utente, password = 'prova1234') {
-  const pagina = await browser.newPage();
+  // Misura di un monitor da cassa, non quella di partenza di Playwright: a
+  // 720 punti di altezza la colonna della comanda scorre, ed è giusto così,
+  // ma non è lo schermo su cui si lavora davvero.
+  const pagina = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   // window.print() non fa nulla in un browser senza schermo: lo sostituisco
   // per catturare il foglio che sarebbe finito sulla carta.
   await pagina.addInitScript(() => {
@@ -175,17 +178,17 @@ function verifica(descrizione, condizione, extra = '') {
   });
   verifica('un cliente dal QR crea una bozza', !!bozza.numero, 'numero ' + bozza.numero);
 
-  await cassa.getByRole('button', { name: /Da fare/ }).click();
+  await cassa.getByRole('button', { name: /Bozze/ }).click();
   await cassa.getByLabel('Numero ordine').fill(String(bozza.numero));
   await cassa.getByRole('button', { name: "Richiama l'ordine" }).click();
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).waitFor();
-  const resoconto = await cassa.innerText('.da-fare');
+  const resoconto = await cassa.innerText('.bozze');
   verifica('il resoconto della bozza si fa controllare al cliente', /da pagare/i.test(resoconto));
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
   await cassa.waitForTimeout(3000);
   const stampeDopoQr = await cassa.evaluate(() => window.__stampe.length);
   verifica('anche la bozza confermata stampa il suo foglio', stampeDopoQr === 2);
-  const schedaQr = await cassa.innerText('.da-fare');
+  const schedaQr = await cassa.innerText('.bozze');
   const codiceQr = (schedaQr.match(/[A-Z]\d{4}/) || [])[0];
   verifica('la bozza prende il numero di comanda della cassa', /^A\d{4}$/.test(codiceQr || ''), codiceQr);
 
@@ -193,34 +196,44 @@ function verifica(descrizione, condizione, extra = '') {
   cassa.on('dialog', (d) => d.accept());
   await cassa.getByRole('button', { name: 'Annulla ordine' }).click();
   await cassa.waitForTimeout(3000);
-  const dopoAnnullo = await cassa.innerText('.da-fare');
+  const dopoAnnullo = await cassa.innerText('.bozze');
   verifica('l’ordine non pagato si annulla', /annullato: non è mai partito/.test(dopoAnnullo), dopoAnnullo.slice(0, 120));
 
-  // --- Ordine messo da parte, ripreso dalla scheda "Da fare", e fine serata ---
+  // --- Un ordine del banco non finisce mai tra le bozze dei tavoli ---
   await cassa.getByRole('button', { name: 'Nuovo ordine', exact: true }).click();
   await cassa.getByRole('button', { name: 'Aggiungi Patatine fritte' }).click();
   await cassa.getByLabel('Tavolo').fill('4');
   await cassa.getByLabel('Coperti').fill('2');
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
   await cassa.waitForTimeout(2500);
-  await cassa.getByRole('button', { name: 'Metti da parte' }).click();
-  await cassa.getByRole('button', { name: /Da fare/ }).click();
+  const codiceBanco = (await cassa.innerText('.anteprima-biglietto')).match(/[A-Z]\d{4}/)?.[0];
+  verifica('non c’è più il tasto per mettere da parte', (await cassa.getByRole('button', { name: 'Metti da parte' }).count()) === 0);
+  await cassa.getByRole('button', { name: /Bozze/ }).click();
   await cassa.waitForTimeout(1500);
-  const elenco = await cassa.innerText('.da-fare');
+  const elenco = await cassa.innerText('.bozze');
   verifica(
-    'l’ordine messo da parte resta nell’elenco "Da fare"',
-    /da incassare/i.test(elenco) && /Patatine/.test(elenco)
+    'l’ordine battuto al banco non compare tra le bozze',
+    !elenco.includes(codiceBanco) && !/Patatine/.test(elenco),
+    codiceBanco
   );
-  await cassa.getByRole('button', { name: 'Apri' }).first().click();
-  await cassa.waitForTimeout(1000);
+  // Cambiando scheda il banco lascia l'ordine, ma non lo perde: l'avviso
+  // esiste apposta perché un ordine confermato e stampato si ritrovi sempre.
+  await cassa.getByRole('button', { name: 'Nuovo ordine', exact: true }).click();
+  await cassa.waitForTimeout(1500);
   verifica(
-    'da lì si può incassare anche più tardi',
-    await cassa.getByRole('button', { name: 'Invia ordine' }).isEnabled()
+    'un ordine confermato si ritrova dall’avviso in cima al banco',
+    (await cassa.innerText('.avviso-rimasto')).includes(codiceBanco),
+    codiceBanco
   );
+  await cassa.getByRole('button', { name: 'Riprendilo' }).click();
+  await cassa.waitForTimeout(1500);
+  verifica('e si riprende in mano', await cassa.getByRole('button', { name: 'Invia ordine' }).isEnabled());
   verifica(
-    'riaprendolo non ristampa il foglio da sola',
+    'riprendendolo non ristampa il foglio da sola',
     (await cassa.evaluate(() => window.__stampe.length)) === 3
   );
+  await cassa.getByRole('button', { name: 'Invia ordine' }).click();
+  await cassa.waitForTimeout(3000);
 
   // --- Un secondo ordine dal telefono, che stavolta viene incassato ---
   const bozzaQr = await cassa.evaluate(async () => {
@@ -240,7 +253,7 @@ function verifica(descrizione, condizione, extra = '') {
     });
     return risposta.data;
   });
-  await cassa.getByRole('button', { name: /Da fare/ }).click();
+  await cassa.getByRole('button', { name: /Bozze/ }).click();
   await cassa.getByLabel('Numero ordine').fill(String(bozzaQr.numero));
   await cassa.getByRole('button', { name: "Richiama l'ordine" }).click();
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
@@ -248,7 +261,7 @@ function verifica(descrizione, condizione, extra = '') {
   await cassa.getByRole('button', { name: 'Invia ordine' }).click();
   await cassa.waitForTimeout(3000);
 
-  await cassa.screenshot({ path: RISULTATI + '/cassa-da-fare.png', fullPage: true });
+  await cassa.screenshot({ path: RISULTATI + '/cassa-bozze.png', fullPage: true });
   await cassa.getByRole('button', { name: 'Fine serata' }).click();
   await cassa.waitForTimeout(1500);
   const fine = await cassa.innerText('.fine-serata');
@@ -327,12 +340,12 @@ function verifica(descrizione, condizione, extra = '') {
     Math.round(document.querySelector('.fine-serata').getBoundingClientRect().width)
   );
   verifica('Fine serata usa tutto lo schermo', largaFine > 1400, `${largaFine}px su 1600`);
-  await cassa.getByRole('button', { name: /Da fare/ }).click();
+  await cassa.getByRole('button', { name: /Bozze/ }).click();
   await cassa.waitForTimeout(800);
-  const largaDaFare = await cassa.evaluate(() =>
-    Math.round(document.querySelector('.da-fare').getBoundingClientRect().width)
+  const largaBozze = await cassa.evaluate(() =>
+    Math.round(document.querySelector('.bozze').getBoundingClientRect().width)
   );
-  verifica('le altre schede restano strette', largaDaFare <= 1200, `${largaDaFare}px`);
+  verifica('le altre schede restano strette', largaBozze <= 1200, `${largaBozze}px`);
   await cassa.getByRole('button', { name: 'Fine serata' }).click();
   await cassa.waitForTimeout(800);
 
