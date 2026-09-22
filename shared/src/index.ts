@@ -327,13 +327,16 @@ export const BIGLIETTI_INIZIALI: Record<TipoBiglietto, Biglietto> = {
     formato: 'a5-orizzontale',
     margineMm: 10,
     blocchi: [
-      { id: 'testata', tipo: 'titolo', attivo: true, colonna: 'intera', testo: 'Sagra di Mazzocco', grandezza: 'grande', allineamento: 'sinistra', grassetto: true },
-      { id: 'sottotitolo', tipo: 'testo', attivo: true, colonna: 'intera', testo: 'Resoconto ordine', grandezza: 'piccolo', allineamento: 'sinistra' },
+      // Tavolo e coperti stanno nell'intestazione, a destra del nome della
+      // sagra e scritti grandi: sono la prima cosa che si cerca sul foglio,
+      // sia al banco sia quando il vassoio va portato via.
+      { id: 'testata', tipo: 'titolo', attivo: true, colonna: 'sinistra', testo: 'Sagra di Mazzocco', grandezza: 'grande', allineamento: 'sinistra', grassetto: true },
+      { id: 'sottotitolo', tipo: 'testo', attivo: true, colonna: 'sinistra', testo: 'Resoconto ordine', grandezza: 'piccolo', allineamento: 'sinistra' },
+      { id: 'tavolo', tipo: 'tavolo', attivo: true, colonna: 'destra', grandezza: 'grande', allineamento: 'destra', grassetto: true, mostraCoperti: true },
       { id: 'riga-testata', tipo: 'riga', attivo: true, colonna: 'intera' },
       { id: 'voci', tipo: 'voci', attivo: true, colonna: 'sinistra', mostraPrezzi: true, caselleSpunta: false },
       { id: 'totale', tipo: 'totale', attivo: true, colonna: 'sinistra', grandezza: 'grande', allineamento: 'destra' },
       { id: 'codice', tipo: 'codice', attivo: true, colonna: 'destra', grandezza: 'gigante', allineamento: 'centro', grassetto: true },
-      { id: 'tavolo', tipo: 'tavolo', attivo: true, colonna: 'destra', allineamento: 'centro', mostraCoperti: true },
       { id: 'codice-barre', tipo: 'codiceBarre', attivo: true, colonna: 'destra', allineamento: 'centro', mostraRigaLeggibile: true },
       { id: 'saluto', tipo: 'testo', attivo: false, colonna: 'intera', testo: 'Grazie e buon appetito!', grandezza: 'normale', allineamento: 'centro' },
       { id: 'logo', tipo: 'immagine', attivo: false, colonna: 'intera', immagineId: null, larghezzaMm: 40, allineamento: 'centro' },

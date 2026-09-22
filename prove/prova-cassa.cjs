@@ -65,6 +65,17 @@ function verifica(descrizione, condizione, extra = '') {
     !/[A-Z]\d{4}/.test(anteprimaPrima),
     (anteprimaPrima.match(/[A-Z]\d{4}/) || ['nessuno'])[0]
   );
+  // Tavolo e coperti nell'intestazione: prima stavano in mezzo al foglio,
+  // nella colonna di destra insieme al numero di comanda.
+  const testata = cassa.locator('.anteprima-biglietto .due-colonne').first();
+  verifica(
+    'sul biglietto tavolo e coperti stanno nell’intestazione, a destra',
+    (await testata.locator('.colonna').last().locator('.blocco-tavolo').count()) === 1
+  );
+  const corpoTavolo = await cassa
+    .locator('.anteprima-biglietto .blocco-tavolo')
+    .evaluate((e) => Number(getComputedStyle(e).fontSize.replace('px', '')));
+  verifica('e sono scritti più in grande del testo normale', corpoTavolo > 20, corpoTavolo + 'px');
 
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
   await cassa.waitForTimeout(3000);
@@ -281,6 +292,16 @@ function verifica(descrizione, condizione, extra = '') {
   const medio = (conTempi.match(/Tempo medio di emissione\s+([^\n]+)/) || [])[1] || '';
   verifica('e il tempo medio è una durata, non un trattino', /^\d+\s*(s|min|h)/.test(medio), medio);
   verifica('l’elenco dei tempi ha la sua intestazione', /Tempi di emissione/.test(conTempi));
+  verifica(
+    'in fondo restano solo i tempi: via gli elenchi degli ordini in sospeso',
+    (await cassa.locator('.elenchi-fine-serata').count()) === 0
+  );
+  verifica(
+    'e l’elenco dei tempi scorre invece di allungare la pagina',
+    await cassa
+      .locator('.elenco-tempi ul')
+      .evaluate((u) => getComputedStyle(u).overflowY === 'auto' && u.clientHeight <= 420)
+  );
 
   // I quadrati devono prendersi tutto lo schermo, le altre schede no.
   await cassa.setViewportSize({ width: 1600, height: 900 });

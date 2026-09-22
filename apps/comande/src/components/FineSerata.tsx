@@ -1,13 +1,11 @@
-import { useState } from 'react';
 import { tempoEmissione, type Ordine } from '@sagra-mazzocco/shared';
 import { useLetteraCassa, useOrdiniAperti, useOrdiniCompletati, useUtenteAutenticato } from '../hooks';
-import { annullaOrdine, messaggioErrore } from '../services/callables';
 import { durata, euro } from '../services/formato';
-import { SERATA_ID_OGGI } from '../services/serata';
 
 /** Un quadrato con il solo numero in grande: il colpo d'occhio di fine
- * serata. Niente elenchi qui dentro — quelli stanno tutti in fondo alla
- * pagina, così la prima schermata si legge da lontano. */
+ * serata. Gli ordini rimasti in sospeso si contano qui e basta: gli elenchi
+ * riga per riga allungavano la pagina e non si leggevano da lontano. Chi deve
+ * metterci mano li trova in "Conferma ordine". */
 function Quadrato({
   titolo,
   valore,
@@ -30,55 +28,7 @@ function Quadrato({
   );
 }
 
-function RigaOrdine({
-  ordine,
-  amministratore,
-  puoAnnullare,
-}: {
-  ordine: Ordine;
-  amministratore: boolean;
-  /** La cassa annulla solo gli ordini non ancora incassati; il resto è
-   * dell'amministratore, come nelle regole del server. */
-  puoAnnullare?: boolean;
-}) {
-  const [inCorso, setInCorso] = useState(false);
-  const [errore, setErrore] = useState<string | null>(null);
-
-  async function handleAnnulla() {
-    if (!window.confirm(`Annullare l'ordine ${ordine.codice ?? `n. ${ordine.numero}`} (${euro(ordine.totale)})?`)) return;
-    setErrore(null);
-    setInCorso(true);
-    try {
-      await annullaOrdine({ serataId: SERATA_ID_OGGI, ordineId: ordine.id });
-    } catch (err) {
-      setErrore(messaggioErrore(err));
-    } finally {
-      setInCorso(false);
-    }
-  }
-
-  const articoli = ordine.items.reduce((somma, item) => somma + item.quantita, 0);
-
-  return (
-    <li className="riga-ordine-aperto">
-      <span className="numero">{ordine.codice ?? `n. ${ordine.numero}`}</span>
-      <span className="dettagli">
-        <span>
-          {ordine.tipo === 'qr' ? `Tavolo ${ordine.tavolo}` : 'Cassa'} · {articoli} articoli
-        </span>
-        <span>{euro(ordine.totale)}</span>
-      </span>
-      {(amministratore || puoAnnullare) && (
-        <button type="button" className="bottone-annulla" onClick={handleAnnulla} disabled={inCorso}>
-          {inCorso ? 'Annullamento…' : 'Annulla'}
-        </button>
-      )}
-      {errore && <p className="errore">{errore}</p>}
-    </li>
-  );
-}
-
-export function FineSerata({ amministratore }: { amministratore: boolean }) {
+export function FineSerata() {
   const ordini = useOrdiniAperti();
   const completati = useOrdiniCompletati();
   const { utente } = useUtenteAutenticato();
@@ -123,15 +73,6 @@ export function FineSerata({ amministratore }: { amministratore: boolean }) {
     .sort((a, b) => b.millisecondi - a.millisecondi);
   const tempoMedio =
     tempi.length > 0 ? tempi.reduce((somma, riga) => somma + riga.millisecondi, 0) / tempi.length : null;
-
-  // Gli elenchi stanno sotto i quadrati, e solo dove c'è qualcosa da fare:
-  // annullare un ordine abbandonato o andare a cercare una comanda rimasta
-  // indietro. Gli ordini completati non hanno elenco: non c'è niente da farci.
-  const daSistemare: { titolo: string; ordini: Ordine[]; puoAnnullare?: boolean }[] = [
-    { titolo: 'Confermati e non incassati', ordini: daPagare, puoAnnullare: true },
-    { titolo: 'Bozze mai confermate', ordini: bozze },
-    { titolo: 'Pagati non completati', ordini: inEvasione },
-  ].filter((gruppo) => gruppo.ordini.length > 0);
 
   return (
     <div className="fine-serata">
@@ -210,32 +151,6 @@ export function FineSerata({ amministratore }: { amministratore: boolean }) {
           spiegazione={`Tutte le casse insieme, ${pagati.length} ${pagati.length === 1 ? 'ordine pagato' : 'ordini pagati'}`}
         />
       </div>
-
-      {daSistemare.length > 0 && (
-        <div className="elenchi-fine-serata">
-          {daSistemare.map((gruppo) => (
-            <section key={gruppo.titolo}>
-              <h2>
-                {gruppo.titolo} <span className="contatore">{gruppo.ordini.length}</span>
-              </h2>
-              <ul>
-                {gruppo.ordini.map((o) => (
-                  <RigaOrdine
-                    key={o.id}
-                    ordine={o}
-                    amministratore={amministratore}
-                    puoAnnullare={gruppo.puoAnnullare}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      )}
-
-      {daSistemare.length === 0 && (
-        <p className="vuoto">Non è rimasto niente in sospeso: la serata è a posto.</p>
-      )}
 
       {tempi.length > 0 && (
         <section className="riquadro elenco-tempi">

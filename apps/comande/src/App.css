@@ -2228,8 +2228,11 @@ body.trascinamento-in-corso {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+/* Il numero dei coperti si legge quanto quello del tavolo, o quasi: sono
+   tutti e due numeri che si cercano al volo sul foglio. Resta piccola solo la
+   parola "Tavolo", che non serve leggerla. */
 .foglio-composto .blocco-tavolo .coperti {
-  font-size: 0.6em;
+  font-size: 0.8em;
 }
 .foglio-composto .blocco-riga {
   border: none;

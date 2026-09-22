@@ -1,5 +1,5 @@
 import { signOut } from 'firebase/auth';
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { NOME_RUOLO_COMANDE, type RuoloComande } from '@sagra-mazzocco/shared';
 import './App.css';
 import { AreaCassa } from './components/AreaCassa';
@@ -23,7 +23,18 @@ import { menuDaIndirizzo } from './services/tavolo';
  * le vede tutte. "larga" toglie il limite di larghezza: serve solo dove si
  * compila una tabella fitta di colonne, mentre le schermate che si leggono di
  * corsa restano centrate e strette, che si seguono meglio con l'occhio. */
-const AREE = [
+/** Tutte le aree ricevono "amministratore", anche quelle che non se ne fanno
+ * niente: senza un tipo dichiarato TypeScript lo deduce dall'elenco, e basta
+ * che una smetta di usarlo perché non si possa più passare a nessuna. */
+type Area = {
+  nome: string;
+  ruoli: RuoloComande[];
+  soloAmministratore: boolean;
+  contenuto: ComponentType<{ amministratore: boolean }>;
+  larga: boolean;
+};
+
+const AREE: Area[] = [
   { nome: 'Gestione menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: GestioneMenu, larga: true },
   { nome: 'Composizioni', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Composizioni, larga: true },
   { nome: 'Biglietti', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Biglietti, larga: true },

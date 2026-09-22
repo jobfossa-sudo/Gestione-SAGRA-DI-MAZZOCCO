@@ -7,7 +7,7 @@ import { NuovoOrdine } from './NuovoOrdine';
 const SCHEDE = ['Nuovo ordine', 'Da fare', 'Fine serata'] as const;
 type Scheda = (typeof SCHEDE)[number];
 
-export function AreaCassa({ amministratore }: { amministratore: boolean }) {
+export function AreaCassa() {
   const [scheda, setScheda] = useState<Scheda>('Nuovo ordine');
   // Quanto resta in mano alla cassa: ordini arrivati dai tavoli più ordini
   // confermati e non ancora incassati. Si vede dalla linguetta, così nessuno
@@ -32,7 +32,7 @@ export function AreaCassa({ amministratore }: { amministratore: boolean }) {
       </nav>
       {scheda === 'Nuovo ordine' && <NuovoOrdine />}
       {scheda === 'Da fare' && <DaFare />}
-      {scheda === 'Fine serata' && <FineSerata amministratore={amministratore} />}
+      {scheda === 'Fine serata' && <FineSerata />}
     </div>
   );
 }
