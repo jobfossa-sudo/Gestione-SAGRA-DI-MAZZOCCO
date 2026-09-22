@@ -148,33 +148,61 @@
 
 .nuovo-ordine {
   display: grid;
-  /* Due colonne, non tre: la tabella dei piatti ha bisogno di larghezza sua —
-     strozzata, le colonne si accavallano e il tasto "+" finisce sotto il
-     prezzo — e l'anteprima resa più stretta ancora non si leggerebbe. Sta
-     quindi sotto il riepilogo, nella stessa colonna, dove è pure più larga di
-     quanto sarebbe stata in una terza colonna. */
-  grid-template-columns: minmax(620px, 1.5fr) minmax(360px, 1fr);
+  /* A sinistra la comanda — tavolo e coperti, il menù, i due passi — a destra
+     lo scontrino. La larghezza minima della colonna di sinistra è quella che
+     serve davvero alla tabella dei piatti: strozzata di più, le colonne si
+     accavallano e il tasto "+" finisce sotto il prezzo. */
+  grid-template-columns: minmax(660px, 1.5fr) minmax(340px, 1fr);
   gap: 24px;
   align-items: start;
 }
-/* Riepilogo e anteprima viaggiano insieme e restano fermi mentre si scorre il
-   menù. Quando insieme superano l'altezza dello schermo scorrono loro, invece
-   di far sparire il totale sotto il bordo. */
-.colonna-destra {
-  position: sticky;
-  top: 92px;
+.colonna-comanda {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  /* Quanto tolto allo schermo: la barra in cima, le linguette, i margini
-     sopra e sotto. È misurato su dove la colonna si trova a pagina ferma, non
-     su dove va a incollarsi scorrendo: la cassa guarda l'anteprima senza
-     scorrere niente, e un foglio tagliato dal bordo non l'avrebbe vista. */
-  max-height: calc(100vh - 190px);
-  overflow-y: auto;
+  gap: 16px;
+  min-width: 0;
 }
-.nuovo-ordine .colonna-riepilogo {
-  position: static;
+/* Tavolo e coperti stanno in cima: sono la prima cosa che si chiede al
+   cliente, e finiscono sulla copia che va in cucina. */
+.testata-comanda {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 20px;
+}
+.testata-comanda .campi-tavolo {
+  margin: 0;
+}
+/* Il piede sta in fondo alla colonna, ma incollato al bordo basso dello
+   schermo: con un menù lungo i due tasti finirebbero sotto, e in cassa non si
+   scorre per confermare un ordine. */
+.piede-comanda {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  bottom: 12px;
+}
+/* Nel piede la colonna è larga: i due passi stanno affiancati e il piede si
+   dimezza in altezza, che essendo incollato in fondo è spazio tolto al menù.
+   Altrove (colonna stretta) restano incolonnati come prima. */
+.piede-comanda .passi-ordine {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  align-items: start;
+}
+/* Il totale sta sulla stessa riga dei passi quando c'è posto: è il numero che
+   la cassiera dice ad alta voce, non deve stare in una riga tutta sua. */
+.piede-comanda .totale {
+  padding-top: 8px;
+  margin-bottom: 4px;
+}
+/* Lo scontrino resta fermo mentre si scorre il menù: è il controllo che si fa
+   con la coda dell'occhio mentre si batte. */
+.colonna-anteprima {
+  position: sticky;
+  top: 92px;
 }
 
 /* Elenco dei piatti, raggruppato per portata come in Gestione menù. Le
@@ -194,7 +222,7 @@
   width: 24%;
 }
 .tabella-ordine .col-note {
-  width: 28%;
+  width: 26%;
 }
 .tabella-ordine .col-prezzo {
   width: 11%;
@@ -203,7 +231,7 @@
   width: 10%;
 }
 .tabella-ordine .col-quantita {
-  width: 16%;
+  width: 18%;
 }
 .tabella-ordine .col-totale {
   width: 11%;
@@ -215,10 +243,14 @@
   text-transform: uppercase;
   color: var(--text-muted);
   font-weight: 700;
-  padding: 14px 10px 10px;
+  padding: 10px 10px 6px;
 }
+/* Righe fitte apposta: il menù deve starci tutto senza scorrere, e l'altezza
+   della riga la decidono l'imbottitura e i tondini della quantità, non la
+   grandezza del testo — che resta quella di prima. */
 .tabella-ordine td {
-  padding: 6px 10px;
+  padding: 2px 10px;
+  line-height: 1.25;
   border-top: 1px solid var(--border);
   vertical-align: middle;
 }
@@ -263,27 +295,27 @@
 }
 .tabella-ordine .riga-categoria td {
   background: none;
-  padding: 18px 10px 4px;
+  padding: 10px 10px 2px;
 }
 .tabella-ordine tbody:first-of-type .riga-categoria td {
-  padding-top: 6px;
+  padding-top: 4px;
 }
 
 .controlli-quantita {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 2px;
   background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 3px;
+  padding: 2px;
   width: fit-content;
   margin: 0 auto;
 }
 .controlli-quantita button {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -298,7 +330,7 @@
   color: #fff;
 }
 .controlli-quantita span {
-  min-width: 34px;
+  min-width: 26px;
   text-align: center;
   font-weight: 700;
   font-variant-numeric: tabular-nums;

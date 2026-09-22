@@ -69,11 +69,18 @@ function verifica(descrizione, condizione, extra = '') {
   await cassa.getByRole('button', { name: 'Conferma e stampa' }).click();
   await cassa.waitForTimeout(3000);
 
-  const testoIncasso = await cassa.innerText('.colonna-riepilogo');
-  verifica('dopo la conferma compare la scheda da incassare', /Da incassare/.test(testoIncasso));
-  const codice = (testoIncasso.match(/[A-Z]\d{4}/) || [])[0];
-  verifica('la scheda mostra il numero di comanda', !!codice, codice);
+  const testoIncasso = await cassa.innerText('.piede-comanda');
+  // Attenzione: innerText rende il testo come si vede, e l'etichetta del
+  // totale è in maiuscolo per stile: si confronta senza distinguere.
+  verifica('dopo la conferma il piede chiede di incassare', /da incassare/i.test(testoIncasso));
+  const codice = (await cassa.innerText('.anteprima-biglietto')).match(/[A-Z]\d{4}/)?.[0];
+  verifica('lo scontrino mostra il numero di comanda', !!codice, codice);
   verifica('il tasto per inviare si è acceso', await cassa.getByRole('button', { name: 'Invia ordine' }).isEnabled());
+
+  // Finché il cliente paga il banco è suo: non si deve poter battere altro.
+  verifica('il menù si blocca finché l’ordine non è incassato', await cassa.getByRole('button', { name: 'Aggiungi Grigliata mista' }).isDisabled());
+  verifica('e tavolo e coperti restano scritti, ma bloccati',
+    (await cassa.getByLabel('Tavolo').isDisabled()) && (await cassa.getByLabel('Tavolo').inputValue()) === '12');
 
   const anteprimaDopo = await cassa.innerText('.anteprima-biglietto');
   verifica('dopo la conferma l’anteprima passa all’ordine vero', anteprimaDopo.includes(codice), codice);
@@ -103,9 +110,14 @@ function verifica(descrizione, condizione, extra = '') {
   // --- Incasso e invio ---
   await cassa.getByRole('button', { name: 'Invia ordine' }).click();
   await cassa.waitForTimeout(3000);
-  const dopoInvio = await cassa.innerText('.colonna-riepilogo');
-  verifica('dopo l’invio la cassa torna al carrello vuoto', /Tocca i prodotti/.test(dopoInvio));
+  const dopoInvio = await cassa.innerText('.piede-comanda');
   verifica('e conferma che l’ordine è partito', /incassato e inviato ai reparti/.test(dopoInvio), dopoInvio.slice(0, 120));
+  verifica(
+    'dopo l’invio il banco si libera: menù di nuovo attivo e conto a zero',
+    (await cassa.getByRole('button', { name: 'Aggiungi Grigliata mista' }).isEnabled()) &&
+      (await cassa.getByLabel('Tavolo').inputValue()) === '' &&
+      /TOTALE\s+0,00/.test(dopoInvio)
+  );
 
   await cucina.waitForTimeout(2500);
   const pastaDopo = await quantoInCucina('Pasta al ragù');

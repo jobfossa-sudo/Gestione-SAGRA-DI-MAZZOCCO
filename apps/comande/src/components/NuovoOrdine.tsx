@@ -5,7 +5,7 @@ import { creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
 import { AnteprimaBiglietto } from './AnteprimaBiglietto';
-import { Passo, PassiOrdine, TestataOrdine, VociOrdine } from './PassiOrdine';
+import { Passo, PassiOrdine } from './PassiOrdine';
 
 /** Colonne della tabella: serve alle intestazioni di portata, che occupano
  * un'unica cella a tutta larghezza. */
@@ -31,6 +31,10 @@ export function NuovoOrdine() {
   const [ordineDaIncassareId, setOrdineDaIncassareId] = useState<string | null>(null);
   const ordiniAperti = useOrdiniAperti();
   const ordineDaIncassare = ordiniAperti.find((o) => o.id === ordineDaIncassareId && o.stato === 'da_pagare') ?? null;
+  /** Dalla conferma all'incasso il banco è impegnato: il menù resta sotto gli
+   * occhi con l'ordine battuto sopra, ma non si tocca più, così non si
+   * aggiunge un piatto a un conto già stampato. */
+  const bloccato = ordineDaIncassareId !== null;
 
   // Alla cassa il menù si legge per portate, come sul cartello: il settore che
   // prepara il piatto qui non serve.
@@ -70,6 +74,7 @@ export function NuovoOrdine() {
    * cassa: meglio dirlo qui che vedersi rifiutare l'ordine dopo averlo
    * battuto. Non si vendono mezzi ordini, quindi si blocca l'invio. */
   const avvisoPorzioni = useMemo(() => {
+    if (bloccato) return null;
     for (const p of selezionati) {
       const quantita = carrello[p.id];
       if (p.esauritoSerata === SERATA_ID_OGGI) return `${p.nome} è appena finito: toglilo dall'ordine.`;
@@ -83,7 +88,7 @@ export function NuovoOrdine() {
       }
     }
     return null;
-  }, [selezionati, carrello, disponibilita]);
+  }, [selezionati, carrello, disponibilita, bloccato]);
 
   /** L'ordine come sarà una volta confermato, costruito dal carrello mentre lo
    * si batte: serve solo all'anteprima del biglietto. I campi che riempie il
@@ -118,6 +123,15 @@ export function NuovoOrdine() {
     [letteraCassa, tavolo, tavoloValido, coperti, copertiValidi, selezionati, carrello, totale]
   );
 
+  /** L'ordine ha lasciato il banco — incassato, messo da parte o annullato:
+   * si ricomincia da zero. */
+  function liberaCassa() {
+    setOrdineDaIncassareId(null);
+    setCarrello({});
+    setTavolo('');
+    setCoperti('');
+  }
+
   function cambiaQuantita(prodottoId: string, delta: number) {
     setCarrello((prec) => {
       const nuova = Math.max(0, (prec[prodottoId] ?? 0) + delta);
@@ -142,9 +156,6 @@ export function NuovoOrdine() {
         coperti: Number(coperti),
       });
       setOrdineDaIncassareId(risultato.data.ordineId);
-      setCarrello({});
-      setTavolo('');
-      setCoperti('');
     } catch (err) {
       setErrore(messaggioErrore(err));
     } finally {
@@ -154,7 +165,39 @@ export function NuovoOrdine() {
 
   return (
     <div className="nuovo-ordine">
-      <div className="colonna-menu">
+      <div className="colonna-comanda">
+        <div className="riquadro testata-comanda">
+          <div className="campi-tavolo">
+            <label>
+              Tavolo
+              <input
+                type="number"
+                min="1"
+                placeholder="—"
+                required
+                disabled={bloccato}
+                aria-invalid={mancaTavolo && !tavoloValido}
+                value={tavolo}
+                onChange={(e) => setTavolo(e.target.value)}
+              />
+            </label>
+            <label>
+              Coperti
+              <input
+                type="number"
+                min="1"
+                placeholder="—"
+                required
+                disabled={bloccato}
+                aria-invalid={mancaTavolo && !copertiValidi}
+                value={coperti}
+                onChange={(e) => setCoperti(e.target.value)}
+              />
+            </label>
+          </div>
+          {letteraCassa && <span className="targhetta-cassa">Cassa {letteraCassa}</span>}
+        </div>
+
         {prodotti.length === 0 ? (
           <p className="vuoto">Nessun prodotto disponibile.</p>
         ) : (
@@ -229,7 +272,7 @@ export function NuovoOrdine() {
                             <button
                               type="button"
                               aria-label={`Togli ${prodotto.nome}`}
-                              disabled={quantita === 0}
+                              disabled={bloccato || quantita === 0}
                               onClick={() => cambiaQuantita(prodotto.id, -1)}
                             >
                               −
@@ -238,7 +281,7 @@ export function NuovoOrdine() {
                             <button
                               type="button"
                               aria-label={`Aggiungi ${prodotto.nome}`}
-                              disabled={finito || alMassimo}
+                              disabled={bloccato || finito || alMassimo}
                               title={alMassimo && !finito ? 'Non ci sono altre porzioni' : undefined}
                               onClick={() => cambiaQuantita(prodotto.id, 1)}
                             >
@@ -257,124 +300,79 @@ export function NuovoOrdine() {
             </table>
           </div>
         )}
-      </div>
 
-      {/* Riepilogo e anteprima stanno insieme: restano fermi mentre si
-          scorre il menù, e se non ci stanno in altezza scorrono loro. */}
-      <div className="colonna-destra">
-        <div className="colonna-riepilogo">
-          <div className="testata-riepilogo">
-            <h2>{ordineDaIncassare ? 'Da incassare' : 'Riepilogo ordine'}</h2>
-            {letteraCassa && <span className="targhetta-cassa">Cassa {letteraCassa}</span>}
-          </div>
-
-          {ordineDaIncassare && (
-            <div className="lavoro-ordine">
-              <TestataOrdine ordine={ordineDaIncassare} />
-              <VociOrdine ordine={ordineDaIncassare} etichettaTotale="Da incassare" />
-              <PassiOrdine
-                ordine={ordineDaIncassare}
-                stampaSubito
-                onFatto={(testo) => {
-                  setMessaggioSuccesso(testo);
-                  setOrdineDaIncassareId(null);
-                }}
-                onChiudi={() => setOrdineDaIncassareId(null)}
-                etichettaChiudi="Metti da parte"
-              />
-            </div>
-          )}
-          {!ordineDaIncassare && ordineDaIncassareId !== null && <p className="spiegazione">Sto preparando il foglio…</p>}
-          {!ordineDaIncassare && ordineDaIncassareId === null && (
-            <>
+        {/* In fondo alla colonna il totale e i due passi: si arriva qui dopo
+            aver battuto l'ordine, ed è l'ultima cosa che si guarda. */}
+        <div className="riquadro piede-comanda">
           {letteraCassa === null && (
             <p className="errore">
               Al tuo account non è stata assegnata la lettera della cassa (A, B…): chiedi all'amministratore di
               impostarla nell'app Utenti, altrimenti gli ordini non partono.
             </p>
           )}
-
-          {selezionati.length === 0 ? (
-            <p className="carrello-vuoto">Tocca i prodotti per aggiungerli all'ordine.</p>
-          ) : (
-            <ul className="carrello">
-              {selezionati.map((p) => {
-                const quantita = carrello[p.id];
-                const rimaste = porzioniRimaste(p.id);
-                const troppe = p.esauritoSerata === SERATA_ID_OGGI || (rimaste !== null && quantita > rimaste);
-                return (
-                  <li key={p.id} className={troppe ? 'non-disponibile' : undefined}>
-                    <span>
-                      <span className="quantita">{quantita}×</span>
-                      {p.nome}
-                    </span>
-                    <span className="prezzo">{euro(p.prezzo * quantita)}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
           {avvisoPorzioni && <p className="errore">{avvisoPorzioni}</p>}
-
-          <div className="campi-tavolo">
-            <label>
-              Tavolo
-              <input type="number" min="1" placeholder="—" required aria-invalid={mancaTavolo && !tavoloValido} value={tavolo} onChange={(e) => setTavolo(e.target.value)} />
-            </label>
-            <label>
-              Coperti
-              <input type="number" min="1" placeholder="—" required aria-invalid={mancaTavolo && !copertiValidi} value={coperti} onChange={(e) => setCoperti(e.target.value)} />
-            </label>
-          </div>
-
-          <p className="totale">
-            Totale <strong>{euro(totale)}</strong>
-          </p>
-
           {mancaTavolo && <p className="avviso-campi">Scrivi il tavolo e i coperti prima di confermare.</p>}
-
-          {/* La stessa scala a due passi della scheda "Da fare": il secondo
-              gradino è spento, ma si vede già che l'ordine non è finito qui. */}
-          <div className="passi-ordine">
-            <Passo numero={1} stato="ora">
-              <button
-                type="button"
-                className="bottone-principale"
-                disabled={numeroArticoli === 0 || inCorso || avvisoPorzioni !== null || mancaTavolo || !letteraCassa}
-                onClick={confermaOrdine}
-              >
-                {inCorso ? 'Conferma in corso…' : 'Conferma e stampa'}
-              </button>
-              <p className="spiegazione">
-                La conferma dà il numero di comanda e stampa il foglio per il cliente.
-              </p>
-            </Passo>
-            <Passo numero={2} stato="dopo">
-              <button type="button" className="bottone-principale" disabled>
-                Invia ordine
-              </button>
-              <p className="spiegazione">Si accende dopo la conferma, quando il cliente ha pagato.</p>
-            </Passo>
-          </div>
-            </>
-          )}
-
           {errore && <p className="errore">{errore}</p>}
           {messaggioSuccesso && <p className="successo">{messaggioSuccesso}</p>}
-        </div>
 
-        <div className="colonna-anteprima">
-          <AnteprimaBiglietto
-            tipo="resoconto"
-            ordine={ordineDaIncassare ?? ordineProvvisorio}
-            nota={
-              ordineDaIncassare
-                ? 'Il foglio appena stampato per il cliente.'
-                : 'Il foglio per il cliente, come sarà alla conferma. Numero di comanda e codice a barre li assegna la conferma.'
-            }
-          />
+          <p className="totale">
+            {bloccato ? 'Da incassare' : 'Totale'}{' '}
+            <strong>{euro(ordineDaIncassare ? ordineDaIncassare.totale : totale)}</strong>
+          </p>
+
+          {ordineDaIncassare ? (
+            // Da qui in poi comanda la scala condivisa: è la stessa di
+            // "Conferma ordine", con ristampa e annullamento al seguito.
+            <PassiOrdine
+              ordine={ordineDaIncassare}
+              stampaSubito
+              onFatto={(testo) => {
+                setMessaggioSuccesso(testo);
+                liberaCassa();
+              }}
+              onChiudi={liberaCassa}
+              etichettaChiudi="Metti da parte"
+            />
+          ) : ordineDaIncassareId !== null ? (
+            <p className="spiegazione">Sto preparando il foglio…</p>
+          ) : (
+            <div className="passi-ordine">
+              <Passo numero={1} stato="ora">
+                <button
+                  type="button"
+                  className="bottone-principale"
+                  disabled={numeroArticoli === 0 || inCorso || avvisoPorzioni !== null || mancaTavolo || !letteraCassa}
+                  onClick={confermaOrdine}
+                >
+                  {inCorso ? 'Conferma in corso…' : 'Conferma e stampa'}
+                </button>
+                <p className="spiegazione">
+                  La conferma dà il numero di comanda e stampa il foglio per il cliente.
+                </p>
+              </Passo>
+              <Passo numero={2} stato="dopo">
+                <button type="button" className="bottone-principale" disabled>
+                  Invia ordine
+                </button>
+                <p className="spiegazione">Si accende dopo la conferma, quando il cliente ha pagato.</p>
+              </Passo>
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Lo scontrino: l'elenco dei piatti sta qui e solo qui. Prima compariva
+          anche in un riepilogo a fianco, che diceva le stesse cose due volte. */}
+      <div className="colonna-anteprima">
+        <AnteprimaBiglietto
+          tipo="resoconto"
+          ordine={ordineDaIncassare ?? ordineProvvisorio}
+          nota={
+            ordineDaIncassare
+              ? 'Il foglio appena stampato per il cliente.'
+              : 'Il foglio per il cliente, come sarà alla conferma. Numero di comanda e codice a barre li assegna la conferma.'
+          }
+        />
       </div>
     </div>
   );

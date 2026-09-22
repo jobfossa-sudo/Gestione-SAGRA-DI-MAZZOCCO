@@ -45,7 +45,7 @@ function verifica(descrizione, condizione, extra = '') {
   await pagina.getByLabel('Coperti').fill('2');
   await pagina.getByRole('button', { name: 'Conferma e stampa' }).click();
   await pagina.waitForTimeout(6000);
-  const errore = await pagina.innerText('.colonna-riepilogo');
+  const errore = await pagina.innerText('.piede-comanda');
   verifica('l’ordine non parte e lo dice in chiaro', /collegamento/i.test(errore), errore.split('\n').slice(-2).join(' '));
   await pagina.screenshot({ path: RISULTATI + '/senza-rete.png', fullPage: true });
 
