@@ -149,10 +149,13 @@
 .nuovo-ordine {
   display: grid;
   /* A sinistra la comanda — tavolo e coperti, il menù, i tre tasti — a destra
-     lo scontrino. La larghezza minima della colonna di sinistra è quella che
-     serve davvero alla tabella dei piatti: strozzata di più, le colonne si
-     accavallano e il tasto "+" finisce sotto il prezzo. */
-  grid-template-columns: minmax(660px, 1.5fr) minmax(340px, 1fr);
+     lo scontrino. Le due colonne hanno un minimo e un massimo, non una
+     proporzione: il minimo è quello che serve davvero alla tabella dei piatti
+     (strozzata di più, le colonne si accavallano e il tasto "+" finisce sotto
+     il prezzo), il massimo è quello oltre il quale si allargherebbe solo il
+     bianco tra il nome del piatto e il suo prezzo. Quel che avanza va allo
+     scontrino, che più è grande più si legge da lontano. */
+  grid-template-columns: minmax(660px, 700px) minmax(340px, 1fr);
   gap: 24px;
   /* Alta quanto lo schermo: a scorrere è il menù dentro la sua finestra, non
      la pagina. Tavolo e coperti restano in cima, i tre tasti in fondo, e non

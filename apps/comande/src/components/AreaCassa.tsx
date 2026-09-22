@@ -17,7 +17,11 @@ export function AreaCassa() {
   // lo scontrino affiancati, la seconda una fila di quadrati che più sono
   // larghi meglio si leggono da lontano. I riepiloghi restano stretti: sono
   // elenchi, e una riga lunga tutto il monitor si perde di vista.
-  const aTuttoSchermo = scheda === 'Nuovo ordine' || scheda === 'Fine serata';
+  // Solo Fine serata prende tutto lo schermo: ha tre file di quadrati e un
+  // elenco, e lo spazio in più gli serve. Il banco invece no — allargarlo
+  // allarga solo la tabella del menù, che diventa una distesa di bianco tra il
+  // nome del piatto e il suo prezzo.
+  const aTuttoSchermo = scheda === 'Fine serata';
 
   return (
     <div className={aTuttoSchermo ? 'area larga' : 'area'}>

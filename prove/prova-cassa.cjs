@@ -391,11 +391,26 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
       .evaluate((u) => getComputedStyle(u).overflowY === 'auto' && u.clientHeight <= 420)
   );
 
-  // --- Larghezze: il banco e i quadrati prendono tutto, gli elenchi no -----
+  // --- Larghezze: solo i quadrati di fine serata prendono tutto ------------
   const largaFine = await cassa.evaluate(() =>
     Math.round(document.querySelector('.fine-serata').getBoundingClientRect().width)
   );
   verifica('Fine serata usa tutto lo schermo', largaFine > 1400, `${largaFine}px su 1600`);
+
+  await cassa.getByRole('button', { name: 'Nuovo ordine', exact: true }).click();
+  await cassa.waitForTimeout(900);
+  const misure = await cassa.evaluate(() => ({
+    banco: Math.round(document.querySelector('.nuovo-ordine').getBoundingClientRect().width),
+    menu: Math.round(document.querySelector('.colonna-comanda').getBoundingClientRect().width),
+  }));
+  verifica('il banco non si allarga a tutto schermo', misure.banco <= 1200, `${misure.banco}px su 1600`);
+  verifica(
+    'e la colonna del menù resta stretta',
+    misure.menu >= 660 && misure.menu <= 700,
+    `${misure.menu}px`
+  );
+  await cassa.screenshot({ path: RISULTATI + '/cassa-nuovo-ordine.png', fullPage: true });
+
   await cassa.getByRole('button', { name: 'Ordini cassa' }).click();
   await cassa.waitForTimeout(800);
   const largaRiepilogo = await cassa.evaluate(() =>
