@@ -2284,6 +2284,10 @@ body.trascinamento-in-corso {
 .sommario-ordine .dettagli {
   display: flex;
   flex-direction: column;
+  /* Il dettaglio sta in mezzo alla riga. La targhetta dello stato qui sotto
+     si tiene il bordo sinistro tutto per se': staccata dalle parole, si legge
+     scorrendo l'elenco con l'occhio invece di doverla cercare. */
+  align-items: center;
   gap: 3px;
   font-size: 0.85rem;
   color: var(--text-muted);
@@ -2304,7 +2308,8 @@ body.trascinamento-in-corso {
   font-size: 0.85rem;
 }
 /* Nel riepilogo la targhetta sta su una riga sua, non in coda a una frase:
-   il margine che le serve in linea qui darebbe solo un rientro storto. */
+   il margine che le serve in linea qui darebbe solo un rientro storto. E resta
+   a sinistra mentre il dettaglio sopra di lei va al centro. */
 .sommario-ordine .targhetta-stato {
   margin-left: 0;
   align-self: flex-start;
