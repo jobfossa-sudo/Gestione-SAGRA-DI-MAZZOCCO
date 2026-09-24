@@ -85,29 +85,49 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
   await cassa.getByRole('button', { name: 'Aggiungi Birra' }).click();
   await cassa.waitForTimeout(1200);
 
-  const anteprima = await cassa.innerText('.anteprima-biglietto');
+  const riepilogo = await cassa.innerText('.resoconto-cliente');
   verifica(
-    'il biglietto si vede in anteprima mentre si batte l’ordine',
-    /Pasta al ragù/.test(anteprima) && /Birra/.test(anteprima)
+    'il conto si compone mentre si batte l’ordine',
+    /Pasta al ragù/.test(riepilogo) && /Birra/.test(riepilogo)
   );
   verifica(
-    'l’anteprima è il foglio vero, non un disegno a parte',
-    (await cassa.locator('.anteprima-biglietto .foglio-composto').count()) === 1
+    'il resoconto è un riquadro dell’app, non la fotografia del foglio',
+    (await cassa.locator('.resoconto-cliente').count()) === 1 &&
+      (await cassa.locator('.foglio-composto').count()) === 0
   );
   verifica(
-    'prima della conferma il numero di comanda resta in bianco',
-    !/[A-Z]\d{4}/.test(anteprima),
-    (anteprima.match(/[A-Z]\d{4}/) || ['nessuno'])[0]
+    'prima della conferma non compare nessun numero di comanda',
+    !/[A-Z]\d{4}/.test(riepilogo),
+    (riepilogo.match(/[A-Z]\d{4}/) || ['nessuno'])[0]
   );
-  const testata = cassa.locator('.anteprima-biglietto .due-colonne').first();
+  // Il motivo per cui il foglio in scala è stato tolto: le voci si devono
+  // leggere da dietro il banco, non con la lente.
+  const corpoVoce = await cassa
+    .locator('.voci-resoconto li')
+    .first()
+    .evaluate((e) => Number(getComputedStyle(e).fontSize.replace('px', '')));
+  verifica('e le voci si leggono alla misura dell’app', corpoVoce >= 17, corpoVoce + 'px');
+
+  const targhette = await cassa.innerText('.targhette-resoconto');
   verifica(
-    'sul biglietto tavolo e coperti stanno nell’intestazione, a destra',
-    (await testata.locator('.colonna').last().locator('.blocco-tavolo').count()) === 1
+    'tavolo e coperti stanno in alto a destra nelle loro targhette',
+    /Tavolo\s*12/i.test(targhette) && /Coperti\s*3/i.test(targhette),
+    targhette.replace(/\n/g, ' ')
   );
   const corpoTavolo = await cassa
-    .locator('.anteprima-biglietto .blocco-tavolo')
+    .locator('.targhetta-resoconto strong')
+    .first()
     .evaluate((e) => Number(getComputedStyle(e).fontSize.replace('px', '')));
   verifica('e sono scritti più in grande del testo normale', corpoTavolo > 20, corpoTavolo + 'px');
+
+  // Il totale sta nella fascia in fondo al resoconto e in nessun altro posto:
+  // prima era scritto anche sopra i tasti, e i due potevano discordare.
+  const fascia = await cassa.innerText('.totale-resoconto');
+  verifica('il totale sta nella fascia in fondo al resoconto', /Totale/i.test(fascia) && /€/.test(fascia), fascia.replace(/\n/g, ' '));
+  verifica(
+    'e non è ripetuto una seconda volta sopra i tasti',
+    (await cassa.locator('.piede-comanda .totale').count()) === 0
+  );
 
   const scorrimento = await cassa.evaluate(() => {
     const finestra = document.querySelector('.tabella-scroll');
@@ -173,7 +193,7 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
     'e il banco torna vuoto, pronto per il prossimo cliente',
     (await cassa.getByLabel('Tavolo').inputValue()) === '' &&
       (await cassa.getByRole('button', { name: 'Aggiungi Pasta al ragù' }).isEnabled()) &&
-      /TOTALE\s+0,00/.test(dopoConferma)
+      /TOTALE\s+0,00/.test(await cassa.innerText('.totale-resoconto'))
   );
 
   await cucina.waitForTimeout(2500);
@@ -214,7 +234,7 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
   );
   verifica(
     'le sue voci compaiono sullo scontrino',
-    /Gnocchi/.test(await cassa.innerText('.anteprima-biglietto'))
+    /Gnocchi/.test(await cassa.innerText('.resoconto-cliente'))
   );
   verifica(
     'e non si possono cambiare: le ha scelte il cliente',
@@ -247,7 +267,7 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
   verifica(
     'Azzera ripulisce tutto',
     (await cassa.getByLabel('Tavolo').inputValue()) === '' &&
-      /TOTALE\s+0,00/.test(await cassa.innerText('.piede-comanda'))
+      /TOTALE\s+0,00/.test(await cassa.innerText('.totale-resoconto'))
   );
   verifica('e non ha stampato niente', (await cassa.evaluate(() => window.__stampe.length)) === 3);
 

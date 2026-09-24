@@ -236,20 +236,14 @@
   gap: 10px;
   min-height: 0;
 }
-/* Lo scontrino resta alto quanto il foglio, non quanto la colonna: allungarlo
-   lascerebbe sotto la carta una fascia grigia vuota. Quando invece lo spazio
-   non basta — ordine lungo, schermo basso — si stringe e lo si scorre dentro
-   la sua cornice, invece di spingere i tasti fuori dallo schermo. */
-.colonna-anteprima .anteprima-biglietto {
+/* Lo scontrino resta alto quanto il suo contenuto, non quanto la colonna:
+   allungarlo lascerebbe sotto le voci una fascia vuota. Quando invece lo
+   spazio non basta — ordine lungo, schermo basso — si stringe e a scorrere è
+   l'elenco delle voci dentro di lui, invece di spingere i tasti fuori dallo
+   schermo. */
+.colonna-anteprima .resoconto-cliente {
   flex: 0 1 auto;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.colonna-anteprima .cornice-stampa {
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow: auto;
 }
 /* I tasti stanno appena sotto lo scontrino, non in fondo alla colonna: si
    guarda il conto e si preme subito li' sotto, senza scendere con gli occhi
@@ -345,12 +339,6 @@
   .tasti-cassa {
     grid-template-columns: 1fr;
   }
-}
-/* Il totale sta sulla stessa riga dei passi quando c'è posto: è il numero che
-   la cassiera dice ad alta voce, non deve stare in una riga tutta sua. */
-.piede-comanda .totale {
-  padding-top: 8px;
-  margin-bottom: 4px;
 }
 /* Su uno schermo basso lo spazio va al menù: le spiegazioni sotto i due tasti
    sono per chi impara, i tasti dicono già da soli cosa fanno. */
@@ -2103,45 +2091,139 @@ body.trascinamento-in-corso {
   border-collapse: collapse;
 }
 
-/* ---------- anteprima del biglietto da stampare ---------- */
+/* ---------- il resoconto del cliente, a schermo ---------- */
 
-/* Dentro la cornice c'è il foglio vero, rimpicciolito con una lente: le
-   misure restano in millimetri, quindi quello che si vede è esattamente
-   quello che uscirà dalla stampante. L'altezza della cornice la calcola la
-   schermata, perché la lente non cambia lo spazio che un elemento occupa. */
-.anteprima-biglietto .cornice-stampa {
-  background: var(--border);
-  border-radius: var(--radius);
-  /* Il foglio resta largo quanto è davvero, anche quando la lente lo
-     rimpicciolisce: quello che esce dalla cornice si taglia, e il centraggio
-     lo fa il contenitore. */
-  overflow: hidden;
+/* Il conto che si guarda insieme al cliente. Non imita la carta: è un riquadro
+   dell'app come gli altri, così le scritte restano grandi quanto serve e i
+   colori seguono il tema chiaro o scuro. Il foglio stampato è un'altra cosa e
+   si compone nella scheda "Biglietti". */
+.resoconto-cliente {
   display: flex;
-  justify-content: center;
-  /* Senza questo il foglio verrebbe stirato all'altezza della cornice, e la
-     sua altezza vera — quella da cui si ricava di quanto rimpicciolirlo —
-     diventerebbe quella della cornice: il conto si morderebbe la coda. */
+  flex-direction: column;
+  /* Le fasce in cima e in fondo arrivano fino al bordo: il riquadro non ha
+     imbottitura sua, ce l'hanno le sue parti. */
+  padding: 0;
+  overflow: hidden;
+}
+.testa-resoconto {
+  display: flex;
   align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
 }
-/* Largo quanto il foglio e non quanto la colonna: è la misura da cui si
-   ricava di quanto rimpicciolire. Da blocco normale misurerebbe la colonna,
-   e la lente resterebbe ferma a uno. */
-.foglio-in-scala {
-  display: inline-block;
-  flex: none;
-  /* Dal centro in alto: così un foglio più stretto della cornice resta in
-     mezzo invece di accostarsi a sinistra. */
-  transform-origin: top center;
-}
-/* Il foglio è carta: bianco e nero anche a tema scuro, altrimenti
-   l'anteprima mostrerebbe colori che la stampante non stamperà mai. */
-.foglio-in-scala .foglio-composto {
-  background: #fff;
-  color: #000;
+.testa-resoconto h2 {
   margin: 0;
 }
-.anteprima-biglietto .spiegazione {
-  margin-bottom: 10px;
+.resoconto-cliente .spiegazione {
+  margin: 3px 0 0;
+}
+/* Tavolo e coperti come due targhette affiancate: si leggono da lontano e non
+   si confondono con le voci del conto. */
+.targhette-resoconto {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.targhetta-resoconto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 4.4rem;
+  padding: 4px 10px 5px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+.targhetta-resoconto small {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+.targhetta-resoconto strong {
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+/* Le voci. A scorrere è questo elenco, non la pagina: il totale e i tasti
+   restano dove sono anche con un ordine da venti piatti. */
+.voci-resoconto {
+  list-style: none;
+  margin: 0;
+  padding: 6px 18px 10px;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.voci-resoconto li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 1.05rem;
+}
+.voci-resoconto li + li {
+  border-top: 1px solid var(--border);
+}
+/* La quantità in un pallino: è il numero che si controlla per primo, e da sola
+   in mezzo al testo si perderebbe. */
+.quantita-resoconto {
+  flex: none;
+  min-width: 2.5rem;
+  padding: 3px 6px;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+}
+.nome-resoconto {
+  flex: 1;
+  min-width: 0;
+}
+.prezzo-resoconto {
+  flex: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.vuoto-resoconto {
+  margin: 0;
+  padding: 22px 18px;
+  text-align: center;
+}
+
+/* Il totale in fascia gialla, come l'incasso in Fine serata: è la cifra che si
+   dice ad alta voce al cliente, non una riga come le altre. */
+.totale-resoconto {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: none;
+  padding: 10px 18px 11px;
+  background: var(--oro-soft);
+  border-top: 2px solid var(--oro);
+}
+.pezzi-resoconto {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.etichetta-totale-resoconto {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--oro);
+}
+.cifra-totale-resoconto {
+  font-size: 1.7rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--oro);
 }
 
 /* ---------- riepilogo degli ordini (dal banco e dal QR) ---------- */

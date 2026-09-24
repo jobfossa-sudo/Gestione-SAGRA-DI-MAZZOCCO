@@ -90,14 +90,6 @@ async function entra(browser, utente) {
   verifica('il banco si allarga insieme alle scritte', bancoGrande > 750, `${bancoGrande}px`);
   await cassa.screenshot({ path: RISULTATI + '/carattere-grande.png' });
 
-  // --- La carta non si tocca -----------------------------------------------
-  // Il biglietto esce dalla stampante sempre uguale: la grandezza scelta è
-  // una preferenza di chi guarda lo schermo, non una misura del foglio.
-  const foglioGrande = await cassa.evaluate(() => {
-    const f = document.querySelector('.foglio-composto');
-    return { larghezza: f.offsetWidth, corpo: getComputedStyle(f).fontSize };
-  });
-
   // --- Tornare a normale e rimpicciolire -----------------------------------
   await normale.click();
   await cassa.waitForTimeout(600);
@@ -111,15 +103,31 @@ async function entra(browser, utente) {
   verifica('anche da piccolo la pagina non sborda', !(await sborda(cassa)));
   await cassa.screenshot({ path: RISULTATI + '/carattere-piccolo.png' });
 
-  const foglioPiccolo = await cassa.evaluate(() => {
-    const f = document.querySelector('.foglio-composto');
-    return { larghezza: f.offsetWidth, corpo: getComputedStyle(f).fontSize };
-  });
+  // --- La carta non si tocca -----------------------------------------------
+  // Il biglietto esce dalla stampante sempre uguale: la grandezza scelta è una
+  // preferenza di chi guarda lo schermo, non una misura del foglio. Il foglio
+  // vero si vede nella scheda "Biglietti", che è dell'amministratore: alla
+  // cassa il resoconto è ormai un riquadro dell'app, e quello sì che cresce
+  // con le scritte.
+  const admin = await entra(browser, 'admin');
+  await admin.getByRole('button', { name: 'Biglietti' }).click();
+  await admin.waitForTimeout(2000);
+  const misuraFoglio = () =>
+    admin.evaluate(() => {
+      const f = document.querySelector('.cornice-anteprima .foglio-composto');
+      return { larghezza: f.offsetWidth, corpo: getComputedStyle(f).fontSize };
+    });
+  const foglioNormale = await misuraFoglio();
+  await admin.getByRole('button', { name: 'Scritte più grandi' }).click();
+  await admin.getByRole('button', { name: 'Scritte più grandi' }).click();
+  await admin.waitForTimeout(800);
+  const foglioGrande = await misuraFoglio();
   verifica(
     'il biglietto da stampare resta della stessa misura',
-    foglioGrande.larghezza === foglioPiccolo.larghezza && foglioGrande.corpo === foglioPiccolo.corpo,
-    `${foglioGrande.larghezza}px / ${foglioGrande.corpo} contro ${foglioPiccolo.larghezza}px / ${foglioPiccolo.corpo}`
+    foglioNormale.larghezza === foglioGrande.larghezza && foglioNormale.corpo === foglioGrande.corpo,
+    `${foglioNormale.larghezza}px / ${foglioNormale.corpo} contro ${foglioGrande.larghezza}px / ${foglioGrande.corpo}`
   );
+  await admin.close();
 
   // --- La scelta resta -----------------------------------------------------
   await cassa.reload();

@@ -93,7 +93,7 @@ function verifica(descrizione, condizione, extra = '') {
   const banco = await cassa.innerText('.colonna-comanda');
   verifica(
     'in cassa l’ordine dal tavolo arriva sul banco',
-    inMano && /arrivato dal tavolo 7/.test(banco) && /Gnocchi/.test(await cassa.innerText('.anteprima-biglietto')),
+    inMano && /arrivato dal tavolo 7/.test(banco) && /Gnocchi/.test(await cassa.innerText('.resoconto-cliente')),
     banco.split('\n').find((r) => /arrivato dal tavolo/.test(r)) ?? ''
   );
   await cassa.getByRole('button', { name: 'Conferma ordine' }).click();

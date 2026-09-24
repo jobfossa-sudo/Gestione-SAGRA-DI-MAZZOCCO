@@ -4,7 +4,7 @@ import { useCategorie, useDisponibilita, useLetteraCassa, useOrdiniAperti, usePr
 import { confermaOrdine, creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
-import { AnteprimaBiglietto } from './AnteprimaBiglietto';
+import { ResocontoCliente } from './ResocontoCliente';
 import { stampa } from './AreaStampa';
 
 /** Colonne della tabella: serve alle intestazioni di portata, che occupano
@@ -396,16 +396,15 @@ export function NuovoOrdine() {
       {/* Lo scontrino: l'elenco dei piatti sta qui e solo qui. Prima compariva
           anche in un riepilogo a fianco, che diceva le stesse cose due volte. */}
       <div className="colonna-anteprima">
-        <AnteprimaBiglietto
-          tipo="resoconto"
+        <ResocontoCliente
           ordine={ordineProvvisorio}
-          nota="Il conto come uscirà dalla stampante. Numero di comanda e codice a barre li assegna la conferma, quindi qui il loro posto resta vuoto."
+          nota="Il conto da controllare insieme al cliente. Il numero di comanda lo assegna la conferma."
         />
 
-        {/* Il totale e i tre tasti stanno sotto allo scontrino, non in fondo
-            al menù: si premono dopo aver guardato il conto insieme al cliente,
-            e così l'occhio non deve attraversare la schermata. Il menù di
-            fianco si prende tutta l'altezza che avanza. */}
+        {/* I tre tasti stanno sotto allo scontrino, non in fondo al menù: si
+            premono dopo aver guardato il conto insieme al cliente, e così
+            l'occhio non deve attraversare la schermata. Il menù di fianco si
+            prende tutta l'altezza che avanza. */}
         <div className="riquadro piede-comanda">
           {letteraCassa === null && (
             <p className="errore">
@@ -418,10 +417,8 @@ export function NuovoOrdine() {
           {errore && <p className="errore">{errore}</p>}
           {messaggioSuccesso && <p className="successo">{messaggioSuccesso}</p>}
 
-          <p className="totale">
-            Totale <strong>{euro(totale)}</strong>
-          </p>
-
+          {/* Il totale non si ripete qui sotto: sta nella fascia gialla in
+              fondo al resoconto, a un dito dai tasti. */}
           <div className="tasti-cassa">
             <button type="button" disabled={numeroArticoli === 0 || inCorso} onClick={stampaResoconto}>
               Stampa resoconto
