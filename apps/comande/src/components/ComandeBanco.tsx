@@ -105,43 +105,57 @@ export function ComandeBanco() {
         {comande.length === 0 ? (
           <p className="vuoto">Nessuna comanda da preparare: quando la cassa incassa un ordine col bere, compare qui.</p>
         ) : (
-          <ul className="elenco-comande">
+          /* Un elenco, una comanda per riga: sono poche voci per comanda e si
+             leggono di corsa dall'alto in basso, come l'archivio degli ordini.
+             A riquadri affiancati l'occhio doveva rimbalzare da una colonna
+             all'altra per capire quale fosse arrivata prima. */
+          <ul className="elenco-riepilogo elenco-comande">
             {comande.map((comanda) => (
-              <li key={comanda.id} className={`comanda stato-${comanda.stato}`}>
-                <div className="testata-comanda-banco">
+              <li
+                key={comanda.id}
+                className={`riga-riepilogo stato-${comanda.stato === 'pronta' ? 'fatto' : 'corso'}`}
+              >
+                <div className="sommario-ordine">
                   <span className="numero">{comanda.codice}</span>
-                  <span className="ora">{oraDi(comanda)}</span>
-                  <span className={`targhetta-stato ${comanda.stato === 'pronta' ? 'fatto' : 'corso'}`}>
-                    {comanda.stato === 'pronta' ? 'Pronta' : 'Da preparare'}
+                  <span className="dettagli">
+                    <span className="voci-in-riga">
+                      {comanda.items.map((item) => (
+                        <span key={item.prodottoId} className="voce-in-riga">
+                          <strong>{item.quantita}×</strong> {item.nome}
+                        </span>
+                      ))}
+                    </span>
+                    <span className="coda-riga">
+                      {oraDi(comanda)}
+                      {/* Se il foglio è già uscito si vede: con più schermi
+                          accesi lo stampa uno solo, e gli altri devono poterlo
+                          sapere invece di premere Ristampa per sicurezza. */}
+                      {comanda.stampataAt && <span className="targhetta-stampa">stampata</span>}
+                    </span>
+                    <span className={`targhetta-stato ${comanda.stato === 'pronta' ? 'fatto' : 'corso'}`}>
+                      {comanda.stato === 'pronta' ? 'Pronta' : 'Da preparare'}
+                    </span>
                   </span>
-                </div>
-                <ul className="voci-riepilogo">
-                  {comanda.items.map((item) => (
-                    <li key={item.prodottoId}>
-                      <span className="quantita">{item.quantita}×</span>
-                      <span className="voce">{item.nome}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="azioni-comanda">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      stampa([{ tipo: 'copiaCucina', ordine: comandaPerStampa(comanda, ordinePerId.get(comanda.ordineId)) }])
-                    }
-                  >
-                    Ristampa
-                  </button>
-                  {comanda.stato === 'in_preparazione' && (
+                  <span className="azioni-riga">
                     <button
                       type="button"
-                      className="bottone-principale"
-                      disabled={inCorso === comanda.id}
-                      onClick={() => segnaPronta(comanda)}
+                      onClick={() =>
+                        stampa([{ tipo: 'copiaCucina', ordine: comandaPerStampa(comanda, ordinePerId.get(comanda.ordineId)) }])
+                      }
                     >
-                      {inCorso === comanda.id ? 'Segno…' : 'Pronta'}
+                      Ristampa
                     </button>
-                  )}
+                    {comanda.stato === 'in_preparazione' && (
+                      <button
+                        type="button"
+                        className="bottone-principale"
+                        disabled={inCorso === comanda.id}
+                        onClick={() => segnaPronta(comanda)}
+                      >
+                        {inCorso === comanda.id ? 'Segno…' : 'Pronta'}
+                      </button>
+                    )}
+                  </span>
                 </div>
               </li>
             ))}

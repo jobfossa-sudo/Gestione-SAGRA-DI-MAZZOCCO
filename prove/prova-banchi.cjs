@@ -212,7 +212,7 @@ async function attendi(condizione, tentativi = 30, pausa = 500) {
   // arrivare qui, da sola.
   await bevande.getByRole('button', { name: 'Comande dalla cassa' }).click();
   await bevande.waitForTimeout(1200);
-  const comandePrima = await bevande.locator('.elenco-comande .comanda').count();
+  const comandePrima = await bevande.locator('.elenco-comande .riga-riepilogo').count();
 
   const cassa = await entra(browser, 'cassa');
   await cassa.getByLabel('Tavolo').fill('9');
@@ -227,13 +227,13 @@ async function attendi(condizione, tentativi = 30, pausa = 500) {
 
   verifica(
     'la comanda del bere arriva al banco BEVANDE da sola',
-    await attendi(async () => (await bevande.locator('.elenco-comande .comanda').count()) > comandePrima, 40),
+    await attendi(async () => (await bevande.locator('.elenco-comande .riga-riepilogo').count()) > comandePrima, 40),
     `prima ${comandePrima}`
   );
   // La comanda da controllare è quella dell'ordine appena battuto, non la
   // prima dell'elenco: al banco ne restano anche di vecchie, e l'elenco parte
   // dalle più vecchie perché si lavora in ordine di arrivo.
-  const comanda = bevande.locator('.elenco-comande .comanda', { hasText: codiceOrdine }).first();
+  const comanda = bevande.locator('.elenco-comande .riga-riepilogo', { hasText: codiceOrdine }).first();
   verifica(
     'porta il numero dell’ordine del cliente',
     (await comanda.count()) === 1,
@@ -241,9 +241,13 @@ async function attendi(condizione, tentativi = 30, pausa = 500) {
   );
   const testoComanda = (await comanda.count()) === 1 ? await comanda.innerText() : '';
   verifica('e solo il bere, non il cibo', /Birra/.test(testoComanda) && !/Pasta/.test(testoComanda));
+  // Il foglio esce da solo, ma a stamparlo è UNO SOLO degli schermi accesi: se
+  // ce n'è un altro aperto su questa scheda (anche il browser di chi sta
+  // guardando) può prenderselo lui. Quello che si controlla è che la comanda
+  // risulti stampata, non che sia stata questa pagina a farlo.
   verifica(
     'il foglio esce da solo, senza premere niente',
-    await attendi(async () => (await bevande.evaluate(() => window.__stampe.length)) > 1)
+    await attendi(async () => /stampata/i.test(await comanda.innerText()), 40)
   );
   await bevande.screenshot({ path: RISULTATI + '/banco-bevande-comande.png', fullPage: true });
 

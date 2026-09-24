@@ -29,10 +29,18 @@ export function CassaBanco({ banco }: { banco: Banco }) {
     [categorie, prodotti]
   );
 
-  const selezionati = useMemo(
-    () => prodotti.filter((p) => (carrello[p.id] ?? 0) > 0),
-    [prodotti, carrello]
-  );
+  /** Le voci battute, nell'ordine in cui stanno nel menù: gruppo per gruppo e
+   * riga per riga. Prendendole dall'elenco grezzo uscivano mescolate — il
+   * caffè prima della birra — e il cliente non ritrovava sullo scontrino
+   * l'ordine in cui le aveva chieste. In fondo finisce quello che è rimasto
+   * nel carrello ma il cui gruppo è sparito nel frattempo: non si vende niente
+   * di nascosto. */
+  const selezionati = useMemo(() => {
+    const inMenu = perGruppo.flatMap((riga) => riga.voci).filter((p) => (carrello[p.id] ?? 0) > 0);
+    const visti = new Set(inMenu.map((p) => p.id));
+    const orfani = prodotti.filter((p) => (carrello[p.id] ?? 0) > 0 && !visti.has(p.id));
+    return [...inMenu, ...orfani];
+  }, [perGruppo, prodotti, carrello]);
   const voci = selezionati.map((prodotto) => ({
     prodottoId: prodotto.id,
     nome: prodotto.nome,
@@ -208,7 +216,7 @@ export function CassaBanco({ banco }: { banco: Banco }) {
           {errore && <p className="errore">{errore}</p>}
           {messaggio && <p className="successo">{messaggio}</p>}
 
-          <div className="tasti-cassa">
+          <div className="tasti-cassa tasti-banco">
             <button
               type="button"
               className="bottone-principale bottone-conferma"
