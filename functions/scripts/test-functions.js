@@ -50,6 +50,9 @@ const annullaOrdine = httpsCallable(functions, 'annullaOrdine');
 const impostaLetteraCassa = httpsCallable(functions, 'impostaLetteraCassa');
 const segnaCopiaCucinaStampata = httpsCallable(functions, 'segnaCopiaCucinaStampata');
 const chiudiOrdine = httpsCallable(functions, 'chiudiOrdine');
+const creaOrdineBanco = httpsCallable(functions, 'creaOrdineBanco');
+const annullaOrdineBanco = httpsCallable(functions, 'annullaOrdineBanco');
+const segnaComandaStampata = httpsCallable(functions, 'segnaComandaStampata');
 
 /** La cassa conferma a pagamento avvenuto: un'unica chiamata che crea
  * l'ordine, scala le porzioni e manda le comande ai reparti. */
@@ -777,6 +780,137 @@ async function main() {
     chiudiOrdine({ serataId: SERATA_ID, codiceBarre: foglioAnnullato.codiceBarre }),
     'failed-precondition'
   );
+
+
+  // --- I banchi (BAR, BEVANDE) ---------------------------------------------
+  // Vendono per conto loro: nessuna comanda ai reparti, nessuna porzione
+  // scalata sul menù della sagra, e i prezzi li rilegge sempre il server.
+  await accediCome('bancobar');
+  const scontrino1 = await assertOk(
+    'il banco BAR incassa un ordine',
+    creaOrdineBanco({ serataId: SERATA_ID, banco: 'bar', items: [{ prodottoId: 'birra-piccola', quantita: 2 }] })
+  );
+  record(
+    'lo scontrino prende il numero del banco (BAR0001)',
+    scontrino1?.codice === 'BAR0001',
+    `codice ricevuto: ${scontrino1?.codice}`
+  );
+  record('e il totale lo calcola il server', scontrino1?.totale === 6, `totale ricevuto: ${scontrino1?.totale}`);
+
+  const scontrino2 = await assertOk(
+    'il secondo scontrino prende il numero dopo',
+    creaOrdineBanco({ serataId: SERATA_ID, banco: 'bar', items: [{ prodottoId: 'caffe', quantita: 1 }] })
+  );
+  record('la numerazione va avanti di uno', scontrino2?.codice === 'BAR0002', `codice: ${scontrino2?.codice}`);
+
+  await assertRifiutato(
+    'il banco BAR non incassa per BEVANDE',
+    creaOrdineBanco({ serataId: SERATA_ID, banco: 'bevande', items: [{ prodottoId: 'vino-bicchiere', quantita: 1 }] }),
+    'permission-denied'
+  );
+  await assertRifiutato(
+    'e non vende una voce del menù dell’altro banco',
+    creaOrdineBanco({ serataId: SERATA_ID, banco: 'bar', items: [{ prodottoId: 'vino-bicchiere', quantita: 1 }] }),
+    'not-found'
+  );
+  await assertRifiutato(
+    'né un piatto del menù della sagra',
+    creaOrdineBanco({ serataId: SERATA_ID, banco: 'bar', items: [{ prodottoId: 'pasta', quantita: 1 }] }),
+    'not-found'
+  );
+  await assertRifiutato(
+    'un ordine vuoto non si incassa',
+    creaOrdineBanco({ serataId: SERATA_ID, banco: 'bar', items: [] }),
+    'invalid-argument'
+  );
+  await assertRifiutato(
+    'un banco inventato non esiste',
+    creaOrdineBanco({ serataId: SERATA_ID, banco: 'gelati', items: [{ prodottoId: 'birra-piccola', quantita: 1 }] }),
+    'invalid-argument'
+  );
+
+  // I due banchi hanno numerazioni separate: BEVANDE riparte da 1.
+  await accediCome('bancobevande');
+  const scontrinoBev = await assertOk(
+    'il banco BEVANDE incassa il suo primo ordine',
+    creaOrdineBanco({ serataId: SERATA_ID, banco: 'bevande', items: [{ prodottoId: 'vino-caraffa', quantita: 1 }] })
+  );
+  record(
+    'ogni banco ha la sua numerazione (BEV0001)',
+    scontrinoBev?.codice === 'BEV0001',
+    `codice ricevuto: ${scontrinoBev?.codice}`
+  );
+
+  await assertRifiutato(
+    'il banco BEVANDE non annulla un incasso del BAR',
+    annullaOrdineBanco({ serataId: SERATA_ID, ordineId: scontrino2.ordineId }),
+    'permission-denied'
+  );
+
+  await accediCome('bancobar');
+  await assertOk(
+    'il banco annulla un proprio incasso sbagliato',
+    annullaOrdineBanco({ serataId: SERATA_ID, ordineId: scontrino2.ordineId })
+  );
+  const annullato = await db.doc(`serate/${SERATA_ID}/ordiniBanco/${scontrino2.ordineId}`).get();
+  record('l’ordine annullato resta in archivio', annullato.exists);
+  record('ma segnato come annullato', annullato.data()?.stato === 'annullato', `stato: ${annullato.data()?.stato}`);
+  await assertRifiutato(
+    'annullarlo due volte non si può',
+    annullaOrdineBanco({ serataId: SERATA_ID, ordineId: scontrino2.ordineId }),
+    'failed-precondition'
+  );
+
+  // Gli ordini del banco non generano comande per i reparti: è la differenza
+  // con la cassa dei tavoli, e vale la pena controllarla davvero.
+  const sottoOrdiniBanco = await db
+    .collection(`serate/${SERATA_ID}/sottoOrdini`)
+    .where('ordineId', '==', scontrino1.ordineId)
+    .get();
+  record('un ordine del banco non manda comande ai reparti', sottoOrdiniBanco.empty);
+
+  await accediCome('cassa');
+  await assertRifiutato(
+    'la cassa dei tavoli non incassa a un banco',
+    creaOrdineBanco({ serataId: SERATA_ID, banco: 'bar', items: [{ prodottoId: 'birra-piccola', quantita: 1 }] }),
+    'permission-denied'
+  );
+
+  // --- Le comande del bere che arrivano al banco BEVANDE --------------------
+  // Un ordine dei tavoli col bere genera un sotto-ordine del settore bar: è
+  // quello che al banco BEVANDE esce dalla stampante, una volta sola.
+  const ordineColBere = await assertOk(
+    'la cassa batte un ordine che contiene del bere',
+    creaEInvia({ serataId: SERATA_ID, items: [{ prodottoId: 'birra', quantita: 2 }], ...TAVOLO })
+  );
+  const comandeBere = await db
+    .collection(`serate/${SERATA_ID}/sottoOrdini`)
+    .where('ordineId', '==', ordineColBere.ordineId)
+    .where('settore', '==', 'bar')
+    .get();
+  record('ne nasce una comanda per il banco delle bevande', comandeBere.size === 1, `comande: ${comandeBere.size}`);
+
+  if (comandeBere.size === 1) {
+    const comandaId = comandeBere.docs[0].id;
+    await accediCome('bancobevande');
+    const primaStampa = await assertOk(
+      'il banco BEVANDE si prende la stampa della comanda',
+      segnaComandaStampata({ serataId: SERATA_ID, sottoOrdineId: comandaId })
+    );
+    record('e gli tocca stamparla', primaStampa?.daStampare === true);
+    const secondaStampa = await assertOk(
+      'un secondo schermo chiede la stessa comanda',
+      segnaComandaStampata({ serataId: SERATA_ID, sottoOrdineId: comandaId })
+    );
+    record('ma il foglio esce una volta sola', secondaStampa?.daStampare === false);
+
+    await accediCome('bancobar');
+    await assertRifiutato(
+      'il banco BAR non stampa le comande delle bevande',
+      segnaComandaStampata({ serataId: SERATA_ID, sottoOrdineId: comandaId }),
+      'permission-denied'
+    );
+  }
 
   console.log('\nRisultati test Cloud Functions:');
   let tuttiOk = true;

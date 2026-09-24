@@ -1,4 +1,3 @@
-import type { Ordine } from '@sagra-mazzocco/shared';
 import { euro } from '../services/formato';
 
 /** Il conto come si guarda a schermo insieme al cliente, mentre lo si batte.
@@ -11,47 +10,77 @@ import { euro } from '../services/formato';
  * Prima al suo posto c'era la fotografia in scala del foglio A5: fedele alla
  * carta e, rimpicciolita per stare nella colonna, illeggibile da dietro il
  * banco. Chi vuole vedere com'è impaginata la carta ha l'anteprima vera nella
- * scheda "Biglietti"; qui serve leggere, non controllare i margini. */
+ * scheda "Biglietti"; qui serve leggere, non controllare i margini.
+ *
+ * Lo usano la cassa dei tavoli e i banchi (BAR, BEVANDE). Per questo prende le
+ * voci e il totale invece di un ordine intero: un ordine del banco non ha
+ * tavolo né coperti, e un conto a metà non si stampa nella forma dell'altro. */
+
+/** Il minimo che serve per scrivere una riga del conto: ci stanno dentro sia
+ * le voci di un ordine dei tavoli sia quelle di un banco. */
+export interface VoceResoconto {
+  prodottoId: string;
+  nome: string;
+  prezzo: number;
+  quantita: number;
+}
+
 export function ResocontoCliente({
-  ordine,
+  voci,
+  totale,
+  tavolo,
+  coperti,
+  titolo = 'Resoconto',
   nota,
+  vuoto = 'Nessun piatto ancora — comincia dal menù qui a fianco.',
 }: {
-  ordine: Ordine;
+  voci: VoceResoconto[];
+  totale: number;
+  /** Tavolo e coperti compaiono solo dove esistono: alla cassa dei tavoli sì,
+   * a un banco no — lì si compra e si porta via. */
+  tavolo?: number | null;
+  coperti?: number | null;
+  titolo?: string;
   /** Una riga sotto il titolo, quando c'è qualcosa da spiegare. */
   nota?: string;
+  /** Cosa scrivere quando non è stato battuto ancora niente. */
+  vuoto?: string;
 }) {
-  const pezzi = ordine.items.reduce((somma, voce) => somma + voce.quantita, 0);
+  const pezzi = voci.reduce((somma, voce) => somma + voce.quantita, 0);
+  const conTavolo = tavolo !== undefined || coperti !== undefined;
 
   return (
     <section className="riquadro resoconto-cliente">
       <div className="testa-resoconto">
         <div>
-          <h2>Resoconto</h2>
+          <h2>{titolo}</h2>
           {nota && <p className="spiegazione">{nota}</p>}
         </div>
         {/* Tavolo e coperti stanno in alto a destra, grandi: sono la prima cosa
             che si ricontrolla prima di confermare, e senza di loro l'ordine non
             parte. Finché mancano restano due caselle vuote, non spariscono: il
             posto vuoto si nota, l'assenza no. */}
-        <div className="targhette-resoconto">
-          <span className="targhetta-resoconto">
-            <small>Tavolo</small>
-            <strong>{ordine.tavolo ?? '—'}</strong>
-          </span>
-          <span className="targhetta-resoconto">
-            <small>Coperti</small>
-            <strong>{ordine.coperti ?? '—'}</strong>
-          </span>
-        </div>
+        {conTavolo && (
+          <div className="targhette-resoconto">
+            <span className="targhetta-resoconto">
+              <small>Tavolo</small>
+              <strong>{tavolo ?? '—'}</strong>
+            </span>
+            <span className="targhetta-resoconto">
+              <small>Coperti</small>
+              <strong>{coperti ?? '—'}</strong>
+            </span>
+          </div>
+        )}
       </div>
 
-      {ordine.items.length === 0 ? (
-        <p className="vuoto vuoto-resoconto">Nessun piatto ancora — comincia dal menù qui a fianco.</p>
+      {voci.length === 0 ? (
+        <p className="vuoto vuoto-resoconto">{vuoto}</p>
       ) : (
         /* L'elenco scorre dentro di sé quando l'ordine è lungo: il totale e i
            tasti sotto restano al loro posto invece di finire fuori schermo. */
         <ul className="voci-resoconto">
-          {ordine.items.map((voce) => (
+          {voci.map((voce) => (
             <li key={voce.prodottoId}>
               <span className="quantita-resoconto">{voce.quantita}×</span>
               <span className="nome-resoconto">{voce.nome}</span>
@@ -69,7 +98,7 @@ export function ResocontoCliente({
           {pezzi === 0 ? 'nessun pezzo' : pezzi === 1 ? '1 pezzo' : `${pezzi} pezzi`}
         </span>
         <span className="etichetta-totale-resoconto">Totale</span>
-        <strong className="cifra-totale-resoconto">{euro(ordine.totale)}</strong>
+        <strong className="cifra-totale-resoconto">{euro(totale)}</strong>
       </div>
     </section>
   );

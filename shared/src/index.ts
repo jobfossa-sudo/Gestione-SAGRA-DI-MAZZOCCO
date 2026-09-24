@@ -135,6 +135,10 @@ export interface SottoOrdine {
   createdAt: FirestoreTimestampLike;
   readyAt: FirestoreTimestampLike | null;
   deliveredAt: FirestoreTimestampLike | null;
+  /** Quando la comanda è stata stampata al banco che la riceve (oggi solo
+   * BEVANDE). Come per la copia cucina, serve a stamparla una volta sola:
+   * se lo prende chi la stampa, e due schermi accesi non fanno due fogli. */
+  stampataAt?: FirestoreTimestampLike | null;
 }
 
 export interface Prodotto {
@@ -194,6 +198,116 @@ export interface Serata {
   contatoreOrdini: number;
   /** Progressivo di ciascuna cassa: { A: 12, B: 9 }. Riparte ogni serata. */
   contatoriCassa?: Record<string, number>;
+  /** Progressivo di ciascun banco: { bar: 12, bevande: 40 }. Anche questo
+   * riparte ogni serata, come tutto il resto della numerazione. */
+  contatoriBanco?: Record<string, number>;
+}
+
+// ---------------------------------------------------------------------------
+// I banchi
+//
+// Un banco vende e incassa per conto suo: ha il suo menù, gestito da chi ci
+// lavora e non dall'amministratore, i suoi ordini e il suo incasso. Non manda
+// niente ai reparti — quello che vende lo prepara e lo consegna sul posto.
+//
+// Di banchi ce ne sono due e sono gemelli. Quello che li distingue è una cosa
+// sola: BEVANDE riceve anche le comande del bere che partono dalla cassa dei
+// tavoli, BAR no. Tutto il resto — menù, cassa, archivio, incasso — è lo
+// stesso codice con dentro un id diverso: due schermate identiche scritte due
+// volte si sarebbero scordate l'una dell'altra alla prima modifica.
+// ---------------------------------------------------------------------------
+
+export type Banco = 'bar' | 'bevande';
+
+export const BANCHI: Banco[] = ['bar', 'bevande'];
+
+export const NOME_BANCO: Record<Banco, string> = {
+  bar: 'BAR',
+  bevande: 'BEVANDE',
+};
+
+/** Prefisso del numero d'ordine del banco: "BAR0001", "BEV0001". Non può
+ * scontrarsi con i codici della cassa dei tavoli, che sono una lettera sola
+ * più quattro cifre (A0001). */
+export const PREFISSO_BANCO: Record<Banco, string> = {
+  bar: 'BAR',
+  bevande: 'BEV',
+};
+
+/** Il banco che riceve anche le comande del bere dalla cassa dei tavoli.
+ * Quando il cibo dello stesso ordine arriva in Distribuzione, qui arriva la
+ * parte da bere. */
+export const BANCO_CON_COMANDE: Banco = 'bevande';
+
+/** Il settore le cui comande arrivano al banco BEVANDE. È "bar": gli ordini
+ * dei tavoli si dividono già per settore, e la parte da bere è la sua. Il
+ * pannello "Bar" dentro Pannelli mostra le stesse comande in forma di
+ * conteggio: resta lì finché non si decide di toglierlo. */
+export const SETTORE_DEL_BANCO: Settore = 'bar';
+
+/** Gruppo del menù di un banco (Birre, Caffetteria...). Sta in
+ * `banchi/{banco}/categorie`: è roba del banco, non del menù della sagra. */
+export interface CategoriaBanco {
+  id: string;
+  nome: string;
+  /** Posizione nel menù: il numero più basso compare per primo. */
+  ordine: number;
+}
+
+/** Una voce in vendita a un banco. Più semplice di un piatto della sagra: non
+ * ha settore che la prepara né composizione, perché a prepararla è il banco
+ * stesso, e non ha porzioni contate — a un banco si guarda nel frigo. */
+export interface ProdottoBanco {
+  id: string;
+  categoriaId: string;
+  nome: string;
+  /** Descrizione breve, mostrata sotto il nome. */
+  note: string;
+  prezzo: number;
+  /** Posizione dentro il proprio gruppo, decisa trascinando le righe. */
+  ordine: number;
+  /** Serata in cui la voce è finita, così si azzera da sola la sera dopo.
+   * Null = disponibile. */
+  esauritoSerata: string | null;
+}
+
+export interface ItemOrdineBanco {
+  prodottoId: string;
+  nome: string;
+  prezzo: number;
+  quantita: number;
+}
+
+export type StatoOrdineBanco = 'incassato' | 'annullato';
+
+/** Un ordine battuto a un banco. Vive in `serate/{serata}/ordiniBanco`, non
+ * insieme agli ordini dei tavoli: non ha tavolo, non ha coperti, non genera
+ * comande per i reparti e non passa dalla Distribuzione. Nasce già incassato —
+ * al banco si paga e si porta via — e l'unica cosa che gli può succedere dopo
+ * è l'annullamento di chi ha sbagliato a battere. */
+export interface OrdineBanco {
+  id: string;
+  serataId: string;
+  banco: Banco;
+  /** Progressivo della serata per quel banco: BAR0007 ha numero 7. */
+  numero: number;
+  /** Numero scritto sullo scontrino, es. "BAR0007". */
+  codice: string;
+  stato: StatoOrdineBanco;
+  items: ItemOrdineBanco[];
+  totale: number;
+  /** Chi ha battuto l'ordine: serve a sapere chi cercare se il conto non torna. */
+  operatoreUid: string;
+  operatoreNome: string;
+  createdAt: FirestoreTimestampLike;
+  cancelledAt: FirestoreTimestampLike | null;
+  /** Chi ha annullato, e perché il conto della serata è cambiato. */
+  annullatoDaNome?: string | null;
+}
+
+/** Il codice scritto sullo scontrino del banco: "BAR0007". */
+export function formattaCodiceBanco(banco: Banco, numero: number): string {
+  return `${PREFISSO_BANCO[banco]}${String(numero).padStart(4, '0')}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -207,18 +321,21 @@ export interface Serata {
 
 /** I biglietti componibili. Il cartello col QR del tavolo non è qui: è un
  * manifesto, non un biglietto d'ordine. */
-export type TipoBiglietto = 'resoconto' | 'copiaCucina';
+export type TipoBiglietto = 'resoconto' | 'copiaCucina' | 'scontrinoBanco';
 
-export const TIPI_BIGLIETTO: TipoBiglietto[] = ['resoconto', 'copiaCucina'];
+export const TIPI_BIGLIETTO: TipoBiglietto[] = ['resoconto', 'copiaCucina', 'scontrinoBanco'];
 
 export const NOME_BIGLIETTO: Record<TipoBiglietto, string> = {
   resoconto: 'Resoconto per il cliente',
   copiaCucina: 'Copia cucina',
+  scontrinoBanco: 'Scontrino dei banchi',
 };
 
 export const SPIEGAZIONE_BIGLIETTO: Record<TipoBiglietto, string> = {
   resoconto: 'Lo stampa la cassa alla conferma e lo dà al cliente, che lo porta a pagare.',
   copiaCucina: 'Esce in Distribuzione, segue il vassoio e si legge col lettore prima di portarlo al tavolo.',
+  scontrinoBanco:
+    'Esce a BAR e a BEVANDE a ogni incasso. È uno solo per tutti e due i banchi: il banco si riconosce dal numero (BAR0001, BEV0001).',
 };
 
 export type TipoBlocco =
@@ -321,6 +438,7 @@ export interface Biglietto {
 export const BLOCCHI_OBBLIGATORI: Record<TipoBiglietto, TipoBlocco[]> = {
   resoconto: ['totale'],
   copiaCucina: ['codice', 'codiceBarre'],
+  scontrinoBanco: ['codice', 'totale'],
 };
 
 /** La disposizione di partenza, e quella a cui si torna col tasto
@@ -357,6 +475,23 @@ export const BIGLIETTI_INIZIALI: Record<TipoBiglietto, Biglietto> = {
       { id: 'codice', tipo: 'codice', attivo: true, colonna: 'destra', grandezza: 'gigante', allineamento: 'centro', grassetto: true },
       { id: 'tavolo', tipo: 'tavolo', attivo: true, colonna: 'destra', allineamento: 'centro', grandezza: 'grande', mostraCoperti: true },
       { id: 'codice-barre', tipo: 'codiceBarre', attivo: true, colonna: 'destra', allineamento: 'centro', mostraRigaLeggibile: true },
+      { id: 'logo', tipo: 'immagine', attivo: false, colonna: 'intera', immagineId: null, larghezzaMm: 30, allineamento: 'centro' },
+    ],
+  },
+  // Lo scontrino del banco: niente tavolo, niente codice a barre — non lo
+  // legge nessun lettore, serve al cliente che vuole il conto in mano.
+  scontrinoBanco: {
+    id: 'scontrinoBanco',
+    formato: 'a5-orizzontale',
+    margineMm: 10,
+    blocchi: [
+      { id: 'testata', tipo: 'titolo', attivo: true, colonna: 'sinistra', testo: 'Sagra di Mazzocco', grandezza: 'grande', allineamento: 'sinistra', grassetto: true },
+      { id: 'sottotitolo', tipo: 'testo', attivo: true, colonna: 'sinistra', testo: 'Scontrino', grandezza: 'piccolo', allineamento: 'sinistra' },
+      { id: 'codice', tipo: 'codice', attivo: true, colonna: 'destra', grandezza: 'enorme', allineamento: 'destra', grassetto: true },
+      { id: 'riga-testata', tipo: 'riga', attivo: true, colonna: 'intera' },
+      { id: 'voci', tipo: 'voci', attivo: true, colonna: 'intera', mostraPrezzi: true, caselleSpunta: false },
+      { id: 'totale', tipo: 'totale', attivo: true, colonna: 'intera', grandezza: 'grande', allineamento: 'destra' },
+      { id: 'saluto', tipo: 'testo', attivo: false, colonna: 'intera', testo: 'Grazie!', grandezza: 'normale', allineamento: 'centro' },
       { id: 'logo', tipo: 'immagine', attivo: false, colonna: 'intera', immagineId: null, larghezzaMm: 30, allineamento: 'centro' },
     ],
   },
@@ -422,16 +557,42 @@ export function componiCodiceBarre(codice: string, dataOra: { data: string; ora:
 /** "cucina", "griglia" e "bar" coincidono apposta con i settori: chi ha quel
  * ruolo gestisce quel settore. "distribuzione" è la postazione dove esce la
  * copia cucina, si compongono i vassoi e si legge il codice a barre. */
-export type RuoloComande = 'cassa' | 'cucina' | 'griglia' | 'bar' | 'distribuzione';
+export type RuoloComande =
+  | 'cassa'
+  | 'cucina'
+  | 'griglia'
+  | 'bar'
+  | 'distribuzione'
+  | 'bancoBar'
+  | 'bancoBevande';
 
-export const RUOLI_COMANDE: RuoloComande[] = ['cassa', 'cucina', 'griglia', 'bar', 'distribuzione'];
+export const RUOLI_COMANDE: RuoloComande[] = [
+  'cassa',
+  'cucina',
+  'griglia',
+  'bar',
+  'distribuzione',
+  'bancoBar',
+  'bancoBevande',
+];
 
+/** "Bar" da solo è il pannello di chi prepara le bevande per gli ordini dei
+ * tavoli, che esisteva prima dei banchi: i due ruoli nuovi dicono "banco" per
+ * non confondersi con lui nell'elenco delle caselle. */
 export const NOME_RUOLO_COMANDE: Record<RuoloComande, string> = {
   cassa: 'Cassa',
   cucina: 'Cucina',
   griglia: 'Griglia',
   bar: 'Bar',
   distribuzione: 'Distribuzione',
+  bancoBar: 'Banco BAR',
+  bancoBevande: 'Banco BEVANDE',
+};
+
+/** Il ruolo che apre ciascun banco. L'amministratore entra comunque ovunque. */
+export const RUOLO_BANCO: Record<Banco, RuoloComande> = {
+  bar: 'bancoBar',
+  bevande: 'bancoBevande',
 };
 
 /** Una chiave per app, con i ruoli che la persona ricopre in quell'app: alla
@@ -646,6 +807,39 @@ export interface AnnullaOrdineRichiesta {
 }
 
 export interface AnnullaOrdineRisposta {
+  ordineId: string;
+}
+
+export interface SegnaComandaStampataRichiesta {
+  serataId: string;
+  sottoOrdineId: string;
+}
+
+export interface SegnaComandaStampataRisposta {
+  sottoOrdineId: string;
+  /** Vero solo per chi se l'è presa per primo: gli altri non stampano. */
+  daStampare: boolean;
+}
+
+export interface CreaOrdineBancoRichiesta {
+  serataId: string;
+  banco: Banco;
+  items: ItemOrdineRichiesta[];
+}
+
+export interface CreaOrdineBancoRisposta {
+  ordineId: string;
+  numero: number;
+  codice: string;
+  totale: number;
+}
+
+export interface AnnullaOrdineBancoRichiesta {
+  serataId: string;
+  ordineId: string;
+}
+
+export interface AnnullaOrdineBancoRisposta {
   ordineId: string;
 }
 

@@ -33,6 +33,13 @@ async function main() {
     await db.doc('utenti/uid-altro').set({ nomeUtente: 'altro', amministratore: false, accessi: { comande: ['cucina'] } });
     await db.doc('config/sistema').set({ amministratoreCreato: true });
     await db.doc('serate/2026-01-01/disponibilita/panino').set({ prodottoId: 'panino', porzioniMassime: 10, venduti: 4 });
+    // I banchi: menù (scritto da chi ci lavora) e ordini (scritti solo dalle
+    // Cloud Functions, come tutti gli altri ordini).
+    await db.doc('banchi/bar/categorie/birre').set({ id: 'birre', nome: 'Birre', ordine: 0 });
+    await db.doc('banchi/bar/prodotti/birra').set({ id: 'birra', categoriaId: 'birre', nome: 'Birra', prezzo: 3 });
+    await db.doc('banchi/bevande/categorie/vini').set({ id: 'vini', nome: 'Vini', ordine: 0 });
+    await db.doc('banchi/bevande/prodotti/vino').set({ id: 'vino', categoriaId: 'vini', nome: 'Vino', prezzo: 2 });
+    await db.doc('serate/2026-01-01/ordiniBanco/scontrino1').set({ banco: 'bar', numero: 1, totale: 3, stato: 'incassato' });
   });
 
   const anonimo = testEnv.unauthenticatedContext().firestore();
@@ -42,6 +49,8 @@ async function main() {
   const griglia = testEnv.authenticatedContext('uid-griglia', { comande: ['griglia'] }).firestore();
   const bar = testEnv.authenticatedContext('uid-bar', { comande: ['bar'] }).firestore();
   const distribuzione = testEnv.authenticatedContext('uid-distribuzione', { comande: ['distribuzione'] }).firestore();
+  const bancoBar = testEnv.authenticatedContext('uid-banco-bar', { comande: ['bancoBar'] }).firestore();
+  const bancoBevande = testEnv.authenticatedContext('uid-banco-bevande', { comande: ['bancoBevande'] }).firestore();
   const admin = testEnv.authenticatedContext('uid-admin', { amministratore: true }).firestore();
   // Accesso a un'altra app soltanto: non deve vedere nulla di Comande.
   const soloAltraApp = testEnv.authenticatedContext('uid-contabile', { contabilita: ['visione'] }).firestore();
@@ -140,6 +149,70 @@ async function main() {
   await check('un utente non legge il profilo di un altro', assertFails(cassa.doc('utenti/uid-altro').get()));
   await check('amministratore legge tutti i profili', assertSucceeds(admin.collection('utenti').get()));
   await check('nessuno si modifica il ruolo da solo', assertFails(cassa.doc('utenti/uid-cassa').update({ amministratore: true })));
+
+  // I banchi: ognuno è padrone del proprio menù e di nessun altro
+  await check(
+    'il banco BAR modifica il proprio menù',
+    assertSucceeds(bancoBar.doc('banchi/bar/prodotti/birra').update({ prezzo: 4 }))
+  );
+  await check(
+    'il banco BAR crea un gruppo nel proprio menù',
+    assertSucceeds(bancoBar.doc('banchi/bar/categorie/amari').set({ id: 'amari', nome: 'Amari', ordine: 10 }))
+  );
+  await check(
+    'il banco BAR non tocca il menù di BEVANDE',
+    assertFails(bancoBar.doc('banchi/bevande/prodotti/vino').update({ prezzo: 99 }))
+  );
+  await check(
+    'il banco BEVANDE non tocca il menù del BAR',
+    assertFails(bancoBevande.doc('banchi/bar/prodotti/birra').update({ prezzo: 99 }))
+  );
+  await check(
+    'il banco BEVANDE modifica il proprio menù',
+    assertSucceeds(bancoBevande.doc('banchi/bevande/prodotti/vino').update({ prezzo: 3 }))
+  );
+  await check(
+    'la cassa non modifica il menù di un banco',
+    assertFails(cassa.doc('banchi/bar/prodotti/birra').update({ prezzo: 0 }))
+  );
+  await check(
+    'account senza ruolo non modifica il menù di un banco',
+    assertFails(senzaRuolo.doc('banchi/bar/prodotti/birra').update({ prezzo: 0 }))
+  );
+  await check(
+    'l’amministratore modifica il menù di un banco',
+    assertSucceeds(admin.doc('banchi/bar/prodotti/birra').update({ prezzo: 3.5 }))
+  );
+  await check(
+    'il menù di un banco non è pubblico come quello della sagra',
+    assertFails(anonimo.collection('banchi/bar/prodotti').get())
+  );
+  await check(
+    'il personale legge il menù di un banco',
+    assertSucceeds(cassa.collection('banchi/bar/prodotti').get())
+  );
+
+  // Ordini dei banchi: si leggono, non si scrivono dal client
+  await check(
+    'il banco legge i propri ordini',
+    assertSucceeds(bancoBar.collection('serate/2026-01-01/ordiniBanco').get())
+  );
+  await check(
+    'il banco non scrive un ordine da solo',
+    assertFails(bancoBar.doc('serate/2026-01-01/ordiniBanco/finto').set({ banco: 'bar', totale: 1000 }))
+  );
+  await check(
+    'il banco non annulla un incasso scrivendo in archivio',
+    assertFails(bancoBar.doc('serate/2026-01-01/ordiniBanco/scontrino1').update({ stato: 'annullato' }))
+  );
+  await check(
+    'nemmeno l’amministratore scrive un ordine di banco a mano',
+    assertFails(admin.doc('serate/2026-01-01/ordiniBanco/scontrino1').update({ totale: 0 }))
+  );
+  await check(
+    'chi non è del personale non legge gli ordini dei banchi',
+    assertFails(soloAltraApp.collection('serate/2026-01-01/ordiniBanco').get())
+  );
 
   // Configurazione di sistema
   await check('nemmeno l’amministratore legge la configurazione interna', assertFails(admin.doc('config/sistema').get()));

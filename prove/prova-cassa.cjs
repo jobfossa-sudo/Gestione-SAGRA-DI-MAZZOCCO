@@ -393,10 +393,15 @@ const senzaTag = (html) => html.replace(/<[^>]+>/g, ' ');
   const cifra = (testo) => Number(testo.replace(/\./g, '').replace(',', '.'));
   const incassiCasse = [...fine.matchAll(/Incasso cassa [A-Z]\s+([\d.,]+)/g)].map((m) => cifra(m[1]));
   const incassoTotale = cifra((fine.match(/Incasso totale\s+([\d.,]+)/) || [])[1] ?? '0');
+  // Da quando ci sono i banchi, l'incasso totale della serata non è più solo
+  // quello delle casse dei tavoli: ci entrano anche BAR e BEVANDE, ciascuno
+  // col suo quadrato.
+  const incassiBanchi = [...fine.matchAll(/Incasso (?:BAR|BEVANDE)\s+([\d.,]+)/g)].map((m) => cifra(m[1]));
+  const sommaPezzi = [...incassiCasse, ...incassiBanchi].reduce((s, n) => s + n, 0);
   verifica(
-    'il totale è la somma di tutte le casse',
-    incassiCasse.length > 0 && Math.abs(incassiCasse.reduce((s, n) => s + n, 0) - incassoTotale) < 0.005,
-    `${incassiCasse.length} casse, totale ${incassoTotale.toFixed(2)}`
+    'il totale è la somma di tutte le casse e di tutti i banchi',
+    incassiCasse.length > 0 && Math.abs(sommaPezzi - incassoTotale) < 0.005,
+    `${incassiCasse.length} casse + ${incassiBanchi.length} banchi, totale ${incassoTotale.toFixed(2)}`
   );
   verifica('in fondo non ci sono più gli elenchi degli ordini in sospeso', (await cassa.locator('.elenchi-fine-serata').count()) === 0);
 

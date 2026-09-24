@@ -29,6 +29,8 @@ const UTENTI_PROVA = [
   { nomeUtente: 'griglia', nome: 'Grigliere di prova', amministratore: false, accessi: { comande: ['griglia'] } },
   { nomeUtente: 'bar', nome: 'Barista di prova', amministratore: false, accessi: { comande: ['bar'] } },
   { nomeUtente: 'distribuzione', nome: 'Addetto alla distribuzione', amministratore: false, accessi: { comande: ['distribuzione'] } },
+  { nomeUtente: 'bancobar', nome: 'Addetto al banco BAR', amministratore: false, accessi: { comande: ['bancoBar'] } },
+  { nomeUtente: 'bancobevande', nome: 'Addetto al banco BEVANDE', amministratore: false, accessi: { comande: ['bancoBevande'] } },
   // Volontaria con due postazioni: verifica il caso dei ruoli multipli.
   { nomeUtente: 'jolly', nome: 'Volontaria tuttofare', amministratore: false, accessi: { comande: ['cassa', 'distribuzione'] }, letteraCassa: 'B' },
   { nomeUtente: 'senzaruolo', nome: 'Account senza accessi', amministratore: false, accessi: {} },
@@ -43,6 +45,35 @@ const CATEGORIE_FITTIZIE = [
   { id: 'bevande', nome: 'Bevande', ordine: 30 },
   { id: 'dessert', nome: 'Dessert', ordine: 40 },
 ];
+
+// Il menù dei banchi: se lo gestisce chi ci lavora, non l'amministratore.
+// Qui ci sono solo due gruppi e poche voci per poter provare le schermate.
+const MENU_BANCHI = {
+  bar: {
+    categorie: [
+      { id: 'birre', nome: 'Birre', ordine: 0 },
+      { id: 'caffetteria', nome: 'Caffetteria', ordine: 10 },
+    ],
+    prodotti: [
+      { id: 'birra-piccola', categoriaId: 'birre', ordine: 0, nome: 'Birra piccola', note: '0,2 l alla spina', prezzo: 3, esauritoSerata: null },
+      { id: 'birra-grande', categoriaId: 'birre', ordine: 10, nome: 'Birra grande', note: '0,4 l alla spina', prezzo: 5, esauritoSerata: null },
+      { id: 'caffe', categoriaId: 'caffetteria', ordine: 0, nome: 'Caffè', note: '', prezzo: 1.2, esauritoSerata: null },
+      { id: 'amaro', categoriaId: 'caffetteria', ordine: 10, nome: 'Amaro', note: 'della casa', prezzo: 3, esauritoSerata: null },
+    ],
+  },
+  bevande: {
+    categorie: [
+      { id: 'analcolici', nome: 'Analcolici', ordine: 0 },
+      { id: 'vini', nome: 'Vini', ordine: 10 },
+    ],
+    prodotti: [
+      { id: 'acqua-banco', categoriaId: 'analcolici', ordine: 0, nome: 'Acqua 0,5 l', note: 'naturale o frizzante', prezzo: 1, esauritoSerata: null },
+      { id: 'bibita', categoriaId: 'analcolici', ordine: 10, nome: 'Bibita in lattina', note: '', prezzo: 2.5, esauritoSerata: null },
+      { id: 'vino-bicchiere', categoriaId: 'vini', ordine: 0, nome: 'Vino al bicchiere', note: 'rosso o bianco', prezzo: 2, esauritoSerata: null },
+      { id: 'vino-caraffa', categoriaId: 'vini', ordine: 10, nome: 'Vino in caraffa', note: '1 litro', prezzo: 6, esauritoSerata: null },
+    ],
+  },
+};
 
 // Le parti che i settori preparano davvero, ciascuna con il suo settore.
 const COMPONENTI_FITTIZI = [
@@ -102,7 +133,23 @@ async function creaUtenteProva({ nomeUtente, nome, amministratore, accessi, lett
 async function main() {
   const oggi = new Date().toISOString().slice(0, 10);
 
-  await db.collection('serate').doc(oggi).set({ id: oggi, data: oggi, aperta: true, contatoreOrdini: 0, contatoriCassa: {} });
+  // La serata si crea se non c'è, ma NON si riscrive se c'è già: rilanciare il
+  // seed a metà giornata riazzerava i contatori, e i numeri di comanda
+  // ripartivano da capo sopra ordini che esistevano ancora — due A0001 nella
+  // stessa serata, e la ricerca per codice ne trovava due.
+  const serataRef = db.collection('serate').doc(oggi);
+  if (!(await serataRef.get()).exists) {
+    await serataRef.set({ id: oggi, data: oggi, aperta: true, contatoreOrdini: 0, contatoriCassa: {}, contatoriBanco: {} });
+  }
+
+  for (const [banco, menu] of Object.entries(MENU_BANCHI)) {
+    for (const categoria of menu.categorie) {
+      await db.doc(`banchi/${banco}/categorie/${categoria.id}`).set(categoria);
+    }
+    for (const prodotto of menu.prodotti) {
+      await db.doc(`banchi/${banco}/prodotti/${prodotto.id}`).set(prodotto);
+    }
+  }
 
   for (const categoria of CATEGORIE_FITTIZIE) {
     await db.collection('categorie').doc(categoria.id).set(categoria);

@@ -2459,3 +2459,104 @@ body.trascinamento-in-corso {
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
+
+/* ---------- i banchi (BAR, BEVANDE) ---------- */
+
+/* Quale banco si sta usando, sotto le linguette: BAR e BEVANDE sono la stessa
+   schermata, e chi ci lavora deve capire in un colpo dove si trova. */
+.targhetta-banco {
+  align-self: flex-start;
+  margin: 0 0 10px;
+  padding: 3px 14px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+}
+
+/* Il menù di un banco ha sei colonne invece di dieci: la misura minima della
+   tabella della sagra, qui, lascerebbe una distesa di bianco. */
+.tabella-menu-banco {
+  min-width: 42rem;
+}
+.tabella-menu-banco .col-piatto {
+  width: 26%;
+}
+.tabella-menu-banco .col-note {
+  width: 38%;
+}
+.tabella-menu-banco .col-prezzo {
+  width: 12%;
+}
+.tabella-menu-banco .col-esaurito {
+  width: 9%;
+}
+.tabella-menu-banco .col-elimina {
+  width: 12%;
+}
+
+/* L'incasso del banco accanto al conteggio degli ordini, in cima
+   all'archivio: è il numero che si controlla a fine turno. */
+.totale-archivio {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.totale-archivio strong {
+  font-size: 1.2rem;
+  color: var(--oro);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Le comande del bere arrivate dalla cassa: quadrati affiancati, non un
+   elenco lungo. Al banco si guardano da lontano e si lavora a due mani. */
+.elenco-comande {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 12px;
+}
+.elenco-comande .comanda {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--accent);
+  border-radius: var(--radius);
+}
+/* Una comanda già segnata pronta resta in vista finché la Distribuzione non
+   la porta via, ma non deve più chiamare l'occhio. */
+.elenco-comande .comanda.stato-pronta {
+  border-left-color: var(--success);
+  opacity: 0.7;
+}
+.testata-comanda-banco {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.testata-comanda-banco .numero {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.testata-comanda-banco .ora {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-right: auto;
+}
+.azioni-comanda {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+.azioni-comanda button {
+  flex: 1;
+}

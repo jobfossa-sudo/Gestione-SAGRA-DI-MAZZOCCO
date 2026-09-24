@@ -1,5 +1,11 @@
 import { httpsCallable } from 'firebase/functions';
 import type {
+  AnnullaOrdineBancoRichiesta,
+  AnnullaOrdineBancoRisposta,
+  SegnaComandaStampataRichiesta,
+  SegnaComandaStampataRisposta,
+  CreaOrdineBancoRichiesta,
+  CreaOrdineBancoRisposta,
   AnnullaOrdineRichiesta,
   AnnullaOrdineRisposta,
   ChiudiOrdineRichiesta,
@@ -40,6 +46,27 @@ export const confermaOrdine = httpsCallable<ConfermaOrdineRichiesta, CreaOrdineR
 export const annullaOrdine = httpsCallable<AnnullaOrdineRichiesta, AnnullaOrdineRisposta>(
   functions,
   'annullaOrdine'
+);
+
+/** Un ordine battuto a un banco (BAR, BEVANDE): nasce già incassato, perché
+ * al banco si paga subito. Il server rilegge i prezzi dal menù del banco. */
+export const creaOrdineBanco = httpsCallable<CreaOrdineBancoRichiesta, CreaOrdineBancoRisposta>(
+  functions,
+  'creaOrdineBanco'
+);
+
+/** Annulla un incasso sbagliato di un banco: resta in archivio barrato e
+ * sparisce dal totale della serata. */
+export const annullaOrdineBanco = httpsCallable<AnnullaOrdineBancoRichiesta, AnnullaOrdineBancoRisposta>(
+  functions,
+  'annullaOrdineBanco'
+);
+
+/** Il banco BEVANDE si prende la stampa di una comanda arrivata dalla cassa:
+ * risponde "daStampare" a uno solo, così il foglio esce una volta sola. */
+export const segnaComandaStampata = httpsCallable<SegnaComandaStampataRichiesta, SegnaComandaStampataRisposta>(
+  functions,
+  'segnaComandaStampata'
 );
 
 export const impostaPorzioni = httpsCallable<ImpostaPorzioniRichiesta, ProdottoRisposta>(functions, 'impostaPorzioni');

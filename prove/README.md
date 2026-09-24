@@ -26,6 +26,10 @@ salvata su GitHub.
   QR da parte dell'amministratore.
 - `prova-biglietti.cjs` — la composizione dei biglietti: blocchi accesi,
   spenti e trascinati, immagini, carta e stampa di prova.
+- `prova-banchi.cjs` — i banchi BAR e BEVANDE: il menù che si gestiscono da
+  soli, l'incasso con lo scontrino, l'archivio con ristampa e annullamento, le
+  comande del bere che arrivano a BEVANDE dalla cassa dei tavoli e gli incassi
+  dei banchi dentro il totale di Fine serata.
 - `prova-offline.cjs` — cosa si vede quando la rete cade.
 - `prova-carattere.cjs` — i tasti che rimpiccioliscono e ingrandiscono le
   scritte: in Comande, sul telefono del cliente e nell'app Utenti. Controlla

@@ -397,7 +397,10 @@ export function NuovoOrdine() {
           anche in un riepilogo a fianco, che diceva le stesse cose due volte. */}
       <div className="colonna-anteprima">
         <ResocontoCliente
-          ordine={ordineProvvisorio}
+          voci={ordineProvvisorio.items}
+          totale={ordineProvvisorio.totale}
+          tavolo={ordineProvvisorio.tavolo}
+          coperti={ordineProvvisorio.coperti}
           nota="Il conto da controllare insieme al cliente. Il numero di comanda lo assegna la conferma."
         />
 

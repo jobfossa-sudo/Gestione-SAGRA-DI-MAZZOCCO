@@ -28,6 +28,7 @@ echo Tutto acceso.
 echo   Comande: http://127.0.0.1:5173
 echo   Utenti:  http://127.0.0.1:5174
 echo   Dati:    http://127.0.0.1:4000
-echo Utenti di prova: admin, cassa, cucina, griglia, bar, consegna, jolly - password prova1234
+echo Utenti di prova: admin, cassa, cucina, griglia, bar, distribuzione, bancobar,
+echo   bancobevande, jolly - password prova1234
 echo.
 pause

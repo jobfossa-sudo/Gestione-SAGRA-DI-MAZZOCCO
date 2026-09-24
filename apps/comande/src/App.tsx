@@ -5,6 +5,7 @@ import './App.css';
 import { AreaCassa } from './components/AreaCassa';
 import { AreaStampa } from './components/AreaStampa';
 import { AvvisoRete } from './components/AvvisoRete';
+import { AreaBanco } from './components/AreaBanco';
 import { Biglietti } from './components/Biglietti';
 import { Composizioni } from './components/Composizioni';
 import { GestioneMenu } from './components/GestioneMenu';
@@ -43,6 +44,10 @@ const AREE: Area[] = [
   { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa, larga: false },
   { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli, larga: false },
   { nome: 'Distribuzione', ruoli: ['distribuzione'] as RuoloComande[], soloAmministratore: false, contenuto: Distribuzione, larga: false },
+  // I due banchi sono la stessa schermata con dentro un id diverso: quello che
+  // li distingue sta tutto in AreaBanco, non qui.
+  { nome: 'BAR', ruoli: ['bancoBar'] as RuoloComande[], soloAmministratore: false, contenuto: () => <AreaBanco banco="bar" />, larga: false },
+  { nome: 'BEVANDE', ruoli: ['bancoBevande'] as RuoloComande[], soloAmministratore: false, contenuto: () => <AreaBanco banco="bevande" />, larga: false },
 ];
 
 const dataSerata = new Date(SERATA_ID_OGGI).toLocaleDateString('it-IT', {

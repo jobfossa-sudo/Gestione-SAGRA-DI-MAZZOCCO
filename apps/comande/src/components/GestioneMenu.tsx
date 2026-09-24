@@ -1,5 +1,5 @@
 import { deleteDoc, doc, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   NOME_SETTORE,
   PASSO_ORDINE,
@@ -10,6 +10,7 @@ import {
   type Settore,
 } from '@sagra-mazzocco/shared';
 import { useCategorie, useDisponibilita, useProdotti } from '../hooks';
+import { useTrascinamento, type Trascinamento } from './trascinamento';
 import { impostaPorzioni, messaggioErrore, segnaEsaurito } from '../services/callables';
 import { db } from '../services/firebase';
 import { idLibero } from '../services/identificativi';
@@ -425,120 +426,6 @@ function RigaCategoria({
 }
 
 // ---------------------------------------------------------------------------
-// Trascinamento dei piatti da una portata all'altra
-// ---------------------------------------------------------------------------
-
-interface Bersaglio {
-  categoriaId: string;
-  /** Piatto davanti al quale finisce quello trascinato; null = in fondo. */
-  primaDi: string | null;
-}
-
-interface Trascinamento {
-  prodottoId: string | null;
-  bersaglio: Bersaglio | null;
-  inizia: (prodottoId: string) => void;
-}
-
-/** Dove finirebbe il piatto se lo si lasciasse qui: si guarda la riga sotto il
- * dito (o il puntatore) e se si è nella sua metà di sopra o di sotto. */
-function bersaglioSotto(x: number, y: number): Bersaglio | null {
-  const riga = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest('tr[data-categoria]') as
-    | HTMLTableRowElement
-    | undefined
-    | null;
-  if (!riga) return null;
-  const categoriaId = riga.dataset.categoria!;
-  const prodottoId = riga.dataset.prodotto;
-  // La riga "aggiungi un piatto" chiude la portata: lasciarci sopra vuol dire
-  // mettere il piatto in fondo.
-  if (!prodottoId) return { categoriaId, primaDi: null };
-
-  const area = riga.getBoundingClientRect();
-  if (y < area.top + area.height / 2) return { categoriaId, primaDi: prodottoId };
-
-  let successiva = riga.nextElementSibling as HTMLElement | null;
-  while (successiva && !successiva.dataset.categoria) successiva = successiva.nextElementSibling as HTMLElement | null;
-  return { categoriaId, primaDi: successiva?.dataset.prodotto ?? null };
-}
-
-/** Trascinamento con gli eventi del puntatore invece del meccanismo nativo del
- * browser: quello non funziona col dito sui tablet, e qui il menù si sistema
- * anche da lì. */
-function useTrascinamento(prodotti: Prodotto[], segnalaErrore: (m: string | null) => void): Trascinamento {
-  const [prodottoId, setProdottoId] = useState<string | null>(null);
-  const [bersaglio, setBersaglio] = useState<Bersaglio | null>(null);
-  const bersaglioRef = useRef<Bersaglio | null>(null);
-  const prodottiRef = useRef(prodotti);
-  prodottiRef.current = prodotti;
-
-  /** Rinumera la portata di destinazione da capo, di dieci in dieci, e scrive
-   * solo i piatti che hanno davvero cambiato posto. */
-  const deposita = useCallback(
-    async (idInVolo: string, dove: Bersaglio) => {
-      const elenco = prodottiRef.current;
-      const inVolo = elenco.find((p) => p.id === idInVolo);
-      if (!inVolo) return;
-
-      const destinazione = elenco.filter((p) => p.categoriaId === dove.categoriaId && p.id !== inVolo.id);
-      const posizione = dove.primaDi === null ? -1 : destinazione.findIndex((p) => p.id === dove.primaDi);
-      destinazione.splice(posizione < 0 ? destinazione.length : posizione, 0, inVolo);
-
-      const batch = writeBatch(db);
-      let daScrivere = 0;
-      destinazione.forEach((p, indice) => {
-        const ordine = indice * PASSO_ORDINE;
-        if (p.ordine === ordine && p.categoriaId === dove.categoriaId) return;
-        batch.update(doc(db, 'prodotti', p.id), { ordine, categoriaId: dove.categoriaId });
-        daScrivere++;
-      });
-      if (daScrivere === 0) return;
-      try {
-        await batch.commit();
-        segnalaErrore(null);
-      } catch (err) {
-        segnalaErrore(messaggioErrore(err));
-      }
-    },
-    [segnalaErrore]
-  );
-
-  useEffect(() => {
-    if (!prodottoId) return;
-
-    function muovi(e: PointerEvent) {
-      e.preventDefault();
-      const nuovo = bersaglioSotto(e.clientX, e.clientY);
-      bersaglioRef.current = nuovo;
-      setBersaglio((prec) =>
-        prec?.categoriaId === nuovo?.categoriaId && prec?.primaDi === nuovo?.primaDi ? prec : nuovo
-      );
-    }
-
-    function rilascia() {
-      const dove = bersaglioRef.current;
-      bersaglioRef.current = null;
-      setBersaglio(null);
-      setProdottoId(null);
-      if (dove) deposita(prodottoId!, dove);
-    }
-
-    document.body.classList.add('trascinamento-in-corso');
-    window.addEventListener('pointermove', muovi, { passive: false });
-    window.addEventListener('pointerup', rilascia);
-    window.addEventListener('pointercancel', rilascia);
-    return () => {
-      document.body.classList.remove('trascinamento-in-corso');
-      window.removeEventListener('pointermove', muovi);
-      window.removeEventListener('pointerup', rilascia);
-      window.removeEventListener('pointercancel', rilascia);
-    };
-  }, [prodottoId, deposita]);
-
-  return { prodottoId, bersaglio, inizia: setProdottoId };
-}
-
-// ---------------------------------------------------------------------------
 // Pannello
 // ---------------------------------------------------------------------------
 
@@ -548,7 +435,7 @@ export function GestioneMenu() {
   const disponibilita = useDisponibilita();
   const [errore, setErrore] = useState<string | null>(null);
   const [nuovaPortata, setNuovaPortata] = useState('');
-  const trascinamento = useTrascinamento(prodotti, setErrore);
+  const trascinamento = useTrascinamento(prodotti, 'prodotti', setErrore);
 
   const idPresi = useMemo(() => new Set(prodotti.map((p) => p.id)), [prodotti]);
 

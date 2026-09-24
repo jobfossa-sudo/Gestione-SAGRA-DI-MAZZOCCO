@@ -65,6 +65,22 @@ import {
   REGOLA_LETTERA_CASSA,
   formattaCodiceOrdine,
   componiCodiceBarre,
+  Banco,
+  BANCHI,
+  RUOLO_BANCO,
+  BANCO_CON_COMANDE,
+  SETTORE_DEL_BANCO,
+  NOME_BANCO,
+  ProdottoBanco,
+  ItemOrdineBanco,
+  OrdineBanco,
+  formattaCodiceBanco,
+  CreaOrdineBancoRichiesta,
+  CreaOrdineBancoRisposta,
+  SegnaComandaStampataRichiesta,
+  SegnaComandaStampataRisposta,
+  AnnullaOrdineBancoRichiesta,
+  AnnullaOrdineBancoRisposta,
 } from '@sagra-mazzocco/shared';
 
 initializeApp();
@@ -323,7 +339,12 @@ function scalaPorzioni(transaction: Transaction, serataId: string, righe: RigaDi
 async function leggiSerataAperta(
   transaction: Transaction,
   serataId: string
-): Promise<{ ref: DocumentReference; contatoreOrdini: number; contatoriCassa: Record<string, number> }> {
+): Promise<{
+  ref: DocumentReference;
+  contatoreOrdini: number;
+  contatoriCassa: Record<string, number>;
+  contatoriBanco: Record<string, number>;
+}> {
   const ref = db.collection('serate').doc(serataId);
   const snapshot = await transaction.get(ref);
   if (!snapshot.exists) {
@@ -333,7 +354,12 @@ async function leggiSerataAperta(
   if (!serata.aperta) {
     throw new HttpsError('failed-precondition', 'La serata è chiusa.');
   }
-  return { ref, contatoreOrdini: serata.contatoreOrdini, contatoriCassa: serata.contatoriCassa ?? {} };
+  return {
+    ref,
+    contatoreOrdini: serata.contatoreOrdini,
+    contatoriCassa: serata.contatoriCassa ?? {},
+    contatoriBanco: serata.contatoriBanco ?? {},
+  };
 }
 
 /** La lettera di cassa di chi sta battendo l'ordine, letta dal suo profilo
@@ -1102,3 +1128,196 @@ export const annullaOrdine = onCall(CHIAMABILE, async (request: CallableRequest<
 
   return { ordineId };
 });
+
+// ---------------------------------------------------------------------------
+// I banchi (BAR, BEVANDE)
+//
+// Un banco vende per conto suo: nessuna comanda ai reparti, nessuna porzione
+// da scalare sul menù della sagra, nessun tavolo. Si batte, si incassa, esce
+// lo scontrino. L'ordine nasce già incassato, perché al banco si paga subito.
+//
+// I prezzi si rileggono sempre dal menù del banco, mai da quello che manda il
+// client: l'incasso della serata finisce in contabilità, e un totale che
+// arriva dal browser non è un totale, è una proposta.
+// ---------------------------------------------------------------------------
+
+/** Chi può lavorare a questo banco: il suo ruolo, o l'amministratore. */
+function richiedeBanco(request: CallableRequest, banco: Banco): { uid: string; nome: string } {
+  richiedeRuoloComande(request, RUOLO_BANCO[banco]);
+  const token = request.auth!.token as { name?: string; nome?: string };
+  return { uid: request.auth!.uid, nome: token.name ?? token.nome ?? '' };
+}
+
+function validaBanco(valore: unknown): Banco {
+  if (typeof valore !== 'string' || !BANCHI.includes(valore as Banco)) {
+    throw new HttpsError('invalid-argument', 'Banco non valido.');
+  }
+  return valore as Banco;
+}
+
+/** Le voci dell'ordine ricostruite dal menù del banco: nome e prezzo sono
+ * quelli in archivio adesso, non quelli che aveva in mano il browser. */
+async function costruisciItemsBanco(
+  transaction: Transaction,
+  banco: Banco,
+  serataId: string,
+  itemsRichiesti: ItemOrdineRichiesta[]
+): Promise<{ items: ItemOrdineBanco[]; totale: number }> {
+  const items: ItemOrdineBanco[] = [];
+  let totale = 0;
+
+  for (const richiesto of itemsRichiesti) {
+    const ref = db.doc(`banchi/${banco}/prodotti/${richiesto.prodottoId}`);
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists) {
+      throw new HttpsError('not-found', `Voce inesistente nel menù ${NOME_BANCO[banco]}: ${richiesto.prodottoId}.`);
+    }
+    const prodotto = snapshot.data() as ProdottoBanco;
+    if (prodotto.esauritoSerata === serataId) {
+      throw new HttpsError('failed-precondition', `Abbiamo appena terminato: ${prodotto.nome}.`);
+    }
+    items.push({
+      prodottoId: richiesto.prodottoId,
+      nome: prodotto.nome,
+      prezzo: prodotto.prezzo,
+      quantita: richiesto.quantita,
+    });
+    totale += prodotto.prezzo * richiesto.quantita;
+  }
+
+  return { items, totale: Math.round(totale * 100) / 100 };
+}
+
+/** Il nome di chi sta battendo, per l'archivio del banco. Si legge dal profilo
+ * e non dal token: il token porta l'email tecnica, che non dice niente a
+ * nessuno. */
+async function leggiNomeUtente(transaction: Transaction, uid: string): Promise<string> {
+  const snapshot = await transaction.get(db.doc(`utenti/${uid}`));
+  return (snapshot.data() as Utente | undefined)?.nome ?? '';
+}
+
+export const creaOrdineBanco = onCall(
+  CHIAMABILE,
+  async (request: CallableRequest<CreaOrdineBancoRichiesta>): Promise<CreaOrdineBancoRisposta> => {
+    const { serataId, banco, items } = request.data ?? ({} as CreaOrdineBancoRichiesta);
+    const bancoValidato = validaBanco(banco);
+    richiedeBanco(request, bancoValidato);
+    if (typeof serataId !== 'string' || !serataId) {
+      throw new HttpsError('invalid-argument', 'Serata non valida.');
+    }
+    const itemsRichiesti = validaItemsRichiesti(items);
+    const uid = request.auth!.uid;
+
+    return db.runTransaction(async (transaction) => {
+      // Prima tutte le letture: dentro una transazione non si legge più dopo
+      // aver scritto.
+      const serata = await leggiSerataAperta(transaction, serataId);
+      const { items: itemsOrdine, totale } = await costruisciItemsBanco(
+        transaction,
+        bancoValidato,
+        serataId,
+        itemsRichiesti
+      );
+      const nome = await leggiNomeUtente(transaction, uid);
+
+      // Il contatore sta sulla serata e viene aggiornato dentro la
+      // transazione: due baristi che battono nello stesso istante non possono
+      // prendere lo stesso numero.
+      const numero = (serata.contatoriBanco[bancoValidato] ?? 0) + 1;
+      transaction.update(serata.ref, { [`contatoriBanco.${bancoValidato}`]: numero });
+
+      const ordineRef = db.collection(`serate/${serataId}/ordiniBanco`).doc();
+      const ordine: OrdineBanco = {
+        id: ordineRef.id,
+        serataId,
+        banco: bancoValidato,
+        numero,
+        codice: formattaCodiceBanco(bancoValidato, numero),
+        stato: 'incassato',
+        items: itemsOrdine,
+        totale,
+        operatoreUid: uid,
+        operatoreNome: nome,
+        createdAt: FieldValue.serverTimestamp() as unknown as OrdineBanco['createdAt'],
+        cancelledAt: null,
+      };
+      transaction.set(ordineRef, ordine);
+
+      return { ordineId: ordineRef.id, numero, codice: ordine.codice, totale };
+    });
+  }
+);
+
+/** Annulla un ordine già battuto: l'unico modo di correggere un errore, visto
+ * che al banco l'ordine nasce già incassato. Resta in archivio barrato — via
+ * dall'incasso ma non dalla storia della serata. */
+export const annullaOrdineBanco = onCall(
+  CHIAMABILE,
+  async (request: CallableRequest<AnnullaOrdineBancoRichiesta>): Promise<AnnullaOrdineBancoRisposta> => {
+    const { serataId, ordineId } = request.data ?? ({} as AnnullaOrdineBancoRichiesta);
+    if (typeof serataId !== 'string' || !serataId || typeof ordineId !== 'string' || !ordineId) {
+      throw new HttpsError('invalid-argument', 'Ordine non valido.');
+    }
+    const uid = request.auth?.uid;
+
+    await db.runTransaction(async (transaction) => {
+      const ordineRef = db.doc(`serate/${serataId}/ordiniBanco/${ordineId}`);
+      const snapshot = await transaction.get(ordineRef);
+      if (!snapshot.exists) {
+        throw new HttpsError('not-found', 'Ordine inesistente.');
+      }
+      const ordine = snapshot.data() as OrdineBanco;
+      // Il permesso si controlla sul banco dell'ordine, non su quello che
+      // dichiara il client: chi sta al BAR non annulla gli incassi di BEVANDE.
+      richiedeBanco(request, ordine.banco);
+      if (ordine.stato === 'annullato') {
+        throw new HttpsError('failed-precondition', 'Questo ordine è già annullato.');
+      }
+      const nome = uid ? await leggiNomeUtente(transaction, uid) : '';
+
+      transaction.update(ordineRef, {
+        stato: 'annullato',
+        cancelledAt: FieldValue.serverTimestamp(),
+        annullatoDaNome: nome,
+      });
+    });
+
+    return { ordineId };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// segnaComandaStampata — il banco che riceve le comande dalla cassa (BEVANDE)
+// si prende la stampa di una di esse. Stesso meccanismo della copia cucina in
+// Distribuzione: risponde "daStampare" a uno solo, così con due schermi accesi
+// o ricaricando la pagina il foglio esce una volta sola.
+// ---------------------------------------------------------------------------
+
+export const segnaComandaStampata = onCall(
+  CHIAMABILE,
+  async (request: CallableRequest<SegnaComandaStampataRichiesta>): Promise<SegnaComandaStampataRisposta> => {
+    richiedeRuoloComande(request, RUOLO_BANCO[BANCO_CON_COMANDE]);
+    const { serataId, sottoOrdineId } = request.data ?? ({} as SegnaComandaStampataRichiesta);
+    if (typeof serataId !== 'string' || !serataId || typeof sottoOrdineId !== 'string' || !sottoOrdineId) {
+      throw new HttpsError('invalid-argument', 'Comanda non valida.');
+    }
+
+    const ref = db.doc(`serate/${serataId}/sottoOrdini/${sottoOrdineId}`);
+
+    return db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) {
+        throw new HttpsError('not-found', 'Comanda inesistente.');
+      }
+      const sottoOrdine = snapshot.data() as SottoOrdine;
+      if (sottoOrdine.settore !== SETTORE_DEL_BANCO) {
+        throw new HttpsError('failed-precondition', 'Questa comanda non è del banco delle bevande.');
+      }
+      if (sottoOrdine.stampataAt) {
+        return { sottoOrdineId, daStampare: false };
+      }
+      transaction.update(ref, { stampataAt: FieldValue.serverTimestamp() });
+      return { sottoOrdineId, daStampare: true };
+    });
+  }
+);

@@ -1,5 +1,5 @@
-import { tempoEmissione, type Ordine } from '@sagra-mazzocco/shared';
-import { useLetteraCassa, useOrdiniAperti, useOrdiniCompletati, useUtenteAutenticato } from '../hooks';
+import { BANCHI, NOME_BANCO, tempoEmissione, type Ordine } from '@sagra-mazzocco/shared';
+import { useLetteraCassa, useOrdiniAperti, useOrdiniBanco, useOrdiniCompletati, useUtenteAutenticato } from '../hooks';
 import { durata, euro } from '../services/formato';
 
 /** Un quadrato con il solo numero in grande: il colpo d'occhio di fine
@@ -42,7 +42,18 @@ export function FineSerata() {
   // quelli già consegnati. Le bozze e i confermati non ancora pagati no, e
   // gli annullati nemmeno — non compaiono in nessuna delle due liste.
   const pagati = [...inEvasione, ...completati];
-  const incassoTotale = pagati.reduce((somma, o) => somma + o.totale, 0);
+  const incassoCasse = pagati.reduce((somma, o) => somma + o.totale, 0);
+
+  // I banchi (BAR, BEVANDE) incassano per conto loro, ma i soldi della serata
+  // sono gli stessi: ciascuno ha il suo quadrato e tutti entrano nel totale.
+  // Gli ordini annullati restano in archivio ma non contano più niente.
+  const ordiniBanco = useOrdiniBanco().filter((o) => o.stato === 'incassato');
+  const banchi = BANCHI.map((banco) => {
+    const suoi = ordiniBanco.filter((o) => o.banco === banco);
+    return { banco, ordini: suoi.length, totale: suoi.reduce((somma, o) => somma + o.totale, 0) };
+  });
+  const incassoBanchi = banchi.reduce((somma, riga) => somma + riga.totale, 0);
+  const incassoTotale = incassoCasse + incassoBanchi;
 
   // Un quadrato per ogni cassa che ha incassato, più sempre il proprio: chi
   // sta lavorando vede il suo conto anche prima del primo ordine.
@@ -144,11 +155,22 @@ export function FineSerata() {
             }
           />
         ))}
+        {banchi.map((riga) => (
+          <Quadrato
+            key={riga.banco}
+            titolo={`Incasso ${NOME_BANCO[riga.banco]}`}
+            valore={euro(riga.totale)}
+            tono="incasso"
+            spiegazione={`${riga.ordini} ${riga.ordini === 1 ? 'scontrino battuto' : 'scontrini battuti'} al banco`}
+          />
+        ))}
         <Quadrato
           titolo="Incasso totale"
           valore={euro(incassoTotale)}
           tono="incasso-totale"
-          spiegazione={`Tutte le casse insieme, ${pagati.length} ${pagati.length === 1 ? 'ordine pagato' : 'ordini pagati'}`}
+          spiegazione={`Casse e banchi insieme, ${pagati.length + ordiniBanco.length} ${
+            pagati.length + ordiniBanco.length === 1 ? 'ordine pagato' : 'ordini pagati'
+          }`}
         />
       </div>
 

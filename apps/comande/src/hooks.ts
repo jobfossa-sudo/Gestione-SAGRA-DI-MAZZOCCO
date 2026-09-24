@@ -3,6 +3,10 @@ import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/fir
 import { useEffect, useState } from 'react';
 import { BIGLIETTI_INIZIALI, TIPI_BIGLIETTO } from '@sagra-mazzocco/shared';
 import type {
+  Banco,
+  CategoriaBanco,
+  ProdottoBanco,
+  OrdineBanco,
   Biglietto,
   TipoBiglietto,
   Immagine,
@@ -248,4 +252,59 @@ export function useImmagini(): Map<string, Immagine> {
   );
 
   return immagini;
+}
+
+/** I gruppi del menù di un banco (Birre, Caffetteria…). Li gestisce chi sta
+ * al banco, non l'amministratore. */
+export function useCategorieBanco(banco: Banco): CategoriaBanco[] {
+  const [categorie, setCategorie] = useState<CategoriaBanco[]>([]);
+
+  useEffect(
+    () =>
+      onSnapshot(query(collection(db, `banchi/${banco}/categorie`), orderBy('ordine')), (snapshot) => {
+        setCategorie(snapshot.docs.map((doc) => doc.data() as CategoriaBanco));
+      }),
+    [banco]
+  );
+
+  return categorie;
+}
+
+/** Le voci in vendita a un banco, già in ordine di menù. */
+export function useProdottiBanco(banco: Banco): ProdottoBanco[] {
+  const [prodotti, setProdotti] = useState<ProdottoBanco[]>([]);
+
+  useEffect(
+    () =>
+      onSnapshot(query(collection(db, `banchi/${banco}/prodotti`), orderBy('ordine')), (snapshot) => {
+        setProdotti(snapshot.docs.map((doc) => doc.data() as ProdottoBanco));
+      }),
+    [banco]
+  );
+
+  return prodotti;
+}
+
+/** Gli ordini battuti ai banchi stasera, dal più recente. Senza argomento li
+ * dà tutti — serve a Fine serata, che somma gli incassi di tutti i banchi —
+ * con un banco solo quelli suoi, per il suo archivio.
+ *
+ * L'ordinamento arriva da Firestore su un campo solo (niente indici da creare)
+ * e il filtro per banco si fa qui: i numeri sono progressivi per banco, quindi
+ * ordinarli tutti insieme mescolerebbe due numerazioni. */
+export function useOrdiniBanco(banco?: Banco): OrdineBanco[] {
+  const [ordini, setOrdini] = useState<OrdineBanco[]>([]);
+
+  useEffect(
+    () =>
+      onSnapshot(
+        query(collection(db, `serate/${SERATA_ID_OGGI}/ordiniBanco`), orderBy('numero', 'desc')),
+        (snapshot) => {
+          setOrdini(snapshot.docs.map((doc) => doc.data() as OrdineBanco));
+        }
+      ),
+    []
+  );
+
+  return banco ? ordini.filter((ordine) => ordine.banco === banco) : ordini;
 }

@@ -17,7 +17,19 @@ service cloud.firestore {
     function personaleComande() {
       return amministratore()
         || (request.auth != null
-            && request.auth.token.get('comande', []).hasAny(['cassa', 'cucina', 'griglia', 'bar', 'distribuzione']));
+            && request.auth.token.get('comande', []).hasAny(
+                 ['cassa', 'cucina', 'griglia', 'bar', 'distribuzione', 'bancoBar', 'bancoBevande']));
+    }
+
+    // Chi lavora a un banco preciso. Il menù di un banco se lo gestisce chi ci
+    // sta dietro, quindi qui le scritture dal client sono permesse — a
+    // differenza degli ordini, che passano sempre dalle Cloud Functions.
+    // Scritto banco per banco e non con una formula: un id sconosciuto non
+    // deve cadere per sbaglio nel ramo di qualcun altro.
+    function ruoloDelBanco(banco) {
+      return request.auth != null
+        && ((banco == 'bar' && request.auth.token.get('comande', []).hasAny(['bancoBar']))
+            || (banco == 'bevande' && request.auth.token.get('comande', []).hasAny(['bancoBevande'])));
     }
 
     // Menu: lettura pubblica (serve alla pagina QR non autenticata),
@@ -52,9 +64,35 @@ service cloud.firestore {
       allow write: if amministratore();
     }
 
+    // Menù dei banchi (BAR, BEVANDE): lo compila chi sta a quel banco, e
+    // l'amministratore che può tutto. Lo leggono tutti gli altri del
+    // personale, non il cliente dal QR: al banco si ordina di persona.
+    match /banchi/{banco} {
+      allow read: if personaleComande();
+      allow write: if false;
+
+      match /categorie/{categoriaId} {
+        allow read: if personaleComande();
+        allow write: if amministratore() || ruoloDelBanco(banco);
+      }
+
+      match /prodotti/{prodottoId} {
+        allow read: if personaleComande();
+        allow write: if amministratore() || ruoloDelBanco(banco);
+      }
+    }
+
     match /serate/{serataId} {
       allow read: if personaleComande();
       allow write: if false;
+
+      // Ordini battuti ai banchi. Li scrivono solo le Cloud Functions, come
+      // tutti gli altri ordini: il totale della serata non può dipendere da
+      // quello che un client si mette in testa di mandare.
+      match /ordiniBanco/{ordineId} {
+        allow read: if personaleComande();
+        allow write: if false;
+      }
 
       match /ordini/{ordineId} {
         allow read: if personaleComande();
