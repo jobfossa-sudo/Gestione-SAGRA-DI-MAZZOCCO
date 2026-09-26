@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contabilità · Sagra di Mazzocco</title>
+    <script>
+      // Il tema scelto si applica qui, prima che la pagina venga disegnata:
+      // altrimenti chi usa lo sfondo scuro vedrebbe un lampo bianco a ogni
+      // apertura. La scelta la gestisce shared/src/tema.ts.
+      (function () {
+        var scelta = 'sistema';
+        try {
+          scelta = localStorage.getItem('tema') || 'sistema';
+        } catch (e) {
+          /* browser che vieta la memoria locale: si usa quello di sistema */
+        }
+        var scuro =
+          scelta === 'scuro' ||
+          (scelta !== 'chiaro' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.tema = scuro ? 'scuro' : 'chiaro';
+
+        // Stessa cosa per la grandezza delle scritte: applicata qui, la
+        // pagina non si vede saltare da una misura all'altra all'apertura.
+        // La scelta la gestisce shared/src/carattere.ts.
+        var misura = 0;
+        try {
+          misura = Number(localStorage.getItem('carattere'));
+        } catch (e) {
+          /* browser che vieta la memoria locale: si usa quella normale */
+        }
+        if ([15, 17, 19, 21].indexOf(misura) >= 0) {
+          document.documentElement.style.fontSize = misura + 'px';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

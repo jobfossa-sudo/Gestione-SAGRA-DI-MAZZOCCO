@@ -10,7 +10,17 @@ const admin = require('../functions/node_modules/firebase-admin');
 process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
 admin.initializeApp({ projectId: 'gestione-sagra-mazzocco' });
 const db = admin.firestore();
-const SERATA = new Date().toISOString().slice(0, 10);
+/** Stessa regola di idSerata() in shared/src/index.ts: fino alle due di notte
+ * si sta ancora nella serata di ieri. */
+function idSerata(momento = new Date()) {
+  const spostato = new Date(momento.getTime() - 2 * 60 * 60 * 1000);
+  const anno = spostato.getFullYear();
+  const mese = String(spostato.getMonth() + 1).padStart(2, '0');
+  const giorno = String(spostato.getDate()).padStart(2, '0');
+  return `${anno}-${mese}-${giorno}`;
+}
+
+const SERATA = idSerata();
 
 const URL = 'http://127.0.0.1:5173/';
 const esiti = [];

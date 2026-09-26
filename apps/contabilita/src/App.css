@@ -1,0 +1,449 @@
+/* L'app della contabilità. L'aspetto di base — colori, caratteri, controlli —
+   arriva da shared/styles/base.css, uguale alle altre app della sagra: chi
+   passa da Comande a qui non deve reimparare niente. */
+
+.app-contabilita {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-contabilita > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 12px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.marchio h1 {
+  font-size: 1.15rem;
+}
+.marchio p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.app-contabilita .utente {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+/* Le schede, come le linguette di Comande. */
+.schede {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.schede button {
+  border: none;
+  background: none;
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+  padding: 10px 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.schede button:hover:not(:disabled) {
+  background: none;
+  color: var(--text);
+}
+.schede button.attiva {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Di quale sera si sta parlando: sta sempre nello stesso posto, sotto le
+   schede, e non si muove passando da una all'altra. */
+.scelta-serata {
+  padding: 10px 24px 0;
+}
+.scelta-serata label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.scelta-serata select {
+  width: auto;
+  min-width: 18rem;
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.app-contabilita main {
+  padding: 16px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1200px;
+  width: 100%;
+}
+
+.riquadro {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  box-shadow: var(--shadow);
+}
+.riquadro h2 {
+  font-size: 1.05rem;
+}
+.spiegazione {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  margin: 3px 0 9px;
+  max-width: 95ch;
+}
+.vuoto {
+  padding: 18px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.errore {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+
+/* ---------- i quadrati dei numeri ---------- */
+
+.riga-quadrati {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 12px;
+}
+.quadrato {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.quadrato h3 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+.valore-quadrato {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  margin: 2px 0;
+}
+.quadrato .spiegazione {
+  margin: 0;
+  font-size: 0.78rem;
+}
+/* I toni dicono di che numero si tratta senza doverlo leggere: i soldi che
+   entrano in verde, quelli che escono in rosso, il risultato in giallo. */
+.quadrato-incasso {
+  border-left: 5px solid var(--success);
+}
+.quadrato-incasso .valore-quadrato {
+  color: var(--success);
+}
+.quadrato-uscita {
+  border-left: 5px solid var(--danger);
+}
+.quadrato-uscita .valore-quadrato {
+  color: var(--danger);
+}
+.quadrato-incasso-totale,
+.quadrato-utile {
+  border: 2px solid var(--oro);
+  background: var(--oro-soft);
+}
+.quadrato-incasso-totale .valore-quadrato,
+.quadrato-utile .valore-quadrato {
+  color: var(--oro);
+  font-size: 2.1rem;
+}
+
+/* ---------- tabelle dei conti ---------- */
+
+.tabella-conti {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.tabella-conti th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.tabella-conti td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.tabella-conti tfoot td {
+  border-bottom: none;
+  border-top: 2px solid var(--border-strong);
+  font-weight: 700;
+}
+.destra {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.centro {
+  text-align: center;
+}
+.tabella-conti small {
+  color: var(--text-muted);
+}
+/* Una riga che è solo un preventivo si vede che non conta ancora. */
+.tabella-movimenti .preventivo td {
+  opacity: 0.55;
+  font-style: italic;
+}
+.tabella-presenze .presente {
+  background: var(--success-soft);
+}
+.bottone-elimina {
+  color: var(--danger);
+  border-color: var(--danger);
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
+/* ---------- chiusura di cassa ---------- */
+
+.chiusura {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.testata-cassetto {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.testata-cassetto .atteso {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.campi-cassetto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 12px;
+  margin: 10px 0;
+}
+.campi-cassetto label,
+.note-cassetto {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.campi-cassetto input {
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.campi-cassetto small {
+  font-weight: 400;
+  font-size: 0.72rem;
+}
+/* La differenza è il motivo per cui esiste questa schermata: grande, e di un
+   colore che si capisce da lontano. */
+.scarti {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.scarto {
+  flex: 1;
+  min-width: 12rem;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+}
+.scarto strong {
+  display: block;
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+}
+.scarto.giusto {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+.scarto.storto {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.scarto.assente {
+  color: var(--text-muted);
+}
+.totale-scarto {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.totale-scarto.giusto {
+  color: var(--success);
+}
+.totale-scarto.storto {
+  color: var(--danger);
+}
+.totale-scarto.assente {
+  color: var(--text-muted);
+}
+
+/* ---------- moduli di spese ed entrate ---------- */
+
+.movimenti,
+.presenze,
+.report,
+.cruscotto {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.modulo-movimento {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+.modulo-movimento label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.modulo-movimento .campo-largo {
+  grid-column: span 2;
+}
+.riga-spunta {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+}
+.riga-spunta input {
+  width: auto;
+}
+
+/* ---------- il foglio per i volontari ---------- */
+
+.foglio-volontari {
+  margin: 12px 0;
+  padding: 24px;
+  text-align: center;
+  background: var(--surface-alt);
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+.foglio-volontari .occhiello {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.numerone {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  margin-top: 10px;
+}
+.didascalia {
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.riga-volontari {
+  margin-top: 10px;
+  font-size: 1.05rem;
+}
+.grazie {
+  margin-top: 16px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.tasti-volontari {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tasti-volontari button {
+  width: auto;
+}
+
+.tabella-bilancio .riga-somma td {
+  font-weight: 700;
+  border-top: 1px solid var(--border-strong);
+}
+.tabella-bilancio .riga-utile td {
+  font-size: 1.3rem;
+  font-weight: 800;
+  border-top: 2px solid var(--border-strong);
+  border-bottom: none;
+}
+.riga-utile.positivo td {
+  color: var(--success);
+}
+.riga-utile.negativo td {
+  color: var(--danger);
+}
+
+/* In stampa esce solo il foglio dei volontari: è l'unica cosa di questa app
+   che ha senso su carta. */
+@media print {
+  .app-contabilita > header,
+  .schede,
+  .scelta-serata,
+  .riquadro h2,
+  .riquadro .spiegazione,
+  .riga-spunta,
+  .tasti-volontari,
+  .report > .riquadro:not(.riquadro-volontari) {
+    display: none !important;
+  }
+  .riquadro-volontari {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+  .foglio-volontari {
+    border: none;
+    background: none;
+  }
+}

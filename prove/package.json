@@ -3,7 +3,7 @@
   "private": true,
   "description": "Prove nel browser delle app della sagra: si lanciano a mano, col sistema di prova acceso.",
   "scripts": {
-    "prova": "node prova-cassa.cjs && node prova-distribuzione.cjs && node prova-qr.cjs && node prova-biglietti.cjs && node prova-offline.cjs && node prova-carattere.cjs && node prova-banchi.cjs && node prova-bagni.cjs"
+    "prova": "node prova-cassa.cjs && node prova-distribuzione.cjs && node prova-qr.cjs && node prova-biglietti.cjs && node prova-offline.cjs && node prova-carattere.cjs && node prova-banchi.cjs && node prova-bagni.cjs && node prova-contabilita.cjs"
   },
   "devDependencies": {
     "playwright": "^1.63.0"

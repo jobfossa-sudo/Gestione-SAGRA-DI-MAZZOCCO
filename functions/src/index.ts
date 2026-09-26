@@ -30,6 +30,8 @@ import {
   EliminaUtenteRichiesta,
   UtenteRisposta,
   RUOLI_COMANDE,
+  RuoloContabilita,
+  RUOLI_CONTABILITA,
   Ordine,
   SottoOrdine,
   Prodotto,
@@ -152,19 +154,29 @@ function vietaAutoBlocco(uidRichiedente: string, uidBersaglio: string, azione: s
   }
 }
 
-function validaAccessi(valore: unknown): Accessi {
-  const accessi = (valore ?? {}) as Accessi;
-  if (accessi.comande === undefined) return {};
-  if (!Array.isArray(accessi.comande)) {
-    throw new HttpsError('invalid-argument', 'I ruoli in Comande devono essere un elenco.');
+function validaRuoliApp<T extends string>(valore: unknown, ammessi: T[], nomeApp: string): T[] {
+  if (valore === undefined) return [];
+  if (!Array.isArray(valore)) {
+    throw new HttpsError('invalid-argument', `I ruoli in ${nomeApp} devono essere un elenco.`);
   }
-  for (const ruolo of accessi.comande) {
-    if (!RUOLI_COMANDE.includes(ruolo)) {
-      throw new HttpsError('invalid-argument', `Ruolo non valido per Comande: ${ruolo}.`);
+  for (const ruolo of valore) {
+    if (!ammessi.includes(ruolo as T)) {
+      throw new HttpsError('invalid-argument', `Ruolo non valido per ${nomeApp}: ${ruolo}.`);
     }
   }
-  const ruoli = RUOLI_COMANDE.filter((ruolo) => accessi.comande!.includes(ruolo));
-  return ruoli.length > 0 ? { comande: ruoli } : {};
+  // Si riordinano come nell'elenco ufficiale, cosi' due account con gli stessi
+  // ruoli hanno gli stessi permessi scritti nello stesso modo.
+  return ammessi.filter((ruolo) => (valore as T[]).includes(ruolo));
+}
+
+function validaAccessi(valore: unknown): Accessi {
+  const accessi = (valore ?? {}) as Accessi;
+  const comande = validaRuoliApp<RuoloComande>(accessi.comande, RUOLI_COMANDE, 'Comande');
+  const contabilita = validaRuoliApp<RuoloContabilita>(accessi.contabilita, RUOLI_CONTABILITA, 'Contabilità');
+  return {
+    ...(comande.length > 0 ? { comande } : {}),
+    ...(contabilita.length > 0 ? { contabilita } : {}),
+  };
 }
 
 /** Vuoto = nessuna lettera. Le minuscole si accettano e si alzano. */

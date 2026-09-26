@@ -60,6 +60,16 @@ const PRODOTTI = [
   { id: 'vino', categoriaId: 'bevande', ordine: 20, settore: 'bar', nome: 'Vino (calice)', note: '', prezzo: 3, novita: false, esauritoSerata: null },
 ];
 
+/** Stessa regola di idSerata() in shared/src/index.ts: fino alle due di notte
+ * si sta ancora nella serata di ieri. */
+function idSerata(momento = new Date()) {
+  const spostato = new Date(momento.getTime() - 2 * 60 * 60 * 1000);
+  const anno = spostato.getFullYear();
+  const mese = String(spostato.getMonth() + 1).padStart(2, '0');
+  const giorno = String(spostato.getDate()).padStart(2, '0');
+  return `${anno}-${mese}-${giorno}`;
+}
+
 async function main() {
   const inizializzaSistema = httpsCallable(functions, 'inizializzaSistema');
   try {
@@ -80,7 +90,7 @@ async function main() {
   }
   console.log(`Caricate ${CATEGORIE.length} portate e ${PRODOTTI.length} prodotti nel menu.`);
 
-  const oggi = new Date().toISOString().slice(0, 10);
+  const oggi = idSerata();
   const risultato = await httpsCallable(functions, 'apriSerata')({ data: oggi });
   console.log(risultato.data.giaEsistente ? `La serata ${oggi} era già aperta.` : `Serata ${oggi} aperta.`);
 

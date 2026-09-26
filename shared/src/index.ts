@@ -624,6 +624,7 @@ export const RUOLO_BANCO: Record<Banco, RuoloComande> = {
  * Magazzino e Contabilità si aggiungeranno qui quando verranno costruite. */
 export interface Accessi {
   comande?: RuoloComande[];
+  contabilita?: RuoloContabilita[];
 }
 
 /** Forma delle "custom claims" dell'account: impostabili solo dal server,
@@ -970,4 +971,186 @@ export interface PrendiSegnalazioneRichiesta {
 
 export interface PrendiSegnalazioneRisposta {
   segnalazioneId: string;
+}
+
+// ---------------------------------------------------------------------------
+// La contabilità
+//
+// Le entrate le produce già Comande: ordini dei tavoli e scontrini dei banchi,
+// con dentro tutto il dettaglio. Qui c'è quello che Comande non sa — le spese,
+// le entrate che non passano dalla cassa, i soldi contati davvero a fine
+// serata e chi c'era a lavorare — più il modo di tenere insieme le serate di
+// una stessa sagra.
+// ---------------------------------------------------------------------------
+
+export type RuoloContabilita = 'contabile';
+
+export const RUOLI_CONTABILITA: RuoloContabilita[] = ['contabile'];
+
+export const NOME_RUOLO_CONTABILITA: Record<RuoloContabilita, string> = {
+  contabile: 'Contabile',
+};
+
+/** Un'edizione della sagra: le serate di un anno, più tutto quello che si
+ * spende e si incassa fuori dalle serate. Serve a due cose che senza di lei
+ * non si possono fare: attribuire le spese che non sono di una sera sola (la
+ * tensostruttura non è di martedì) e confrontare un anno con quello prima. */
+export interface Edizione {
+  /** L'anno, che è anche l'id: "2027". */
+  id: string;
+  nome: string;
+  /** Prima e ultima serata, in formato AAAA-MM-GG. Le serate dentro questo
+   * intervallo appartengono all'edizione. */
+  dal: string;
+  al: string;
+  chiusa: boolean;
+}
+
+export type CategoriaUscita =
+  | 'fornitori-cibo'
+  | 'fornitori-bevande'
+  | 'attrezzature'
+  | 'service'
+  | 'permessi'
+  | 'utenze'
+  | 'consumo'
+  | 'altro';
+
+export const CATEGORIE_USCITA: { id: CategoriaUscita; nome: string }[] = [
+  { id: 'fornitori-cibo', nome: 'Fornitori cibo' },
+  { id: 'fornitori-bevande', nome: 'Fornitori bevande' },
+  { id: 'attrezzature', nome: 'Attrezzature e affitti' },
+  { id: 'service', nome: 'Service e allestimenti' },
+  { id: 'permessi', nome: 'Permessi, SIAE, assicurazioni' },
+  { id: 'utenze', nome: 'Utenze' },
+  { id: 'consumo', nome: 'Materiale di consumo' },
+  { id: 'altro', nome: 'Altro' },
+];
+
+export const NOME_CATEGORIA_USCITA: Record<CategoriaUscita, string> = Object.fromEntries(
+  CATEGORIE_USCITA.map((c) => [c.id, c.nome])
+) as Record<CategoriaUscita, string>;
+
+export type CategoriaEntrata = 'sponsor' | 'lotteria' | 'bancarelle' | 'quote' | 'offerte' | 'altro';
+
+export const CATEGORIE_ENTRATA: { id: CategoriaEntrata; nome: string }[] = [
+  { id: 'sponsor', nome: 'Sponsor' },
+  { id: 'lotteria', nome: 'Lotteria e pesca' },
+  { id: 'bancarelle', nome: 'Bancarelle' },
+  { id: 'quote', nome: 'Quote' },
+  { id: 'offerte', nome: 'Offerte' },
+  { id: 'altro', nome: 'Altro' },
+];
+
+export const NOME_CATEGORIA_ENTRATA: Record<CategoriaEntrata, string> = Object.fromEntries(
+  CATEGORIE_ENTRATA.map((c) => [c.id, c.nome])
+) as Record<CategoriaEntrata, string>;
+
+/** Una spesa. Vive sotto l'edizione, non sotto la serata, perché quasi nessuna
+ * spesa è di una sera sola: `serataId` la lega a una serata solo quando ha
+ * davvero senso (il ghiaccio di sabato), altrimenti resta dell'evento. */
+export interface Uscita {
+  id: string;
+  edizioneId: string;
+  categoria: CategoriaUscita;
+  descrizione: string;
+  fornitore: string;
+  /** In euro. */
+  importo: number;
+  /** Quando è stata sostenuta, AAAA-MM-GG. */
+  data: string;
+  /** Serata a cui appartiene, oppure null = spesa dell'evento intero. */
+  serataId: string | null;
+  /** Falso finché è solo un preventivo: si inseriscono prima della sagra e si
+   * spuntano quando diventano vere. Un preventivo non entra nell'utile. */
+  pagata: boolean;
+  /** Foto dello scontrino o della fattura, in `immagini`. */
+  immagineId: string | null;
+  createdAt: FirestoreTimestampLike;
+}
+
+/** Un'entrata che non passa dalla cassa: sponsor, lotteria, bancarelle. */
+export interface EntrataExtra {
+  id: string;
+  edizioneId: string;
+  categoria: CategoriaEntrata;
+  descrizione: string;
+  importo: number;
+  data: string;
+  serataId: string | null;
+  incassata: boolean;
+  immagineId: string | null;
+  createdAt: FirestoreTimestampLike;
+}
+
+/** I punti in cui si incassa, e che a fine serata vanno contati uno per uno:
+ * le casse dei tavoli (una per lettera) e i due banchi. */
+export interface PuntoCassa {
+  /** "cassa-A", "banco-bar". */
+  id: string;
+  nome: string;
+}
+
+/** Il conteggio di fine serata di un punto cassa. Sta sotto la serata: è un
+ * fatto di quella sera. */
+export interface ChiusuraCassa {
+  id: string;
+  serataId: string;
+  puntoId: string;
+  /** I soldi messi nel cassetto prima di cominciare, che non sono incasso. */
+  fondoCassa: number;
+  /** Quanto c'era davvero nel cassetto, fondo compreso. */
+  contatoContanti: number;
+  /** Quanto dice il terminale POS. */
+  contatoElettronico: number;
+  note: string;
+  aggiornatoAt: FirestoreTimestampLike;
+  aggiornatoDa: string;
+}
+
+/** Chi c'era a lavorare, sera per sera. Una spunta e nient'altro: se chiedessi
+ * gli orari di entrata e uscita non lo compilerebbe nessuno. */
+export interface Presenza {
+  /** Lo stesso uid dell'account, così una persona è una riga sola. */
+  uid: string;
+  serataId: string;
+  nome: string;
+  presente: boolean;
+  /** Mezza serata pesa mezzo: chi arriva alle dieci non ha fatto la serata. */
+  meta: boolean;
+  aggiornatoAt: FirestoreTimestampLike;
+}
+
+/** Quanto pesa una presenza nel conto della resa per volontario. */
+export function pesoPresenza(presenza: { presente: boolean; meta: boolean }): number {
+  if (!presenza.presente) return 0;
+  return presenza.meta ? 0.5 : 1;
+}
+
+/** Di quante ore la serata "sborda" oltre la mezzanotte.
+ *
+ * Una sagra non finisce a mezzanotte: alle 00:30 si sta ancora servendo, e
+ * quell'ordine appartiene alla sera prima — non a una serata nuova aperta da
+ * dieci minuti. Due ore è il compromesso: copre la coda del servizio e le
+ * pulizie, e nessuno batte un ordine alle tre di notte.
+ *
+ * Prima questa cosa succedeva per caso, perché la data si prendeva dall'ora di
+ * Greenwich e l'Italia d'estate è avanti di due: stesso risultato, ma non
+ * voluto. Ora è una scelta scritta, e i soldi della contabilità ci si
+ * appoggiano sopra. */
+export const ORE_CODA_SERATA = 2;
+
+/** L'id della serata (AAAA-MM-GG) a cui appartiene un momento. */
+export function idSerata(momento: Date = new Date()): string {
+  const spostato = new Date(momento.getTime() - ORE_CODA_SERATA * 60 * 60 * 1000);
+  const anno = spostato.getFullYear();
+  const mese = String(spostato.getMonth() + 1).padStart(2, '0');
+  const giorno = String(spostato.getDate()).padStart(2, '0');
+  return `${anno}-${mese}-${giorno}`;
+}
+
+/** L'id dell'edizione a cui appartiene una serata: l'anno della sua data.
+ * Una sagra che scavallasse il capodanno non esiste. */
+export function edizioneDiSerata(serataId: string): string {
+  return serataId.slice(0, 4);
 }

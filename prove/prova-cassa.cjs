@@ -12,6 +12,16 @@ require('node:fs').mkdirSync(RISULTATI, { recursive: true });
 const { chromium } = require('playwright');
 const fs = require('fs');
 
+/** Stessa regola di idSerata() in shared/src/index.ts: fino alle due di notte
+ * si sta ancora nella serata di ieri. */
+function idSerata(momento = new Date()) {
+  const spostato = new Date(momento.getTime() - 2 * 60 * 60 * 1000);
+  const anno = spostato.getFullYear();
+  const mese = String(spostato.getMonth() + 1).padStart(2, '0');
+  const giorno = String(spostato.getDate()).padStart(2, '0');
+  return `${anno}-${mese}-${giorno}`;
+}
+
 const URL = 'http://127.0.0.1:5173/';
 
 async function entra(browser, utente, password = 'prova1234') {
@@ -41,7 +51,7 @@ async function entra(browser, utente, password = 'prova1234') {
  * server come farebbe il menù del QR, senza passare dall'interfaccia. */
 async function ordineDalTelefono(pagina, nomeApp, dati) {
   return pagina.evaluate(
-    async ({ nomeApp, dati }) => {
+    async ({ nomeApp, dati, serataId }) => {
       const { getFunctions, httpsCallable, connectFunctionsEmulator } = await import(
         'https://www.gstatic.com/firebasejs/12.0.0/firebase-functions.js'
       );
@@ -50,10 +60,10 @@ async function ordineDalTelefono(pagina, nomeApp, dati) {
       const funzioni = getFunctions(app);
       connectFunctionsEmulator(funzioni, '127.0.0.1', 5001);
       const crea = httpsCallable(funzioni, 'creaOrdineBozza');
-      const risposta = await crea({ serataId: new Date().toISOString().slice(0, 10), ...dati });
+      const risposta = await crea({ serataId, ...dati });
       return risposta.data;
     },
-    { nomeApp, dati }
+    { nomeApp, dati, serataId: idSerata() }
   );
 }
 

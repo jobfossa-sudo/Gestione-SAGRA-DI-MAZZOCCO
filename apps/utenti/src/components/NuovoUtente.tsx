@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { NOME_RUOLO_COMANDE, RUOLI_COMANDE, type RuoloComande } from '@sagra-mazzocco/shared';
+import {
+  NOME_RUOLO_COMANDE,
+  NOME_RUOLO_CONTABILITA,
+  RUOLI_COMANDE,
+  RUOLI_CONTABILITA,
+  type RuoloComande,
+  type RuoloContabilita,
+} from '@sagra-mazzocco/shared';
 import { SceltaLetteraCassa } from './SceltaLetteraCassa';
 import { creaUtente, messaggioErrore } from '../services/callables';
 
@@ -9,6 +16,7 @@ export function NuovoUtente() {
   const [password, setPassword] = useState('');
   const [amministratore, setAmministratore] = useState(false);
   const [comande, setComande] = useState<RuoloComande[]>([]);
+  const [contabilita, setContabilita] = useState<RuoloContabilita[]>([]);
   const [letteraCassa, setLetteraCassa] = useState<string | null>(null);
   // La lettera serve solo a chi batte ordini in cassa.
   const puoIncassare = amministratore || comande.includes('cassa');
@@ -27,7 +35,10 @@ export function NuovoUtente() {
         nome,
         password,
         amministratore,
-        accessi: comande.length > 0 ? { comande } : {},
+        accessi: {
+          ...(comande.length > 0 ? { comande } : {}),
+          ...(contabilita.length > 0 ? { contabilita } : {}),
+        },
         letteraCassa: puoIncassare ? letteraCassa : null,
       });
       setSuccesso(`Creato l'account "${nomeUtente}". Comunica a ${nome} il nome utente e la password.`);
@@ -36,6 +47,7 @@ export function NuovoUtente() {
       setPassword('');
       setAmministratore(false);
       setComande([]);
+    setContabilita([]);
       setLetteraCassa(null);
     } catch (err) {
       setErrore(messaggioErrore(err));
@@ -75,6 +87,25 @@ export function NuovoUtente() {
             required
           />
         </label>
+      </div>
+
+      <div className="scelta-ruoli">
+        <span className="titolo-ruoli">Ruoli in Contabilità</span>
+        <div className="caselle-ruoli">
+          {RUOLI_CONTABILITA.map((ruolo) => (
+            <label key={ruolo}>
+              <input
+                type="checkbox"
+                checked={contabilita.includes(ruolo)}
+                disabled={amministratore}
+                onChange={(e) =>
+                  setContabilita((prec) => (e.target.checked ? [...prec, ruolo] : prec.filter((r) => r !== ruolo)))
+                }
+              />
+              {NOME_RUOLO_CONTABILITA[ruolo]}
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="scelta-ruoli">

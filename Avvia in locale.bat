@@ -15,6 +15,7 @@ if errorlevel 1 (
 start "Firebase locale" cmd /k firebase emulators:start --only firestore,functions,auth
 start "App Comande" cmd /k "cd apps\comande && npm run dev"
 start "App Utenti" cmd /k "cd apps\utenti && npm run dev"
+start "App Contabilita" cmd /k "cd apps\contabilita && npm run dev"
 
 node functions\scripts\attendi-e-popola.js
 if errorlevel 1 (
@@ -27,8 +28,9 @@ echo.
 echo Tutto acceso.
 echo   Comande: http://127.0.0.1:5173
 echo   Utenti:  http://127.0.0.1:5174
+echo   Contabilita: http://127.0.0.1:5175
 echo   Dati:    http://127.0.0.1:4000
 echo Utenti di prova: admin, cassa, cucina, griglia, bar, distribuzione, bancobar,
-echo   bancobevande, jolly - password prova1234
+echo   bancobevande, jolly, contabile - password prova1234
 echo.
 pause

@@ -18,6 +18,16 @@ const db = admin.firestore();
 // Stessa conversione di emailDaNomeUtente() in shared/src/index.ts.
 const emailDaNomeUtente = (nomeUtente) => `${nomeUtente}@utenti.sagra-mazzocco.invalid`;
 
+// Stessa regola di idSerata() in shared/src/index.ts: fino alle due di notte
+// si sta ancora nella serata di ieri.
+function idSerata(momento = new Date()) {
+  const spostato = new Date(momento.getTime() - 2 * 60 * 60 * 1000);
+  const anno = spostato.getFullYear();
+  const mese = String(spostato.getMonth() + 1).padStart(2, '0');
+  const giorno = String(spostato.getDate()).padStart(2, '0');
+  return `${anno}-${mese}-${giorno}`;
+}
+
 const PASSWORD_PROVA = 'prova1234';
 
 // Un account per ruolo, più uno senza alcun accesso per verificare che non
@@ -33,6 +43,7 @@ const UTENTI_PROVA = [
   { nomeUtente: 'bancobevande', nome: 'Addetto al banco BEVANDE', amministratore: false, accessi: { comande: ['bancoBevande'] } },
   // Volontaria con due postazioni: verifica il caso dei ruoli multipli.
   { nomeUtente: 'jolly', nome: 'Volontaria tuttofare', amministratore: false, accessi: { comande: ['cassa', 'distribuzione'] }, letteraCassa: 'B' },
+  { nomeUtente: 'contabile', nome: 'Contabile di prova', amministratore: false, accessi: { contabilita: ['contabile'] } },
   { nomeUtente: 'senzaruolo', nome: 'Account senza accessi', amministratore: false, accessi: {} },
 ];
 
@@ -131,7 +142,7 @@ async function creaUtenteProva({ nomeUtente, nome, amministratore, accessi, lett
 }
 
 async function main() {
-  const oggi = new Date().toISOString().slice(0, 10);
+  const oggi = idSerata();
 
   // La serata si crea se non c'è, ma NON si riscrive se c'è già: rilanciare il
   // seed a metà giornata riazzerava i contatori, e i numeri di comanda

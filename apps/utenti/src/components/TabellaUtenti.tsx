@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { NOME_RUOLO_COMANDE, RUOLI_COMANDE, type RuoloComande, type Utente } from '@sagra-mazzocco/shared';
+import {
+  NOME_RUOLO_COMANDE,
+  NOME_RUOLO_CONTABILITA,
+  RUOLI_COMANDE,
+  RUOLI_CONTABILITA,
+  type RuoloComande,
+  type RuoloContabilita,
+  type Utente,
+} from '@sagra-mazzocco/shared';
 import { useUtenti } from '../hooks';
 import { SceltaLetteraCassa } from './SceltaLetteraCassa';
 import {
@@ -13,7 +21,7 @@ import {
 
 /** Le app ancora da costruire compaiono già in tabella, ma disattivate:
  * i loro ruoli si definiranno quando verranno realizzate. */
-const APP_FUTURE = ['Magazzino', 'Contabilità'];
+const APP_FUTURE = ['Magazzino'];
 
 function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
   const [inCorso, setInCorso] = useState(false);
@@ -34,6 +42,18 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
 
   const cambiaAmministratore = (amministratore: boolean) =>
     esegui(() => aggiornaPermessi({ uid: utente.uid, amministratore, accessi: utente.accessi }));
+
+  const cambiaContabilita = (ruolo: RuoloContabilita, spuntato: boolean) => {
+    const attuali = utente.accessi.contabilita ?? [];
+    const nuovi = spuntato ? [...attuali, ruolo] : attuali.filter((r) => r !== ruolo);
+    return esegui(() =>
+      aggiornaPermessi({
+        uid: utente.uid,
+        amministratore: utente.amministratore,
+        accessi: { ...utente.accessi, contabilita: nuovi },
+      })
+    );
+  };
 
   const cambiaComande = (ruolo: RuoloComande, spuntato: boolean) => {
     const attuali = utente.accessi.comande ?? [];
@@ -128,6 +148,26 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
             </label>
           )}
         </td>
+        <td>
+          {utente.amministratore ? (
+            <span className="tutto">tutto</span>
+          ) : (
+            <div className="caselle-ruoli">
+              {RUOLI_CONTABILITA.map((ruolo) => (
+                <label key={ruolo}>
+                  <input
+                    type="checkbox"
+                    checked={(utente.accessi.contabilita ?? []).includes(ruolo)}
+                    disabled={inCorso}
+                    onChange={(e) => cambiaContabilita(ruolo, e.target.checked)}
+                    aria-label={`${NOME_RUOLO_CONTABILITA[ruolo]} in Contabilità: ${utente.nome}`}
+                  />
+                  {NOME_RUOLO_CONTABILITA[ruolo]}
+                </label>
+              ))}
+            </div>
+          )}
+        </td>
         {APP_FUTURE.map((app) => (
           <td key={app} className="centro">
             <span className="non-disponibile" title={`${app} non è ancora stata realizzata`}>
@@ -197,6 +237,7 @@ export function TabellaUtenti({ uidCorrente }: { uidCorrente: string }) {
             <th className="centro">Attivo</th>
             <th className="centro">Amministratore</th>
             <th>Comande</th>
+            <th>Contabilità</th>
             {APP_FUTURE.map((app) => (
               <th key={app} className="centro colonna-futura">
                 {app}

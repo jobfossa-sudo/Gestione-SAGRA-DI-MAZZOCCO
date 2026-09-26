@@ -41,6 +41,9 @@ async function main() {
     await db.doc('banchi/bevande/prodotti/vino').set({ id: 'vino', categoriaId: 'vini', nome: 'Vino', prezzo: 2 });
     await db.doc('serate/2026-01-01/ordiniBanco/scontrino1').set({ banco: 'bar', numero: 1, totale: 3, stato: 'incassato' });
     await db.doc('serate/2026-01-01/segnalazioni/seg1').set({ bagno: 'donne', tipo: 'sapone', testo: 'Manca il sapone', presaInCaricoAt: null });
+    await db.doc('edizioni/2026').set({ id: '2026', nome: 'Sagra 2026', dal: '2026-01-01', al: '2026-01-05', chiusa: false });
+    await db.doc('edizioni/2026/uscite/u1').set({ descrizione: 'Salsiccia', importo: 250, pagata: true });
+    await db.doc('serate/2026-01-01/chiusure/cassa-A').set({ puntoId: 'cassa-A', contatoContanti: 500 });
   });
 
   const anonimo = testEnv.unauthenticatedContext().firestore();
@@ -52,6 +55,7 @@ async function main() {
   const distribuzione = testEnv.authenticatedContext('uid-distribuzione', { comande: ['distribuzione'] }).firestore();
   const bancoBar = testEnv.authenticatedContext('uid-banco-bar', { comande: ['bancoBar'] }).firestore();
   const bancoBevande = testEnv.authenticatedContext('uid-banco-bevande', { comande: ['bancoBevande'] }).firestore();
+  const contabile = testEnv.authenticatedContext('uid-contabile', { contabilita: ['contabile'] }).firestore();
   const admin = testEnv.authenticatedContext('uid-admin', { amministratore: true }).firestore();
   // Accesso a un'altra app soltanto: non deve vedere nulla di Comande.
   const soloAltraApp = testEnv.authenticatedContext('uid-contabile', { contabilita: ['visione'] }).firestore();
@@ -232,6 +236,56 @@ async function main() {
   await check(
     'nemmeno l’amministratore la chiude a mano',
     assertFails(admin.doc('serate/2026-01-01/segnalazioni/seg1').update({ presaInCaricoAt: new Date() }))
+  );
+
+  // La contabilità: legge gli incassi di Comande, scrive solo i suoi numeri
+  await check(
+    'il contabile legge gli ordini per fare i conti',
+    assertSucceeds(contabile.collection('serate/2026-01-01/ordini').get())
+  );
+  await check(
+    'e gli scontrini dei banchi',
+    assertSucceeds(contabile.collection('serate/2026-01-01/ordiniBanco').get())
+  );
+  await check(
+    'e l’elenco dei volontari, per le presenze',
+    assertSucceeds(contabile.collection('utenti').get())
+  );
+  await check(
+    'ma non può correggere un ordine per far tornare i conti',
+    assertFails(contabile.doc('serate/2026-01-01/ordini/ordine1').update({ stato: 'annullata' }))
+  );
+  await check(
+    'il contabile scrive le spese',
+    assertSucceeds(contabile.doc('edizioni/2026/uscite/u2').set({ descrizione: 'Ghiaccio', importo: 40, pagata: true }))
+  );
+  await check(
+    'e le entrate fuori cassa',
+    assertSucceeds(contabile.doc('edizioni/2026/entrate/e1').set({ descrizione: 'Sponsor', importo: 300 }))
+  );
+  await check(
+    'e il conteggio dei cassetti',
+    assertSucceeds(contabile.doc('serate/2026-01-01/chiusure/cassa-B').set({ puntoId: 'cassa-B', contatoContanti: 200 }))
+  );
+  await check(
+    'e le presenze dei volontari',
+    assertSucceeds(contabile.doc('serate/2026-01-01/presenze/uid-cassa').set({ uid: 'uid-cassa', presente: true }))
+  );
+  await check(
+    'chi sta in cassa non vede i conti dell’edizione',
+    assertFails(cassa.collection('edizioni/2026/uscite').get())
+  );
+  await check(
+    'né scrive una spesa',
+    assertFails(cassa.doc('edizioni/2026/uscite/u3').set({ descrizione: 'Finta', importo: 1 }))
+  );
+  await check(
+    'né conta un cassetto',
+    assertFails(cassa.doc('serate/2026-01-01/chiusure/cassa-A').update({ contatoContanti: 0 }))
+  );
+  await check(
+    'l’amministratore fa anche il contabile',
+    assertSucceeds(admin.collection('edizioni/2026/uscite').get())
   );
 
   // Configurazione di sistema

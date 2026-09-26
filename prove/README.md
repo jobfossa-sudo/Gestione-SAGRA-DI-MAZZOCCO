@@ -33,6 +33,10 @@ salvata su GitHub.
 - `prova-bagni.cjs` — le segnalazioni dai bagni: il cartello col QR, l'elenco
   sul telefono del cliente, l'avviso che arriva su tutti gli schermi, la ✕ che
   lo toglie solo dal proprio e "Ci penso io" che lo toglie da tutti.
+- `prova-contabilita.cjs` — l'app dei conti: il cruscotto che legge gli
+  incassi di Comande, la chiusura dei cassetti con le differenze, spese,
+  entrate extra, presenze dei volontari e il report con il foglio da
+  appendere.
 - `prova-offline.cjs` — cosa si vede quando la rete cade.
 - `prova-carattere.cjs` — i tasti che rimpiccioliscono e ingrandiscono le
   scritte: in Comande, sul telefono del cliente e nell'app Utenti. Controlla

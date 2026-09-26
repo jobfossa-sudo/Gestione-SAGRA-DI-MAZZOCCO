@@ -62,7 +62,17 @@ async function creaEInvia(dati) {
   return creaOrdineCassa(dati);
 }
 
-const SERATA_ID = new Date().toISOString().slice(0, 10);
+// Stessa regola di idSerata() in shared/src/index.ts: fino alle due di notte
+// si sta ancora nella serata di ieri.
+function idSerata(momento = new Date()) {
+  const spostato = new Date(momento.getTime() - 2 * 60 * 60 * 1000);
+  const anno = spostato.getFullYear();
+  const mese = String(spostato.getMonth() + 1).padStart(2, '0');
+  const giorno = String(spostato.getDate()).padStart(2, '0');
+  return `${anno}-${mese}-${giorno}`;
+}
+
+const SERATA_ID = idSerata();
 // Deve coincidere con functions/.env.local e con seed.js.
 const CODICE_INIZIALIZZAZIONE = 'codice-prova-emulatore';
 const PASSWORD_PROVA = 'prova1234';
