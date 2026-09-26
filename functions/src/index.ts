@@ -82,6 +82,8 @@ import {
   SegnaComandaStampataRisposta,
   AnnullaOrdineBancoRichiesta,
   AnnullaOrdineBancoRisposta,
+  MetodoPagamento,
+  METODI_PAGAMENTO,
   Bagno,
   BAGNI,
   TipoSegnalazione,
@@ -779,7 +781,8 @@ export const creaOrdineBozza = onCall(CHIAMABILE, async (request: CallableReques
 
 export const creaOrdineCassa = onCall(CHIAMABILE, async (request: CallableRequest<CreaOrdineCassaRichiesta>): Promise<CreaOrdineRisposta> => {
   richiedeRuoloComande(request, 'cassa');
-  const { serataId, items, tavolo, coperti } = request.data ?? ({} as CreaOrdineCassaRichiesta);
+  const { serataId, items, tavolo, coperti, pagamento } = request.data ?? ({} as CreaOrdineCassaRichiesta);
+  const metodo = validaPagamento(pagamento);
   if (typeof serataId !== 'string' || !serataId) {
     throw new HttpsError('invalid-argument', 'Serata non valida.');
   }
@@ -816,6 +819,7 @@ export const creaOrdineCassa = onCall(CHIAMABILE, async (request: CallableReques
       // che è il momento in cui prima poteva restare appeso per sempre.
       stato: 'in_evasione',
       tipo: 'cassa',
+      pagamento: metodo,
       tavolo: tavoloValidato,
       coperti: copertiValidati,
       items: itemsOrdine,
@@ -841,7 +845,8 @@ export const creaOrdineCassa = onCall(CHIAMABILE, async (request: CallableReques
 
 export const confermaOrdine = onCall(CHIAMABILE, async (request: CallableRequest<ConfermaOrdineRichiesta>): Promise<CreaOrdineRisposta> => {
   richiedeRuoloComande(request, 'cassa');
-  const { serataId, numero } = request.data ?? ({} as ConfermaOrdineRichiesta);
+  const { serataId, numero, pagamento } = request.data ?? ({} as ConfermaOrdineRichiesta);
+  const metodo = validaPagamento(pagamento);
   if (typeof serataId !== 'string' || !serataId) {
     throw new HttpsError('invalid-argument', 'Serata non valida.');
   }
@@ -887,6 +892,7 @@ export const confermaOrdine = onCall(CHIAMABILE, async (request: CallableRequest
       cassa: lettera,
       codice,
       codiceBarre,
+      pagamento: metodo,
       confirmedAt: adesso,
       pagatoAt: adesso,
     });
@@ -1159,6 +1165,16 @@ function richiedeBanco(request: CallableRequest, banco: Banco): { uid: string; n
   return { uid: request.auth!.uid, nome: token.name ?? token.nome ?? '' };
 }
 
+/** Contanti o POS. Chi non lo manda (un client vecchio, o il menù dal QR che
+ * non incassa) si intende contanti: era l'unico modo di pagare prima. */
+function validaPagamento(valore: unknown): MetodoPagamento {
+  if (valore === undefined || valore === null) return 'contanti';
+  if (typeof valore !== 'string' || !METODI_PAGAMENTO.includes(valore as MetodoPagamento)) {
+    throw new HttpsError('invalid-argument', 'Metodo di pagamento non valido.');
+  }
+  return valore as MetodoPagamento;
+}
+
 function validaBanco(valore: unknown): Banco {
   if (typeof valore !== 'string' || !BANCHI.includes(valore as Banco)) {
     throw new HttpsError('invalid-argument', 'Banco non valido.');
@@ -1210,7 +1226,8 @@ async function leggiNomeUtente(transaction: Transaction, uid: string): Promise<s
 export const creaOrdineBanco = onCall(
   CHIAMABILE,
   async (request: CallableRequest<CreaOrdineBancoRichiesta>): Promise<CreaOrdineBancoRisposta> => {
-    const { serataId, banco, items } = request.data ?? ({} as CreaOrdineBancoRichiesta);
+    const { serataId, banco, items, pagamento } = request.data ?? ({} as CreaOrdineBancoRichiesta);
+    const metodo = validaPagamento(pagamento);
     const bancoValidato = validaBanco(banco);
     richiedeBanco(request, bancoValidato);
     if (typeof serataId !== 'string' || !serataId) {
@@ -1245,6 +1262,7 @@ export const creaOrdineBanco = onCall(
         numero,
         codice: formattaCodiceBanco(bancoValidato, numero),
         stato: 'incassato',
+        pagamento: metodo,
         items: itemsOrdine,
         totale,
         operatoreUid: uid,

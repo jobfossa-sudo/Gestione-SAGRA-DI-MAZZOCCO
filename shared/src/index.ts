@@ -61,6 +61,25 @@ export type StatoSottoOrdine = 'in_preparazione' | 'pronta' | 'consegnata';
 
 export type TipoOrdine = 'cassa' | 'qr';
 
+/** Come ha pagato il cliente. Serve alla quadratura di fine serata: l'app sa
+ * quanto ha incassato, ma senza questo non sa quanto deve esserci nel
+ * cassetto e quanto sul POS. Gli ordini battuti prima che esistesse non ce
+ * l'hanno: contano come contanti, che era l'unico modo di pagare. */
+export type MetodoPagamento = 'contanti' | 'elettronico';
+
+export const METODI_PAGAMENTO: MetodoPagamento[] = ['contanti', 'elettronico'];
+
+export const NOME_PAGAMENTO: Record<MetodoPagamento, string> = {
+  contanti: 'Contanti',
+  elettronico: 'POS',
+};
+
+/** Il metodo di un ordine, con la regola per quelli vecchi scritta una volta
+ * sola: senza campo vuol dire contanti. */
+export function pagamentoDi(ordine: { pagamento?: MetodoPagamento | null }): MetodoPagamento {
+  return ordine.pagamento === 'elettronico' ? 'elettronico' : 'contanti';
+}
+
 export interface ItemOrdine {
   prodottoId: string;
   nome: string;
@@ -85,6 +104,9 @@ export interface Ordine {
   codiceBarre?: string | null;
   stato: StatoOrdine;
   tipo: TipoOrdine;
+  /** Contanti o POS. Assente negli ordini battuti prima che si distinguesse:
+   * vedi pagamentoDi(). */
+  pagamento?: MetodoPagamento | null;
   tavolo: number | null;
   coperti: number | null;
   items: ItemOrdine[];
@@ -294,6 +316,7 @@ export interface OrdineBanco {
   /** Numero scritto sullo scontrino, es. "BAR0007". */
   codice: string;
   stato: StatoOrdineBanco;
+  pagamento?: MetodoPagamento | null;
   items: ItemOrdineBanco[];
   totale: number;
   /** Chi ha battuto l'ordine: serve a sapere chi cercare se il conto non torna. */
@@ -745,6 +768,7 @@ export interface CreaOrdineBozzaRichiesta {
 }
 
 export interface CreaOrdineCassaRichiesta {
+  pagamento?: MetodoPagamento;
   serataId: string;
   items: ItemOrdineRichiesta[];
   /** Obbligatori: finiscono sulla copia cucina, l'inserviente deve sapere dove
@@ -754,6 +778,7 @@ export interface CreaOrdineCassaRichiesta {
 }
 
 export interface ConfermaOrdineRichiesta {
+  pagamento?: MetodoPagamento;
   serataId: string;
   numero: number;
 }
@@ -822,6 +847,7 @@ export interface SegnaComandaStampataRisposta {
 }
 
 export interface CreaOrdineBancoRichiesta {
+  pagamento?: MetodoPagamento;
   serataId: string;
   banco: Banco;
   items: ItemOrdineRichiesta[];

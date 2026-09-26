@@ -2725,3 +2725,41 @@ body.trascinamento-in-corso {
 .foglio-qr-bagno .banda-qr {
   background: linear-gradient(135deg, #0e7490 0%, #155e75 100%);
 }
+
+/* ---------- contanti o POS ---------- */
+
+/* Sta appena sopra il tasto che incassa, perché è quello che succede sul banco
+   proprio in quel momento. Due tasti grandi e non un menù a tendina: si preme
+   di fretta, spesso col dito. */
+.scelta-pagamento {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.etichetta-pagamento {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.tasti-pagamento {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  flex: 1;
+}
+.tasti-pagamento button {
+  width: 100%;
+  font-weight: 600;
+}
+/* Quello scelto si vede acceso: sbagliare metodo si paga a fine serata, con
+   un cassetto che non torna e nessuno che sa perché. */
+.tasti-pagamento button.scelto {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 800;
+}

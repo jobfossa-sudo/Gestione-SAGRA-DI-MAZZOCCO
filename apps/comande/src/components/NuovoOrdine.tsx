@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Ordine } from '@sagra-mazzocco/shared';
+import type { MetodoPagamento, Ordine } from '@sagra-mazzocco/shared';
 import { useCategorie, useDisponibilita, useLetteraCassa, useOrdiniAperti, useProdotti, useUtenteAutenticato } from '../hooks';
 import { confermaOrdine, creaOrdineCassa, messaggioErrore } from '../services/callables';
 import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
 import { ResocontoCliente } from './ResocontoCliente';
+import { SceltaPagamento } from './SceltaPagamento';
 import { stampa } from './AreaStampa';
 
 /** Colonne della tabella: serve alle intestazioni di portata, che occupano
@@ -25,6 +26,9 @@ export function NuovoOrdine() {
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [messaggioSuccesso, setMessaggioSuccesso] = useState<string | null>(null);
+  /** Contanti o POS. Torna sempre a "contanti" dopo un ordine: dimenticarselo
+   * acceso su POS sballerebbe il cassetto per tutta la sera. */
+  const [pagamento, setPagamento] = useState<MetodoPagamento>('contanti');
   /** Numero digitato nella casella per richiamare un ordine dal QR. */
   const [numeroQr, setNumeroQr] = useState('');
   /** L'ordine arrivato dal tavolo che si sta incassando. Quando c'è, il
@@ -133,6 +137,7 @@ export function NuovoOrdine() {
     setNumeroQr('');
     setBozza(null);
     setErrore(null);
+    setPagamento('contanti');
   }
 
   function cambiaQuantita(prodottoId: string, delta: number) {
@@ -187,12 +192,13 @@ export function NuovoOrdine() {
     setInCorso(true);
     try {
       const risultato = bozza
-        ? await confermaOrdine({ serataId: SERATA_ID_OGGI, numero: bozza.numero })
+        ? await confermaOrdine({ serataId: SERATA_ID_OGGI, numero: bozza.numero, pagamento })
         : await creaOrdineCassa({
             serataId: SERATA_ID_OGGI,
             items: Object.entries(carrello).map(([prodottoId, quantita]) => ({ prodottoId, quantita })),
             tavolo: Number(tavolo),
             coperti: Number(coperti),
+            pagamento,
           });
       setDaStampareId(risultato.data.ordineId);
       setMessaggioSuccesso(`Ordine ${risultato.data.codice} incassato e inviato ai reparti — ${euro(risultato.data.totale)}`);
@@ -422,6 +428,8 @@ export function NuovoOrdine() {
 
           {/* Il totale non si ripete qui sotto: sta nella fascia gialla in
               fondo al resoconto, a un dito dai tasti. */}
+          <SceltaPagamento valore={pagamento} onCambia={setPagamento} disabilitato={inCorso} />
+
           <div className="tasti-cassa">
             <button type="button" disabled={numeroArticoli === 0 || inCorso} onClick={stampaResoconto}>
               Stampa resoconto

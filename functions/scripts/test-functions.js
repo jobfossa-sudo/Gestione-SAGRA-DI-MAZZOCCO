@@ -985,6 +985,40 @@ async function main() {
     segnalaBagno({ serataId: SERATA_ID, bagno: 'donne', tipo: 'sapone' })
   );
   record('ed è una segnalazione nuova', seg4?.giaSegnalata === false && seg4?.segnalazioneId !== seg1?.segnalazioneId);
+
+  // --- Contanti o POS -------------------------------------------------------
+  // Senza questo, a fine serata non si sa quanto deve esserci nel cassetto.
+  await accediCome('cassa');
+  const ordineContanti = await assertOk(
+    'un ordine pagato in contanti',
+    creaEInvia({ serataId: SERATA_ID, items: [{ prodottoId: 'patatine', quantita: 1 }], ...TAVOLO, pagamento: 'contanti' })
+  );
+  const ordinePos = await assertOk(
+    'un ordine pagato col POS',
+    creaEInvia({ serataId: SERATA_ID, items: [{ prodottoId: 'patatine', quantita: 1 }], ...TAVOLO, pagamento: 'elettronico' })
+  );
+  const senzaMetodo = await assertOk(
+    'un ordine che non dice come e’ stato pagato',
+    creaEInvia({ serataId: SERATA_ID, items: [{ prodottoId: 'patatine', quantita: 1 }], ...TAVOLO })
+  );
+  const leggi = async (id) => (await db.doc(`serate/${SERATA_ID}/ordini/${id}`).get()).data();
+  record('il contante resta scritto sull’ordine', (await leggi(ordineContanti.ordineId))?.pagamento === 'contanti');
+  record('e il POS pure', (await leggi(ordinePos.ordineId))?.pagamento === 'elettronico');
+  record('chi non lo dice paga in contanti', (await leggi(senzaMetodo.ordineId))?.pagamento === 'contanti');
+
+  await assertRifiutato(
+    'un metodo di pagamento inventato viene rifiutato',
+    creaEInvia({ serataId: SERATA_ID, items: [{ prodottoId: 'patatine', quantita: 1 }], ...TAVOLO, pagamento: 'assegno' }),
+    'invalid-argument'
+  );
+
+  await accediCome('bancobar');
+  const scontrinoPos = await assertOk(
+    'anche al banco si distingue il pagamento',
+    creaOrdineBanco({ serataId: SERATA_ID, banco: 'bar', items: [{ prodottoId: 'caffe', quantita: 1 }], pagamento: 'elettronico' })
+  );
+  const scontrino = (await db.doc(`serate/${SERATA_ID}/ordiniBanco/${scontrinoPos.ordineId}`).get()).data();
+  record('e resta scritto sullo scontrino del banco', scontrino?.pagamento === 'elettronico');
   console.log('\nRisultati test Cloud Functions:');
   let tuttiOk = true;
   for (const e of esiti) {

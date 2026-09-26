@@ -1,4 +1,4 @@
-import { BANCHI, NOME_BANCO, tempoEmissione, type Ordine } from '@sagra-mazzocco/shared';
+import { BANCHI, NOME_BANCO, pagamentoDi, tempoEmissione, type Ordine } from '@sagra-mazzocco/shared';
 import { useLetteraCassa, useOrdiniAperti, useOrdiniBanco, useOrdiniCompletati, useUtenteAutenticato } from '../hooks';
 import { durata, euro } from '../services/formato';
 
@@ -54,6 +54,15 @@ export function FineSerata() {
   });
   const incassoBanchi = banchi.reduce((somma, riga) => somma + riga.totale, 0);
   const incassoTotale = incassoCasse + incassoBanchi;
+
+  // Quanto deve esserci nel cassetto e quanto sul POS: è il numero da cui
+  // parte la chiusura di serata. Gli ordini battuti prima che si distinguesse
+  // il pagamento contano come contanti — vedi pagamentoDi().
+  const conPagamento = [...pagati, ...ordiniBanco];
+  const incassoContanti = conPagamento
+    .filter((o) => pagamentoDi(o) === 'contanti')
+    .reduce((somma, o) => somma + o.totale, 0);
+  const incassoElettronico = incassoTotale - incassoContanti;
 
   // Un quadrato per ogni cassa che ha incassato, più sempre il proprio: chi
   // sta lavorando vede il suo conto anche prima del primo ordine.
@@ -164,6 +173,18 @@ export function FineSerata() {
             spiegazione={`${riga.ordini} ${riga.ordini === 1 ? 'scontrino battuto' : 'scontrini battuti'} al banco`}
           />
         ))}
+        <Quadrato
+          titolo="Di cui contanti"
+          valore={euro(incassoContanti)}
+          tono="incasso"
+          spiegazione="Quello che deve esserci nei cassetti"
+        />
+        <Quadrato
+          titolo="Di cui POS"
+          valore={euro(incassoElettronico)}
+          tono="incasso"
+          spiegazione="Pagamenti elettronici, da confrontare con il terminale"
+        />
         <Quadrato
           titolo="Incasso totale"
           valore={euro(incassoTotale)}

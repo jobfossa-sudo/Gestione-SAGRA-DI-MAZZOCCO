@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { NOME_BANCO, type Banco, type OrdineBanco } from '@sagra-mazzocco/shared';
+import { NOME_BANCO, type Banco, type MetodoPagamento, type OrdineBanco } from '@sagra-mazzocco/shared';
 import { useCategorieBanco, useProdottiBanco } from '../hooks';
 import { creaOrdineBanco, messaggioErrore } from '../services/callables';
 import { euro } from '../services/formato';
 import { SERATA_ID_OGGI } from '../services/serata';
 import { stampa } from './AreaStampa';
 import { ResocontoCliente } from './ResocontoCliente';
+import { SceltaPagamento } from './SceltaPagamento';
 
 /** Il banco che vende: si batte, si incassa, esce lo scontrino.
  *
@@ -20,6 +21,7 @@ export function CassaBanco({ banco }: { banco: Banco }) {
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [messaggio, setMessaggio] = useState<string | null>(null);
+  const [pagamento, setPagamento] = useState<MetodoPagamento>('contanti');
 
   const perGruppo = useMemo(
     () =>
@@ -69,6 +71,7 @@ export function CassaBanco({ banco }: { banco: Banco }) {
   function azzera() {
     setCarrello({});
     setErrore(null);
+    setPagamento('contanti');
   }
 
   /** Il cliente ha pagato: l'ordine viene scritto e lo scontrino esce subito.
@@ -83,6 +86,7 @@ export function CassaBanco({ banco }: { banco: Banco }) {
         serataId: SERATA_ID_OGGI,
         banco,
         items: Object.entries(carrello).map(([prodottoId, quantita]) => ({ prodottoId, quantita })),
+        pagamento,
       });
       const ordine: OrdineBanco = {
         id: risultato.data.ordineId,
@@ -91,6 +95,7 @@ export function CassaBanco({ banco }: { banco: Banco }) {
         numero: risultato.data.numero,
         codice: risultato.data.codice,
         stato: 'incassato',
+        pagamento,
         items: voci,
         totale: risultato.data.totale,
         operatoreUid: '',
@@ -215,6 +220,8 @@ export function CassaBanco({ banco }: { banco: Banco }) {
           {avvisoEsaurito && <p className="errore">{avvisoEsaurito}</p>}
           {errore && <p className="errore">{errore}</p>}
           {messaggio && <p className="successo">{messaggio}</p>}
+
+          <SceltaPagamento valore={pagamento} onCambia={setPagamento} disabilitato={inCorso} />
 
           <div className="tasti-cassa tasti-banco">
             <button
