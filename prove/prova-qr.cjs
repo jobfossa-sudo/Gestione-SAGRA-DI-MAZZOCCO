@@ -123,9 +123,12 @@ function verifica(descrizione, condizione, extra = '') {
   await admin.getByLabel('Password').fill('prova1234');
   await admin.getByRole('button', { name: 'Entra' }).click();
   await admin.waitForTimeout(2000);
-  await admin.getByRole('button', { name: 'QR del menù' }).click();
+  await admin.getByRole('button', { name: 'QR', exact: true }).click();
   await admin.waitForTimeout(2500);
-  verifica('l’amministratore vede un solo QR', (await admin.locator('.anteprima-cartello svg').count()) === 1);
+  verifica(
+    'l’amministratore vede un solo QR per il menù',
+    (await admin.locator('.qr-menu:not(.qr-bagni) > .anteprima-cartello svg').count()) === 1
+  );
   verifica(
     'il QR porta al menù senza numero di tavolo',
     /\?menu$/.test(await admin.innerText('.indirizzo-qr')),

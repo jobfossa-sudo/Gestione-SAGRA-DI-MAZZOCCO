@@ -94,6 +94,15 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Segnalazioni dai bagni. Le manda un cliente col telefono, quindi senza
+      // accesso: arrivano dalla Cloud Function, che è l'unica a poterle
+      // scrivere. Le legge il personale, a cui compare l'avviso. Il cliente
+      // non le rilegge: ha già avuto il suo "grazie" sullo schermo.
+      match /segnalazioni/{segnalazioneId} {
+        allow read: if personaleComande();
+        allow write: if false;
+      }
+
       match /ordini/{ordineId} {
         allow read: if personaleComande();
         allow write: if false;

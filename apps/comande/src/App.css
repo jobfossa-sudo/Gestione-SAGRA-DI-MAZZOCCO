@@ -2549,3 +2549,179 @@ body.trascinamento-in-corso {
 .tasti-cassa.tasti-banco {
   grid-template-columns: 2fr 1fr;
 }
+
+/* ---------- le segnalazioni dai bagni ---------- */
+
+/* Gli avvisi stanno sopra tutto, in alto a destra: si devono vedere mentre si
+   sta facendo altro, ma non devono coprire quello che si sta facendo — per
+   questo a destra, dove nelle schermate c'è lo scontrino o il vuoto, e non in
+   mezzo. In stampa non escono: non sono roba da carta. */
+.avvisi-bagni {
+  position: fixed;
+  /* Sotto la barra in cima, non sopra: lì stanno Esci, il tema e la grandezza
+     delle scritte, e un avviso che li copre è un avviso che dà fastidio. La
+     misura è in rem perché la barra cresce insieme alle scritte. */
+  top: 4.6rem;
+  right: 12px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(22rem, calc(100vw - 24px));
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+  /* Il contenitore non intercetta niente: i clic li prendono solo i riquadri
+     degli avvisi. Senza questo, lo spazio vuoto fra un avviso e l'altro
+     rubava i tocchi a quello che c'e' sotto. */
+  pointer-events: none;
+}
+@media print {
+  .avvisi-bagni {
+    display: none;
+  }
+}
+.avviso-bagno {
+  pointer-events: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  /* La striscia colorata di lato è la stessa idea delle comande: si riconosce
+     da lontano di cosa si tratta senza leggere. */
+  border-left: 6px solid var(--tempo);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.testata-avviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.luogo-avviso {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tempo);
+}
+.ora-avviso {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-right: auto;
+}
+/* La ✕ toglie l'avviso solo da questo schermo: piccola e in grigio, perché
+   non è l'azione giusta — quella è il tasto sotto. */
+.chiudi-avviso {
+  width: auto;
+  padding: 0 6px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1;
+}
+.chiudi-avviso:hover:not(:disabled) {
+  color: var(--text);
+  background: none;
+}
+.testo-avviso {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.avviso-bagno .bottone-principale {
+  padding: 7px 12px;
+}
+
+/* La pagina che si apre inquadrando il cartello in bagno: la si guarda in
+   piedi, col telefono in una mano. Righe alte e poche parole. */
+.segnala-bagno {
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100svh;
+}
+.testata-segnalazione h1 {
+  font-size: 1.8rem;
+  margin: 2px 0;
+}
+.quale-bagno {
+  font-size: 1.05rem;
+  color: var(--text-muted);
+}
+.elenco-segnalazioni {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.elenco-segnalazioni button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* Un dito, non un puntatore: righe alte, testo grande. */
+  padding: 16px 18px;
+  font-size: 1.1rem;
+  text-align: left;
+}
+.elenco-segnalazioni .freccia {
+  color: var(--accent);
+  font-size: 1.3rem;
+}
+.esito-segnalazione {
+  margin: auto 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.spunta-grande {
+  font-size: 3.5rem;
+  line-height: 1;
+  color: var(--success);
+}
+
+/* La schermata QR tiene due riquadri: i tavoli e i bagni. */
+.qr-schede {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.fila-bagni {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 14px;
+  margin: 12px 0;
+}
+.cartello-bagno {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.cartello-bagno h3 {
+  font-size: 1rem;
+}
+.cartello-bagno .indirizzo-qr {
+  font-size: 0.72rem;
+  word-break: break-all;
+  text-align: center;
+}
+/* Il cartello del bagno è come quello dei tavoli ma di un altro colore: sul
+   tavolo di chi stampa non si confondono. I colori sono fissi e non presi dal
+   tema: è carta, e deve uscire uguale che lo schermo sia chiaro o scuro. */
+.foglio-qr-bagno .banda-qr {
+  background: linear-gradient(135deg, #0e7490 0%, #155e75 100%);
+}

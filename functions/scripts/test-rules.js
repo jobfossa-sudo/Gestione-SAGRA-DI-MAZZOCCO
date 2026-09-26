@@ -40,6 +40,7 @@ async function main() {
     await db.doc('banchi/bevande/categorie/vini').set({ id: 'vini', nome: 'Vini', ordine: 0 });
     await db.doc('banchi/bevande/prodotti/vino').set({ id: 'vino', categoriaId: 'vini', nome: 'Vino', prezzo: 2 });
     await db.doc('serate/2026-01-01/ordiniBanco/scontrino1').set({ banco: 'bar', numero: 1, totale: 3, stato: 'incassato' });
+    await db.doc('serate/2026-01-01/segnalazioni/seg1').set({ bagno: 'donne', tipo: 'sapone', testo: 'Manca il sapone', presaInCaricoAt: null });
   });
 
   const anonimo = testEnv.unauthenticatedContext().firestore();
@@ -212,6 +213,25 @@ async function main() {
   await check(
     'chi non è del personale non legge gli ordini dei banchi',
     assertFails(soloAltraApp.collection('serate/2026-01-01/ordiniBanco').get())
+  );
+
+  // Segnalazioni dai bagni: le manda un cliente senza accesso, quindi passano
+  // dalla Cloud Function; dal client si leggono soltanto, e solo il personale.
+  await check(
+    'il personale legge le segnalazioni dai bagni',
+    assertSucceeds(cassa.collection('serate/2026-01-01/segnalazioni').get())
+  );
+  await check(
+    'il cliente che ha segnalato non rilegge le segnalazioni',
+    assertFails(anonimo.collection('serate/2026-01-01/segnalazioni').get())
+  );
+  await check(
+    'nessuno scrive una segnalazione direttamente',
+    assertFails(cassa.doc('serate/2026-01-01/segnalazioni/finta').set({ bagno: 'donne', tipo: 'sapone' }))
+  );
+  await check(
+    'nemmeno l’amministratore la chiude a mano',
+    assertFails(admin.doc('serate/2026-01-01/segnalazioni/seg1').update({ presaInCaricoAt: new Date() }))
   );
 
   // Configurazione di sistema

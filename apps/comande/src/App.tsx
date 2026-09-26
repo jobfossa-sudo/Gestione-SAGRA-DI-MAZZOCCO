@@ -6,12 +6,14 @@ import { AreaCassa } from './components/AreaCassa';
 import { AreaStampa } from './components/AreaStampa';
 import { AvvisoRete } from './components/AvvisoRete';
 import { AreaBanco } from './components/AreaBanco';
+import { AvvisoBagni } from './components/AvvisoBagni';
 import { Biglietti } from './components/Biglietti';
 import { Composizioni } from './components/Composizioni';
 import { GestioneMenu } from './components/GestioneMenu';
 import { Login } from './components/Login';
 import { MenuQr } from './components/MenuQr';
 import { QrMenu } from './components/QrMenu';
+import { SegnalaBagno } from './components/SegnalaBagno';
 import { Pannelli } from './components/Pannelli';
 import { Distribuzione } from './components/Distribuzione';
 import { SelettoreCarattere } from './components/SelettoreCarattere';
@@ -20,6 +22,7 @@ import { useUtenteAutenticato } from './hooks';
 import { auth } from './services/firebase';
 import { SERATA_ID_OGGI } from './services/serata';
 import { menuDaIndirizzo } from './services/tavolo';
+import { segnalazioneDaIndirizzo } from './services/bagni';
 
 /** Ogni area è visibile a chi ha uno dei ruoli indicati; l'amministratore
  * le vede tutte. "larga" toglie il limite di larghezza: serve solo dove si
@@ -40,7 +43,7 @@ const AREE: Area[] = [
   { nome: 'Gestione menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: GestioneMenu, larga: true },
   { nome: 'Composizioni', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Composizioni, larga: true },
   { nome: 'Biglietti', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Biglietti, larga: true },
-  { nome: 'QR del menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: QrMenu, larga: true },
+  { nome: 'QR', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: QrMenu, larga: true },
   { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa, larga: false },
   { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli, larga: false },
   { nome: 'Distribuzione', ruoli: ['distribuzione'] as RuoloComande[], soloAmministratore: false, contenuto: Distribuzione, larga: false },
@@ -62,6 +65,11 @@ function App() {
   // Il tavolo nell'indirizzo vuol dire "sono un cliente, ho inquadrato il QR":
   // si apre il menù, senza accesso e senza niente del personale.
   const menuCliente = menuDaIndirizzo();
+  // Il bagno nell'indirizzo vuol dire "sono un cliente, ho inquadrato il
+  // cartello appeso in bagno": si apre l'elenco delle segnalazioni e nient'altro.
+  const segnalazione = segnalazioneDaIndirizzo();
+
+  if (segnalazione.attiva) return <SegnalaBagno bagno={segnalazione.bagno} />;
 
   if (menuCliente.attivo)
     return (
@@ -111,6 +119,7 @@ function App() {
   return (
     <div className="app-cassa">
       <AvvisoRete />
+      <AvvisoBagni />
       <header>
         <div className="marchio">
           <h1>Sagra di Mazzocco · Comande</h1>

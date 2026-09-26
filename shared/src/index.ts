@@ -859,3 +859,89 @@ export function tempoEmissione(ordine: Ordine): number | null {
 export function millisecondiTimestamp(orario: FirestoreTimestampLike): number {
   return orario.seconds * 1000 + orario.nanoseconds / 1e6;
 }
+
+// ---------------------------------------------------------------------------
+// Le segnalazioni dai bagni
+//
+// Un cartello con un QR in ogni bagno: il cliente lo inquadra, tocca cosa non
+// va e se ne va. Non c'è niente da scrivere e niente da gestire — l'elenco
+// delle cose segnalabili sta qui nel codice, non in una schermata di
+// amministrazione, perché sono sempre quelle e un elenco da mantenere è un
+// elenco che nessuno mantiene.
+//
+// L'avviso compare su tutti gli schermi del personale, qualunque schermata
+// stiano guardando: chi ha un attimo ci va.
+// ---------------------------------------------------------------------------
+
+export type Bagno = 'uomini' | 'donne' | 'disabile';
+
+export const BAGNI: Bagno[] = ['uomini', 'donne', 'disabile'];
+
+export const NOME_BAGNO: Record<Bagno, string> = {
+  uomini: 'Uomini',
+  donne: 'Donne',
+  disabile: 'Disabili',
+};
+
+export type TipoSegnalazione = 'carta' | 'sapone' | 'pulizia' | 'water' | 'acqua' | 'cestino' | 'altro';
+
+/** Quello che il cliente può segnalare, nell'ordine in cui compare sul suo
+ * telefono. Le prime due sono le più frequenti e stanno in cima: chi ha
+ * fretta tocca senza leggere tutto. */
+export const SEGNALAZIONI_BAGNO: { id: TipoSegnalazione; testo: string }[] = [
+  { id: 'carta', testo: 'Manca la carta igienica' },
+  { id: 'sapone', testo: 'Manca il sapone' },
+  { id: 'pulizia', testo: 'Bagno da pulire' },
+  { id: 'water', testo: 'Water intasato' },
+  { id: 'acqua', testo: 'Acqua per terra' },
+  { id: 'cestino', testo: 'Cestino pieno' },
+  { id: 'altro', testo: 'Altro problema' },
+];
+
+export const TESTO_SEGNALAZIONE: Record<TipoSegnalazione, string> = Object.fromEntries(
+  SEGNALAZIONI_BAGNO.map((voce) => [voce.id, voce.testo])
+) as Record<TipoSegnalazione, string>;
+
+/** Per quanti minuti una segnalazione uguale (stesso bagno, stessa cosa) non
+ * ne crea una nuova. Il QR è appeso in un bagno pubblico e lo inquadra
+ * chiunque: senza questo, basterebbe un ragazzino annoiato per riempire di
+ * avvisi tutti gli schermi della sagra. Chi segnala non se ne accorge — gli
+ * si risponde "grazie" lo stesso. */
+export const MINUTI_SEGNALAZIONE_DOPPIA = 5;
+
+export interface SegnalazioneBagno {
+  id: string;
+  serataId: string;
+  bagno: Bagno;
+  tipo: TipoSegnalazione;
+  /** Il testo com'era quando è stata mandata: se un domani si cambia una voce
+   * dell'elenco, le segnalazioni vecchie continuano a dire quello che dicevano. */
+  testo: string;
+  createdAt: FirestoreTimestampLike;
+  /** Quando qualcuno ha premuto "Ci penso io": da quel momento l'avviso
+   * sparisce da tutti gli schermi, così non ci vanno in due. */
+  presaInCaricoAt: FirestoreTimestampLike | null;
+  presaInCaricoDa: string | null;
+}
+
+export interface SegnalaBagnoRichiesta {
+  serataId: string;
+  bagno: Bagno;
+  tipo: TipoSegnalazione;
+}
+
+export interface SegnalaBagnoRisposta {
+  segnalazioneId: string;
+  /** Vero quando la stessa cosa era già stata segnalata da poco: non se ne
+   * crea una seconda. */
+  giaSegnalata: boolean;
+}
+
+export interface PrendiSegnalazioneRichiesta {
+  serataId: string;
+  segnalazioneId: string;
+}
+
+export interface PrendiSegnalazioneRisposta {
+  segnalazioneId: string;
+}

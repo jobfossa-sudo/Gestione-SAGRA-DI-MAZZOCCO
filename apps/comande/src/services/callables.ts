@@ -2,6 +2,10 @@ import { httpsCallable } from 'firebase/functions';
 import type {
   AnnullaOrdineBancoRichiesta,
   AnnullaOrdineBancoRisposta,
+  SegnalaBagnoRichiesta,
+  SegnalaBagnoRisposta,
+  PrendiSegnalazioneRichiesta,
+  PrendiSegnalazioneRisposta,
   SegnaComandaStampataRichiesta,
   SegnaComandaStampataRisposta,
   CreaOrdineBancoRichiesta,
@@ -67,6 +71,16 @@ export const annullaOrdineBanco = httpsCallable<AnnullaOrdineBancoRichiesta, Ann
 export const segnaComandaStampata = httpsCallable<SegnaComandaStampataRichiesta, SegnaComandaStampataRisposta>(
   functions,
   'segnaComandaStampata'
+);
+
+/** La segnalazione dal bagno: la manda un cliente col telefono, quindi si
+ * chiama senza aver fatto l'accesso, come il menù dal QR del tavolo. */
+export const segnalaBagno = httpsCallable<SegnalaBagnoRichiesta, SegnalaBagnoRisposta>(functions, 'segnalaBagno');
+
+/** "Ci penso io": l'avviso sparisce dagli schermi di tutti. */
+export const prendiSegnalazione = httpsCallable<PrendiSegnalazioneRichiesta, PrendiSegnalazioneRisposta>(
+  functions,
+  'prendiSegnalazione'
 );
 
 export const impostaPorzioni = httpsCallable<ImpostaPorzioniRichiesta, ProdottoRisposta>(functions, 'impostaPorzioni');

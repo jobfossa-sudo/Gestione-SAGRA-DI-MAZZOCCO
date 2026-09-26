@@ -7,6 +7,7 @@ import type {
   CategoriaBanco,
   ProdottoBanco,
   OrdineBanco,
+  SegnalazioneBagno,
   Biglietto,
   TipoBiglietto,
   Immagine,
@@ -307,4 +308,31 @@ export function useOrdiniBanco(banco?: Banco): OrdineBanco[] {
   );
 
   return banco ? ordini.filter((ordine) => ordine.banco === banco) : ordini;
+}
+
+/** Le segnalazioni dai bagni ancora da sistemare, la più recente in cima.
+ *
+ * Si ascolta tutta la serata e si filtra qui quelle già prese in carico:
+ * chiedere a Firestore anche quel filtro vorrebbe dire creare un indice, e un
+ * indice che manca si scopre in produzione la sera della sagra. Di
+ * segnalazioni in una serata ce ne sono una manciata. */
+export function useSegnalazioniAperte(): SegnalazioneBagno[] {
+  const [segnalazioni, setSegnalazioni] = useState<SegnalazioneBagno[]>([]);
+
+  useEffect(
+    () =>
+      onSnapshot(
+        query(collection(db, `serate/${SERATA_ID_OGGI}/segnalazioni`), orderBy('createdAt', 'desc')),
+        (snapshot) => {
+          setSegnalazioni(
+            snapshot.docs
+              .map((doc) => doc.data() as SegnalazioneBagno)
+              .filter((segnalazione) => !segnalazione.presaInCaricoAt)
+          );
+        }
+      ),
+    []
+  );
+
+  return segnalazioni;
 }

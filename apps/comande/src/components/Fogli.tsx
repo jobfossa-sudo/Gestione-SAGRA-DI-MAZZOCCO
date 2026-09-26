@@ -1,6 +1,6 @@
 import JsBarcode from 'jsbarcode';
 import { useEffect, useRef } from 'react';
-import { leggiCodiceBarre, type Ordine } from '@sagra-mazzocco/shared';
+import { NOME_BAGNO, leggiCodiceBarre, type Bagno, type Ordine } from '@sagra-mazzocco/shared';
 import { QrCodice } from './QrMenu';
 
 /** Il codice a barre (Code 128: lettere e cifre) disegnato come immagine
@@ -59,6 +59,38 @@ export function FoglioQrMenu({ svg }: { svg: string }) {
       </ol>
 
       <p className="piede-qr">Buon appetito!</p>
+    </section>
+  );
+}
+
+/** Il cartello da appendere in bagno: un QR per bagno. Chi lo inquadra tocca
+ * cosa non va e basta — nessun accesso, niente da scrivere. Colorato come
+ * quello dei tavoli, ma di un altro colore, così a colpo d'occhio non si
+ * confondono quando si stampano insieme. */
+export function FoglioQrBagno({ svg, bagno }: { svg: string; bagno: Bagno }) {
+  return (
+    <section className="foglio foglio-qr foglio-qr-bagno">
+      <div className="banda-qr">
+        <span className="anno-qr">Bagno {NOME_BAGNO[bagno]}</span>
+        <h1>Qualcosa non va?</h1>
+        <p>Dillo a noi, ci pensiamo subito</p>
+      </div>
+
+      <div className="cornice-qr">
+        <QrCodice svg={svg} />
+      </div>
+      <p className="invito-qr">Inquadra il quadrato con la fotocamera</p>
+
+      <ol className="istruzioni-qr">
+        <li>
+          <span className="passo">1</span> Tocca <strong>cosa manca</strong> o cosa c'è da sistemare.
+        </li>
+        <li>
+          <span className="passo">2</span> Fatto: arriva subito a chi sta lavorando.
+        </li>
+      </ol>
+
+      <p className="piede-qr">Grazie!</p>
     </section>
   );
 }

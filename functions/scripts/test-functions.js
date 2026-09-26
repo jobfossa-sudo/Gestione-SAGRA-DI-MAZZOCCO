@@ -53,6 +53,8 @@ const chiudiOrdine = httpsCallable(functions, 'chiudiOrdine');
 const creaOrdineBanco = httpsCallable(functions, 'creaOrdineBanco');
 const annullaOrdineBanco = httpsCallable(functions, 'annullaOrdineBanco');
 const segnaComandaStampata = httpsCallable(functions, 'segnaComandaStampata');
+const segnalaBagno = httpsCallable(functions, 'segnalaBagno');
+const prendiSegnalazione = httpsCallable(functions, 'prendiSegnalazione');
 
 /** La cassa conferma a pagamento avvenuto: un'unica chiamata che crea
  * l'ordine, scala le porzioni e manda le comande ai reparti. */
@@ -912,6 +914,77 @@ async function main() {
     );
   }
 
+
+  // --- Le segnalazioni dai bagni -------------------------------------------
+  // Le manda un cliente col telefono, senza aver fatto l'accesso.
+  await signOut(auth);
+  const seg1 = await assertOk(
+    'un cliente segnala dal bagno, senza accesso',
+    segnalaBagno({ serataId: SERATA_ID, bagno: 'donne', tipo: 'sapone' })
+  );
+  record('la segnalazione e’ nuova', seg1?.giaSegnalata === false);
+
+  const seg2 = await assertOk(
+    'un secondo cliente segnala la stessa cosa',
+    segnalaBagno({ serataId: SERATA_ID, bagno: 'donne', tipo: 'sapone' })
+  );
+  record('non ne nasce una seconda', seg2?.giaSegnalata === true && seg2?.segnalazioneId === seg1?.segnalazioneId);
+
+  const seg3 = await assertOk(
+    'la stessa cosa in un altro bagno e’ un’altra segnalazione',
+    segnalaBagno({ serataId: SERATA_ID, bagno: 'uomini', tipo: 'sapone' })
+  );
+  record('e infatti ne nasce una nuova', seg3?.giaSegnalata === false && seg3?.segnalazioneId !== seg1?.segnalazioneId);
+
+  await assertRifiutato(
+    'un bagno che non esiste viene rifiutato',
+    segnalaBagno({ serataId: SERATA_ID, bagno: 'cucina', tipo: 'sapone' }),
+    'invalid-argument'
+  );
+  await assertRifiutato(
+    'e una segnalazione inventata pure',
+    segnalaBagno({ serataId: SERATA_ID, bagno: 'donne', tipo: 'incendio' }),
+    'invalid-argument'
+  );
+
+  const salvata = (await db.doc(`serate/${SERATA_ID}/segnalazioni/${seg1.segnalazioneId}`).get()).data();
+  record('la segnalazione salva il testo per esteso', salvata?.testo === 'Manca il sapone', `testo: ${salvata?.testo}`);
+  record('e nasce da sistemare', salvata?.presaInCaricoAt === null);
+
+  await assertRifiutato(
+    'un cliente non può dire "ci penso io"',
+    prendiSegnalazione({ serataId: SERATA_ID, segnalazioneId: seg1.segnalazioneId }),
+    'unauthenticated'
+  );
+
+  // "Ci penso io" lo può premere chiunque stia lavorando, qualunque sia il suo
+  // ruolo: portare un rotolo di carta non è il mestiere di nessuno in
+  // particolare.
+  await accediCome('cucina');
+  await assertOk(
+    'chi sta lavorando se ne prende carico, con qualsiasi ruolo',
+    prendiSegnalazione({ serataId: SERATA_ID, segnalazioneId: seg1.segnalazioneId })
+  );
+  const presa = (await db.doc(`serate/${SERATA_ID}/segnalazioni/${seg1.segnalazioneId}`).get()).data();
+  record('da quel momento risulta presa in carico', !!presa?.presaInCaricoAt);
+  record('con il nome di chi ci va', presa?.presaInCaricoDa === 'Cuoco di prova', `nome: ${presa?.presaInCaricoDa}`);
+
+  await accediCome('cassa');
+  await assertOk(
+    'se ci pensa un secondo per sbaglio, non è un errore',
+    prendiSegnalazione({ serataId: SERATA_ID, segnalazioneId: seg1.segnalazioneId })
+  );
+  const ancora = (await db.doc(`serate/${SERATA_ID}/segnalazioni/${seg1.segnalazioneId}`).get()).data();
+  record('e resta di chi se n’era preso carico per primo', ancora?.presaInCaricoDa === 'Cuoco di prova');
+
+  // Una volta sistemata, la stessa cosa si può segnalare di nuovo: il sapone
+  // può finire due volte nella stessa serata.
+  await signOut(auth);
+  const seg4 = await assertOk(
+    'dopo che è stata sistemata, si può risegnalare',
+    segnalaBagno({ serataId: SERATA_ID, bagno: 'donne', tipo: 'sapone' })
+  );
+  record('ed è una segnalazione nuova', seg4?.giaSegnalata === false && seg4?.segnalazioneId !== seg1?.segnalazioneId);
   console.log('\nRisultati test Cloud Functions:');
   let tuttiOk = true;
   for (const e of esiti) {

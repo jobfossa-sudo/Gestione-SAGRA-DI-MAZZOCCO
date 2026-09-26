@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MISURE_CARTA, type Ordine, type TipoBiglietto } from '@sagra-mazzocco/shared';
+import { MISURE_CARTA, type Bagno, type Ordine, type TipoBiglietto } from '@sagra-mazzocco/shared';
 import { useBiglietti, useImmagini } from '../hooks';
 import { FoglioComposto } from './FoglioComposto';
-import { FoglioQrMenu } from './Fogli';
+import { FoglioQrBagno, FoglioQrMenu } from './Fogli';
 
 export type Foglio =
   | { tipo: TipoBiglietto; ordine: Ordine }
   /** Il QR arriva già disegnato: va preparato prima di chiamare la stampa. */
-  | { tipo: 'qrMenu'; svg: string };
+  | { tipo: 'qrMenu'; svg: string }
+  /** Il cartello da appendere in bagno, uno per bagno. */
+  | { tipo: 'qrBagno'; svg: string; bagno: Bagno };
 
 let ricevi: ((fogli: Foglio[]) => void) | null = null;
 
@@ -49,7 +51,7 @@ export function AreaStampa() {
   const formato =
     primo === undefined
       ? null
-      : primo.tipo === 'qrMenu'
+      : primo.tipo === 'qrMenu' || primo.tipo === 'qrBagno'
         ? 'A5 portrait'
         : MISURE_CARTA[biglietti[primo.tipo].formato].regolaCss;
 
@@ -61,6 +63,8 @@ export function AreaStampa() {
       {fogli.map((foglio, indice) =>
         foglio.tipo === 'qrMenu' ? (
           <FoglioQrMenu key={indice} svg={foglio.svg} />
+        ) : foglio.tipo === 'qrBagno' ? (
+          <FoglioQrBagno key={indice} svg={foglio.svg} bagno={foglio.bagno} />
         ) : (
           <FoglioComposto
             key={indice}

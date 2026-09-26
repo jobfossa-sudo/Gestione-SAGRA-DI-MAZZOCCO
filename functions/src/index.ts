@@ -10,6 +10,7 @@ import {
   FieldValue,
   Transaction,
   DocumentReference,
+  Timestamp,
 } from 'firebase-admin/firestore';
 import { defineString } from 'firebase-functions/params';
 import { onCall, HttpsError, CallableOptions, CallableRequest } from 'firebase-functions/v2/https';
@@ -81,6 +82,16 @@ import {
   SegnaComandaStampataRisposta,
   AnnullaOrdineBancoRichiesta,
   AnnullaOrdineBancoRisposta,
+  Bagno,
+  BAGNI,
+  TipoSegnalazione,
+  TESTO_SEGNALAZIONE,
+  MINUTI_SEGNALAZIONE_DOPPIA,
+  SegnalazioneBagno,
+  SegnalaBagnoRichiesta,
+  SegnalaBagnoRisposta,
+  PrendiSegnalazioneRichiesta,
+  PrendiSegnalazioneRisposta,
 } from '@sagra-mazzocco/shared';
 
 initializeApp();
@@ -1319,5 +1330,99 @@ export const segnaComandaStampata = onCall(
       transaction.update(ref, { stampataAt: FieldValue.serverTimestamp() });
       return { sottoOrdineId, daStampare: true };
     });
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Le segnalazioni dai bagni
+//
+// Il cliente inquadra il QR appeso in bagno, tocca cosa non va e manda. Non ha
+// fatto l'accesso — è un cliente — quindi questa funzione si può chiamare
+// senza autenticazione, come il menù dal QR del tavolo. Per la stessa ragione
+// non accetta testo libero: quello che arriva da fuori finisce sugli schermi
+// di tutti, e l'unica cosa che non si può scrivere è quella che non esiste.
+// ---------------------------------------------------------------------------
+
+export const segnalaBagno = onCall(
+  CHIAMABILE,
+  async (request: CallableRequest<SegnalaBagnoRichiesta>): Promise<SegnalaBagnoRisposta> => {
+    const { serataId, bagno, tipo } = request.data ?? ({} as SegnalaBagnoRichiesta);
+    if (typeof serataId !== 'string' || !serataId) {
+      throw new HttpsError('invalid-argument', 'Serata non valida.');
+    }
+    if (typeof bagno !== 'string' || !BAGNI.includes(bagno as Bagno)) {
+      throw new HttpsError('invalid-argument', 'Bagno non valido.');
+    }
+    const testo = TESTO_SEGNALAZIONE[tipo as TipoSegnalazione];
+    if (!testo) {
+      throw new HttpsError('invalid-argument', 'Segnalazione non valida.');
+    }
+
+    const collezione = db.collection(`serate/${serataId}/segnalazioni`);
+    const da = new Date(Date.now() - MINUTI_SEGNALAZIONE_DOPPIA * 60 * 1000);
+
+    return db.runTransaction(async (transaction) => {
+      // La stessa cosa nello stesso bagno, segnalata da poco e non ancora
+      // presa in carico, non ne crea una seconda: dieci persone che trovano il
+      // bagno senza sapone sono un avviso solo, non dieci.
+      const recenti = await transaction.get(collezione.where('createdAt', '>=', Timestamp.fromDate(da)));
+      const uguale = recenti.docs.find((doc) => {
+        const altra = doc.data() as SegnalazioneBagno;
+        return altra.bagno === bagno && altra.tipo === tipo && !altra.presaInCaricoAt;
+      });
+      if (uguale) {
+        return { segnalazioneId: uguale.id, giaSegnalata: true };
+      }
+
+      const ref = collezione.doc();
+      const segnalazione: SegnalazioneBagno = {
+        id: ref.id,
+        serataId,
+        bagno: bagno as Bagno,
+        tipo: tipo as TipoSegnalazione,
+        testo,
+        createdAt: FieldValue.serverTimestamp() as unknown as SegnalazioneBagno['createdAt'],
+        presaInCaricoAt: null,
+        presaInCaricoDa: null,
+      };
+      transaction.set(ref, segnalazione);
+      return { segnalazioneId: ref.id, giaSegnalata: false };
+    });
+  }
+);
+
+/** "Ci penso io": l'avviso sparisce da tutti gli schermi, così non partono in
+ * due per lo stesso bagno. Può premerlo chiunque stia lavorando, qualunque sia
+ * il suo ruolo: chi ha un attimo ci va, e non serve essere di turno da nessuna
+ * parte per portare un rotolo di carta. */
+export const prendiSegnalazione = onCall(
+  CHIAMABILE,
+  async (request: CallableRequest<PrendiSegnalazioneRichiesta>): Promise<PrendiSegnalazioneRisposta> => {
+    richiedeRuoloComande(request, ...RUOLI_COMANDE);
+    const { serataId, segnalazioneId } = request.data ?? ({} as PrendiSegnalazioneRichiesta);
+    if (typeof serataId !== 'string' || !serataId || typeof segnalazioneId !== 'string' || !segnalazioneId) {
+      throw new HttpsError('invalid-argument', 'Segnalazione non valida.');
+    }
+    const uid = request.auth!.uid;
+
+    await db.runTransaction(async (transaction) => {
+      const ref = db.doc(`serate/${serataId}/segnalazioni/${segnalazioneId}`);
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) {
+        throw new HttpsError('not-found', 'Segnalazione inesistente.');
+      }
+      if ((snapshot.data() as SegnalazioneBagno).presaInCaricoAt) {
+        // Ci ha già pensato qualcun altro: non è un errore, è la cosa che
+        // doveva succedere. Si risponde bene e basta.
+        return;
+      }
+      const nome = await leggiNomeUtente(transaction, uid);
+      transaction.update(ref, {
+        presaInCaricoAt: FieldValue.serverTimestamp(),
+        presaInCaricoDa: nome,
+      });
+    });
+
+    return { segnalazioneId };
   }
 );
