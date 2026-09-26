@@ -48,10 +48,13 @@ export function Report({ edizioneId, serate }: { edizioneId: string; serate: Ser
     return [...mappa.values()].sort((a, b) => b.quantita - a.quantita);
   }, [righe, totali]);
 
+  // "1 serate" su un foglio che leggono tutti fa brutta figura.
+  const quanteSerate = `${serateEdizione.length} ${serateEdizione.length === 1 ? 'serata' : 'serate'}`;
+
   const testoVolontari = [
     `SAGRA DI MAZZOCCO ${edizioneId}`,
     '',
-    `${coperti} coperti serviti in ${serateEdizione.length} ${serateEdizione.length === 1 ? 'serata' : 'serate'}`,
+    `${coperti} coperti serviti in ${quanteSerate}`,
     `${euro(conto.entrate)} incassati`,
     venduto[0] ? `Il più venduto: ${venduto[0].nome} (${venduto[0].quantita})` : '',
     mostraUtile ? `Avanzo dell'edizione: ${euro(conto.utile)}` : '',
@@ -197,7 +200,7 @@ export function Report({ edizioneId, serate }: { edizioneId: string; serate: Ser
         <div className="foglio-volontari">
           <span className="occhiello">Sagra di Mazzocco · {edizioneId}</span>
           <p className="numerone">{coperti}</p>
-          <p className="didascalia">coperti serviti in {serateEdizione.length} serate</p>
+          <p className="didascalia">coperti serviti in {quanteSerate}</p>
           <p className="numerone">{euro(conto.entrate)}</p>
           <p className="didascalia">incassati</p>
           {venduto[0] && (
