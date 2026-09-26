@@ -60,10 +60,21 @@ async function telefonoInBagno(browser, bagno) {
 (async () => {
   const browser = await chromium.launch();
 
-  // Due schermi del personale, di ruoli diversi: l'avviso deve arrivare a
-  // tutti e due, qualunque schermata stiano guardando.
+  // Tre schermi del personale. Ai primi due l'avviso deve arrivare, qualunque
+  // schermata stiano guardando. Il terzo è il pannello della cucina, che è
+  // appeso al muro e si legge da lontano: lì l'avviso non deve comparire.
   const cassa = await entra(browser, 'cassa');
-  const cucina = await entra(browser, 'cucina');
+  const distribuzione = await entra(browser, 'distribuzione');
+  const pannelli = await entra(browser, 'cucina');
+
+  // Si parte pulito: qualsiasi segnalazione rimasta aperta prima di questa
+  // prova viene presa in carico, così i conteggi qui sotto contano solo quello
+  // che fa la prova stessa.
+  for (let giro = 0; giro < 15 && (await cassa.locator('.avviso-bagno').count()) > 0; giro++) {
+    await cassa.locator('.avviso-bagno').first().getByRole('button', { name: 'Ci penso io' }).click();
+    await cassa.waitForTimeout(1200);
+  }
+  verifica('si parte senza avvisi in sospeso', (await cassa.locator('.avviso-bagno').count()) === 0);
 
   // --- Il cartello in bagno ------------------------------------------------
   const cliente = await telefonoInBagno(browser, 'disabile');
@@ -87,14 +98,22 @@ async function telefonoInBagno(browser, bagno) {
 
   // --- L'avviso sugli schermi di chi lavora --------------------------------
   const avvisoCassa = cassa.locator('.avviso-bagno', { hasText: 'Water intasato' });
-  const avvisoCucina = cucina.locator('.avviso-bagno', { hasText: 'Water intasato' });
+  const avvisoDistribuzione = distribuzione.locator('.avviso-bagno', { hasText: 'Water intasato' });
   verifica(
     'l’avviso arriva in cassa da solo',
     await attendi(async () => (await avvisoCassa.count()) > 0)
   );
   verifica(
-    'e arriva anche in cucina, su un’altra schermata',
-    await attendi(async () => (await avvisoCucina.count()) > 0)
+    'e arriva anche in distribuzione, su un’altra schermata',
+    await attendi(async () => (await avvisoDistribuzione.count()) > 0)
+  );
+  // Il pannello della cucina resta pulito: è appeso al muro, chi ci lavora non
+  // può andare in bagno comunque, e un riquadro sopra le quantità da preparare
+  // toglierebbe proprio quello che serve leggere da lontano.
+  verifica(
+    'ma NON compare sul pannello della cucina',
+    (await pannelli.locator('.avviso-bagno').count()) === 0,
+    await pannelli.locator('.sotto-schede, h2').first().innerText().catch(() => '')
   );
   const testo = await avvisoCassa.first().innerText();
   verifica('l’avviso dice quale bagno', /bagno disabili/i.test(testo), testo.split('\n')[0]);
@@ -102,15 +121,15 @@ async function telefonoInBagno(browser, bagno) {
   await cassa.screenshot({ path: RISULTATI + '/bagno-avviso.png' });
 
   // Dieci persone che trovano lo stesso guaio non fanno dieci avvisi.
-  const quantiPrima = await cassa.locator('.avviso-bagno').count();
+  const quantiPrima = await avvisoCassa.count();
   const altroCliente = await telefonoInBagno(browser, 'disabile');
   await altroCliente.getByRole('button', { name: 'Water intasato' }).click();
   await altroCliente.waitForTimeout(3000);
   await cassa.waitForTimeout(2000);
   verifica(
     'la stessa segnalazione ripetuta non fa un secondo avviso',
-    (await cassa.locator('.avviso-bagno').count()) === quantiPrima,
-    `${quantiPrima} avvisi`
+    (await avvisoCassa.count()) === quantiPrima && quantiPrima === 1,
+    `${quantiPrima} avviso prima, ${await avvisoCassa.count()} dopo`
   );
   verifica(
     'ma chi l’ha mandata viene ringraziato lo stesso',
@@ -123,13 +142,13 @@ async function telefonoInBagno(browser, bagno) {
     'la ✕ lo toglie da questo schermo',
     await attendi(async () => (await avvisoCassa.count()) === 0, 10)
   );
-  verifica('ma in cucina resta: nessuno ci è ancora andato', (await avvisoCucina.count()) > 0);
+  verifica('ma in distribuzione resta: nessuno ci è ancora andato', (await avvisoDistribuzione.count()) > 0);
 
   // --- "Ci penso io" lo toglie da tutti ------------------------------------
-  await avvisoCucina.first().getByRole('button', { name: 'Ci penso io' }).click();
+  await avvisoDistribuzione.first().getByRole('button', { name: 'Ci penso io' }).click();
   verifica(
     '"Ci penso io" lo toglie dallo schermo di chi lo preme',
-    await attendi(async () => (await avvisoCucina.count()) === 0)
+    await attendi(async () => (await avvisoDistribuzione.count()) === 0)
   );
   // Si ricarica la cassa: l'avviso non deve tornare, perché qualcuno ci è
   // andato davvero. Chiudere con la ✕ invece non risolveva niente.

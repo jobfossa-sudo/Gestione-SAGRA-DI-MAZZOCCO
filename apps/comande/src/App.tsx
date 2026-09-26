@@ -37,6 +37,11 @@ type Area = {
   soloAmministratore: boolean;
   contenuto: ComponentType<{ amministratore: boolean }>;
   larga: boolean;
+  /** Schermata appesa al muro, che si legge da lontano e che nessuno tocca:
+   * qui gli avvisi dei bagni non compaiono. Chi cucina non può andarci
+   * comunque, e un riquadro che copre le quantità da preparare fa solo danni.
+   * Chi sta a quello schermo se lo sente dire da chi passa. */
+  schermoDaLontano?: boolean;
 };
 
 const AREE: Area[] = [
@@ -45,7 +50,7 @@ const AREE: Area[] = [
   { nome: 'Biglietti', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Biglietti, larga: true },
   { nome: 'QR', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: QrMenu, larga: true },
   { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa, larga: false },
-  { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli, larga: false },
+  { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli, larga: false, schermoDaLontano: true },
   { nome: 'Distribuzione', ruoli: ['distribuzione'] as RuoloComande[], soloAmministratore: false, contenuto: Distribuzione, larga: false },
   // I due banchi sono la stessa schermata con dentro un id diverso: quello che
   // li distingue sta tutto in AreaBanco, non qui.
@@ -119,7 +124,7 @@ function App() {
   return (
     <div className="app-cassa">
       <AvvisoRete />
-      <AvvisoBagni />
+      {!area.schermoDaLontano && <AvvisoBagni />}
       <header>
         <div className="marchio">
           <h1>Sagra di Mazzocco · Comande</h1>
