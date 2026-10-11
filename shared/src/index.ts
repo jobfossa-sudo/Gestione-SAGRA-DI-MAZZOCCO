@@ -633,10 +633,23 @@ export interface Permessi extends Accessi {
   amministratore?: boolean;
 }
 
+/** Una persona della sagra. Non tutte entrano nelle app: chi lava i piatti o
+ * serve ai tavoli sta in elenco solo per avere le presenze segnate, e allora
+ * non ha né nome utente né password (ruolo "nessuno"). Il documento si chiama
+ * comunque con l'uid: se un giorno le si dà un accesso, l'account nasce con
+ * quello stesso id e la persona resta una riga sola, presenze comprese. */
 export interface Utente {
   uid: string;
-  nomeUtente: string;
+  /** Il nome per entrare nelle app. Null = la persona non ha un account. */
+  nomeUtente: string | null;
   nome: string;
+  /** Mancante sui profili creati prima che si dividesse nome e cognome. */
+  cognome?: string;
+  /** Mancante sui profili creati prima del ruolo unico: si ricava da
+   * amministratore/accessi con ruoloDi(). */
+  ruolo?: Ruolo;
+  /** Ricavati dal ruolo (vedi permessiDelRuolo) e tenuti qui per comodità di
+   * lettura: chi decide davvero sono i permessi dell'account. */
   amministratore: boolean;
   accessi: Accessi;
   /** Lettera della cassa di questa persona (A, B…): tutti i suoi ordini prendono
@@ -674,24 +687,35 @@ export interface ItemOrdineRichiesta {
 }
 
 export interface CreaUtenteRichiesta {
-  nomeUtente: string;
   nome: string;
-  password: string;
-  amministratore: boolean;
-  accessi: Accessi;
+  cognome: string;
+  ruolo: Ruolo;
+  /** Obbligatori se il ruolo non è "nessuno", ignorati se lo è. */
+  nomeUtente?: string;
+  password?: string;
   letteraCassa?: string | null;
+}
+
+/** Cambia il ruolo. Passando da "nessuno" a un ruolo vero l'account va creato,
+ * e allora servono nome utente e password; passando a "nessuno" l'account si
+ * cancella e la persona resta in elenco con le sue presenze. */
+export interface ImpostaRuoloRichiesta {
+  uid: string;
+  ruolo: Ruolo;
+  nomeUtente?: string;
+  password?: string;
+}
+
+export interface AggiornaAnagraficaRichiesta {
+  uid: string;
+  nome: string;
+  cognome: string;
 }
 
 export interface ImpostaLetteraCassaRichiesta {
   uid: string;
   /** Null per toglierla. */
   letteraCassa: string | null;
-}
-
-export interface AggiornaPermessiRichiesta {
-  uid: string;
-  amministratore: boolean;
-  accessi: Accessi;
 }
 
 export interface ReimpostaPasswordRichiesta {
@@ -991,6 +1015,57 @@ export const NOME_RUOLO_CONTABILITA: Record<RuoloContabilita, string> = {
   contabile: 'Contabile',
 };
 
+// ---------------------------------------------------------------------------
+// Il ruolo della persona: uno solo, scelto da un menù a tendina nell'app
+// Utenti. Prima erano caselle, una per postazione e per app; l'utente ha
+// scelto la semplicità di un ruolo solo, sapendo che chi cambia postazione va
+// cambiato a mano. Sotto, i permessi restano a elenchi per app: il ruolo è il
+// modo di sceglierli, non sostituisce la loro forma (regole e funzioni non
+// cambiano).
+// ---------------------------------------------------------------------------
+
+export type Ruolo = 'nessuno' | RuoloComande | RuoloContabilita | 'amministratore';
+
+/** Nell'ordine in cui compaiono nel menù a tendina. */
+export const RUOLI: Ruolo[] = ['nessuno', ...RUOLI_COMANDE, ...RUOLI_CONTABILITA, 'amministratore'];
+
+export const NOME_RUOLO: Record<Ruolo, string> = {
+  nessuno: 'Nessun accesso (solo presenze)',
+  ...NOME_RUOLO_COMANDE,
+  ...NOME_RUOLO_CONTABILITA,
+  amministratore: 'Amministratore',
+};
+
+export function permessiDelRuolo(ruolo: Ruolo): Permessi {
+  if (ruolo === 'amministratore') return { amministratore: true };
+  if (ruolo === 'nessuno') return {};
+  if ((RUOLI_CONTABILITA as string[]).includes(ruolo)) return { contabilita: [ruolo as RuoloContabilita] };
+  return { comande: [ruolo as RuoloComande] };
+}
+
+/** Il ruolo di una persona, anche se il profilo è di prima del ruolo unico
+ * (allora si prende il primo dei suoi ruoli). */
+export function ruoloDi(utente: Pick<Utente, 'ruolo' | 'amministratore' | 'accessi' | 'nomeUtente'>): Ruolo {
+  if (utente.ruolo) return utente.ruolo;
+  if (utente.amministratore) return 'amministratore';
+  return utente.accessi?.comande?.[0] ?? utente.accessi?.contabilita?.[0] ?? 'nessuno';
+}
+
+/** "Rossi Mario": l'elenco si legge per cognome, come un registro. */
+export function nomeInElenco(utente: Pick<Utente, 'nome' | 'cognome'>): string {
+  return [utente.cognome, utente.nome].filter(Boolean).join(' ');
+}
+
+/** "Mario Rossi": come la si chiama a voce, e come compare sugli ordini. */
+export function nomeCompleto(utente: Pick<Utente, 'nome' | 'cognome'>): string {
+  return [utente.nome, utente.cognome].filter(Boolean).join(' ');
+}
+
+/** Ordina per cognome e poi per nome, ignorando maiuscole e accenti. */
+export function confrontaPersone(a: Pick<Utente, 'nome' | 'cognome'>, b: Pick<Utente, 'nome' | 'cognome'>): number {
+  return nomeInElenco(a).localeCompare(nomeInElenco(b), 'it', { sensitivity: 'base' });
+}
+
 /** Un'edizione della sagra: le serate di un anno, più tutto quello che si
  * spende e si incassa fuori dalle serate. Serve a due cose che senza di lei
  * non si possono fare: attribuire le spese che non sono di una sera sola (la
@@ -1108,16 +1183,57 @@ export interface ChiusuraCassa {
   aggiornatoDa: string;
 }
 
-/** Chi c'era a lavorare, sera per sera. Una spunta e nient'altro: se chiedessi
- * gli orari di entrata e uscita non lo compilerebbe nessuno. */
+/** La presenza di servizio: chi c'era a lavorare, sera per sera. Una spunta e
+ * nient'altro: se chiedessi gli orari di entrata e uscita non lo compilerebbe
+ * nessuno. */
 export interface Presenza {
-  /** Lo stesso uid dell'account, così una persona è una riga sola. */
+  /** L'id della persona nell'elenco utenti (anche di chi non ha un account),
+   * così una persona è una riga sola. */
   uid: string;
   serataId: string;
   nome: string;
   presente: boolean;
   /** Mezza serata pesa mezzo: chi arriva alle dieci non ha fatto la serata. */
   meta: boolean;
+  aggiornatoAt: FirestoreTimestampLike;
+}
+
+/** Le giornate di lavoro senza sagra: la presenza staff. Il lavoro di chi
+ * monta il tendone o prepara i sughi il giorno prima non sta nell'incasso di
+ * nessuna serata, e senza contarlo a parte sparirebbe. Qui si contano le ore,
+ * perché sono giornate di lunghezza diversa da persona a persona. */
+export type TipoGiornata = 'preparazione' | 'allestimento' | 'smontaggio';
+
+export const TIPI_GIORNATA: TipoGiornata[] = ['preparazione', 'allestimento', 'smontaggio'];
+
+export const NOME_TIPO_GIORNATA: Record<TipoGiornata, string> = {
+  preparazione: 'Preparazione',
+  allestimento: 'Allestimento',
+  smontaggio: 'Smontaggio',
+};
+
+/** In `edizioni/{anno}/giornate/{id}`. L'id è "data-tipo" (2027-06-20-allestimento):
+ * la stessa giornata creata due volte da due computer resta una sola. */
+export interface Giornata {
+  id: string;
+  /** AAAA-MM-GG. */
+  data: string;
+  tipo: TipoGiornata;
+  createdAt: FirestoreTimestampLike;
+}
+
+export function idGiornata(data: string, tipo: TipoGiornata): string {
+  return `${data}-${tipo}`;
+}
+
+/** In `edizioni/{anno}/giornate/{giornata}/presenze/{uid}`. */
+export interface PresenzaStaff {
+  uid: string;
+  giornataId: string;
+  nome: string;
+  presente: boolean;
+  /** Le ore lavorate quel giorno. 0 = c'era, ma le ore non sono state scritte. */
+  ore: number;
   aggiornatoAt: FirestoreTimestampLike;
 }
 

@@ -1,7 +1,7 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import type { Permessi, Utente } from '@sagra-mazzocco/shared';
+import { confrontaPersone, type Permessi, type Utente } from '@sagra-mazzocco/shared';
 import { auth, db } from './services/firebase';
 
 export function useUtenteAutenticato(): { utente: User | null; permessi: Permessi; caricato: boolean } {
@@ -23,14 +23,17 @@ export function useUtenteAutenticato(): { utente: User | null; permessi: Permess
   return stato;
 }
 
-/** Elenco di tutti gli utenti, aggiornato in tempo reale. Le regole di
- * Firestore lo rendono leggibile solo all'amministratore. */
+/** Elenco di tutte le persone, per cognome, aggiornato in tempo reale. Le
+ * regole di Firestore lo rendono leggibile solo all'amministratore (e al
+ * contabile). Si ordina qui e non nella richiesta: i profili di prima non
+ * hanno il cognome, e Firestore li lascerebbe fuori. */
 export function useUtenti(): Utente[] {
   const [utenti, setUtenti] = useState<Utente[]>([]);
 
   useEffect(() => {
-    const q = query(collection(db, 'utenti'), orderBy('nome'));
-    return onSnapshot(q, (snapshot) => setUtenti(snapshot.docs.map((doc) => doc.data() as Utente)));
+    return onSnapshot(collection(db, 'utenti'), (snapshot) =>
+      setUtenti(snapshot.docs.map((doc) => doc.data() as Utente).sort(confrontaPersone))
+    );
   }, []);
 
   return utenti;

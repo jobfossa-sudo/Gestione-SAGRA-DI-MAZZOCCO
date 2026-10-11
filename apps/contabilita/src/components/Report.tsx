@@ -1,7 +1,15 @@
 import { useMemo, useState } from 'react';
-import type { Serata } from '@sagra-mazzocco/shared';
-import { useEntrate, useTotaliSerate, useUscite } from '../hooks';
-import { arrotonda, contoEconomico, incassoDiSerata, vendutoDiSerata } from '../services/conti';
+import { nomeInElenco, NOME_TIPO_GIORNATA, TIPI_GIORNATA, type Serata } from '@sagra-mazzocco/shared';
+import {
+  useEntrate,
+  useGiornate,
+  usePresenzeSerate,
+  usePresenzeStaff,
+  useTotaliSerate,
+  useUscite,
+  useUtenti,
+} from '../hooks';
+import { arrotonda, contoEconomico, incassoDiSerata, riepilogoPersone, vendutoDiSerata } from '../services/conti';
 import { euro } from '../services/formato';
 import { nomeSerata } from './SceltaSerata';
 
@@ -16,6 +24,18 @@ export function Report({ edizioneId, serate }: { edizioneId: string; serate: Ser
   const entrate = useEntrate(edizioneId);
   const serateEdizione = useMemo(() => serate.filter((s) => s.id.startsWith(edizioneId)), [serate, edizioneId]);
   const totali = useTotaliSerate(useMemo(() => serateEdizione.map((s) => s.id), [serateEdizione]));
+  const serataIds = useMemo(() => serateEdizione.map((s) => s.id), [serateEdizione]);
+  const presenzeSerate = usePresenzeSerate(serataIds);
+  const giornate = useGiornate(edizioneId);
+  const presenzeStaff = usePresenzeStaff(edizioneId, useMemo(() => giornate.map((g) => g.id), [giornate]));
+  const utenti = useUtenti();
+  const persone = riepilogoPersone(
+    new Map(utenti.map((u) => [u.uid, nomeInElenco(u)])),
+    [...presenzeSerate.values()].flat(),
+    giornate,
+    presenzeStaff
+  );
+  const oreTotali = arrotonda(persone.reduce((somma, p) => somma + p.oreStaff, 0));
   const [mostraUtile, setMostraUtile] = useState(false);
   const [copiato, setCopiato] = useState(false);
 
@@ -186,6 +206,63 @@ export function Report({ edizioneId, serate }: { edizioneId: string; serate: Ser
         </section>
       )}
 
+      <section className="riquadro">
+        <h2>Presenze e ore per persona</h2>
+        <p className="spiegazione">
+          <strong>Serate</strong> sono le presenze di servizio (una mezza serata conta 0,5). Le <strong>ore staff</strong>{' '}
+          sono il lavoro in più, nelle giornate senza sagra. Restano separate: una serata non ha un numero di ore, e
+          sommarle vorrebbe dire inventarselo.
+        </p>
+        {persone.length === 0 ? (
+          <p className="vuoto">Nessuna presenza segnata in questa edizione. Si segnano nella scheda Presenze.</p>
+        ) : (
+          <table className="tabella-conti tabella-ore">
+            <thead>
+              <tr>
+                <th>Persona</th>
+                <th className="destra">Serate</th>
+                {TIPI_GIORNATA.map((tipo) => (
+                  <th key={tipo} className="destra">
+                    {NOME_TIPO_GIORNATA[tipo]}
+                  </th>
+                ))}
+                <th className="destra">Ore staff</th>
+              </tr>
+            </thead>
+            <tbody>
+              {persone.map((p) => (
+                <tr key={p.uid}>
+                  <td>{p.nome}</td>
+                  <td className="destra">{numero(p.serate)}</td>
+                  {TIPI_GIORNATA.map((tipo) => (
+                    <td key={tipo} className="destra">
+                      {numero(p.ore[tipo])}
+                    </td>
+                  ))}
+                  <td className="destra">
+                    <strong>{numero(p.oreStaff)}</strong>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Totale ({persone.length} persone)</td>
+                <td className="destra">{numero(arrotonda(persone.reduce((somma, p) => somma + p.serate, 0)))}</td>
+                {TIPI_GIORNATA.map((tipo) => (
+                  <td key={tipo} className="destra">
+                    {numero(arrotonda(persone.reduce((somma, p) => somma + p.ore[tipo], 0)))}
+                  </td>
+                ))}
+                <td className="destra">
+                  <strong>{numero(oreTotali)}</strong>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </section>
+
       <section className="riquadro riquadro-volontari">
         <h2>Riepilogo per i volontari</h2>
         <p className="spiegazione">
@@ -227,4 +304,9 @@ export function Report({ edizioneId, serate }: { edizioneId: string; serate: Ser
       </section>
     </div>
   );
+}
+
+/** "4,5" e non "4.5"; zero diventa un trattino, così le righe si leggono. */
+function numero(valore: number): string {
+  return valore ? String(valore).replace('.', ',') : '—';
 }

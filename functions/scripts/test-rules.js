@@ -272,6 +272,26 @@ async function main() {
     assertSucceeds(contabile.doc('serate/2026-01-01/presenze/uid-cassa').set({ uid: 'uid-cassa', presente: true }))
   );
   await check(
+    'il contabile apre una giornata staff',
+    assertSucceeds(
+      contabile.doc('edizioni/2026/giornate/2026-06-01-allestimento').set({ id: '2026-06-01-allestimento', data: '2026-06-01', tipo: 'allestimento' })
+    )
+  );
+  await check(
+    'e ci segna le ore di chi c’era',
+    assertSucceeds(
+      contabile.doc('edizioni/2026/giornate/2026-06-01-allestimento/presenze/uid-cassa').set({ uid: 'uid-cassa', presente: true, ore: 4 })
+    )
+  );
+  await check(
+    'chi sta in cassa non vede le ore staff',
+    assertFails(cassa.collection('edizioni/2026/giornate/2026-06-01-allestimento/presenze').get())
+  );
+  await check(
+    'né se le segna da solo',
+    assertFails(cassa.doc('edizioni/2026/giornate/2026-06-01-allestimento/presenze/uid-cassa').set({ uid: 'uid-cassa', presente: true, ore: 40 }))
+  );
+  await check(
     'chi sta in cassa non vede i conti dell’edizione',
     assertFails(cassa.collection('edizioni/2026/uscite').get())
   );

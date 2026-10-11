@@ -1,38 +1,40 @@
 import { useState } from 'react';
-import {
-  NOME_RUOLO_COMANDE,
-  NOME_RUOLO_CONTABILITA,
-  RUOLI_COMANDE,
-  RUOLI_CONTABILITA,
-  type RuoloComande,
-  type RuoloContabilita,
-  type Utente,
-} from '@sagra-mazzocco/shared';
+import { NOME_RUOLO, nomeCompleto, ruoloDi, type Ruolo, type Utente } from '@sagra-mazzocco/shared';
 import { useUtenti } from '../hooks';
+import { puoIncassare, SceltaRuolo } from './NuovoUtente';
 import { SceltaLetteraCassa } from './SceltaLetteraCassa';
 import {
-  aggiornaPermessi,
+  aggiornaAnagrafica,
   eliminaUtente,
   impostaAttivo,
   impostaLetteraCassa,
+  impostaRuolo,
   messaggioErrore,
   reimpostaPassword,
 } from '../services/callables';
 
-/** Le app ancora da costruire compaiono già in tabella, ma disattivate:
- * i loro ruoli si definiranno quando verranno realizzate. */
-const APP_FUTURE = ['Magazzino'];
+const COLONNE = 6;
+
+/** Quello che la riga sta chiedendo, quando serve più di un clic. */
+type Richiesta =
+  | { tipo: 'nome'; nome: string; cognome: string }
+  | { tipo: 'password'; password: string }
+  /** Chi era "solo presenze" riceve un ruolo: l'account va creato. */
+  | { tipo: 'accesso'; ruolo: Ruolo; nomeUtente: string; password: string };
 
 function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
-  const [nuovaPassword, setNuovaPassword] = useState<string | null>(null);
+  const [richiesta, setRichiesta] = useState<Richiesta | null>(null);
+  const ruolo = ruoloDi(utente);
+  const chi = nomeCompleto(utente);
 
   async function esegui(operazione: () => Promise<unknown>) {
     setErrore(null);
     setInCorso(true);
     try {
       await operazione();
+      setRichiesta(null);
     } catch (err) {
       setErrore(messaggioErrore(err));
     } finally {
@@ -40,175 +42,209 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
     }
   }
 
-  const cambiaAmministratore = (amministratore: boolean) =>
-    esegui(() => aggiornaPermessi({ uid: utente.uid, amministratore, accessi: utente.accessi }));
-
-  const cambiaContabilita = (ruolo: RuoloContabilita, spuntato: boolean) => {
-    const attuali = utente.accessi.contabilita ?? [];
-    const nuovi = spuntato ? [...attuali, ruolo] : attuali.filter((r) => r !== ruolo);
-    return esegui(() =>
-      aggiornaPermessi({
-        uid: utente.uid,
-        amministratore: utente.amministratore,
-        accessi: { ...utente.accessi, contabilita: nuovi },
-      })
-    );
-  };
-
-  const cambiaComande = (ruolo: RuoloComande, spuntato: boolean) => {
-    const attuali = utente.accessi.comande ?? [];
-    const nuovi = spuntato ? [...attuali, ruolo] : attuali.filter((r) => r !== ruolo);
-    return esegui(() =>
-      aggiornaPermessi({
-        uid: utente.uid,
-        amministratore: utente.amministratore,
-        accessi: nuovi.length > 0 ? { comande: nuovi } : {},
-      })
-    );
-  };
-
-  const cambiaLettera = (letteraCassa: string | null) =>
-    esegui(() => impostaLetteraCassa({ uid: utente.uid, letteraCassa }));
-  const puoIncassare = utente.amministratore || (utente.accessi.comande ?? []).includes('cassa');
-
-  const cambiaAttivo = (attivo: boolean) => esegui(() => impostaAttivo({ uid: utente.uid, attivo }));
+  function cambiaRuolo(nuovo: Ruolo) {
+    if (nuovo === ruolo) return;
+    if (!utente.nomeUtente && nuovo !== 'nessuno') {
+      setRichiesta({ tipo: 'accesso', ruolo: nuovo, nomeUtente: '', password: '' });
+      return;
+    }
+    if (nuovo === 'nessuno') {
+      const conferma = window.confirm(
+        `${chi} non potrà più entrare nelle app e il suo nome utente "${utente.nomeUtente}" verrà cancellato. Resta in elenco con le sue presenze. Continuare?`
+      );
+      if (!conferma) return;
+    }
+    void esegui(() => impostaRuolo({ uid: utente.uid, ruolo: nuovo }));
+  }
 
   async function elimina() {
     const conferma = window.confirm(
-      `Sei sicuro di voler eliminare definitivamente l'account di ${utente.nome} (${utente.nomeUtente})?`
+      `Sei sicuro di voler eliminare definitivamente ${chi}${utente.nomeUtente ? ` (${utente.nomeUtente})` : ''}?`
     );
     if (!conferma) return;
     await esegui(() => eliminaUtente({ uid: utente.uid }));
   }
 
-  async function salvaPassword() {
-    if (!nuovaPassword) return;
-    await esegui(async () => {
-      await reimpostaPassword({ uid: utente.uid, password: nuovaPassword });
-      setNuovaPassword(null);
-    });
+  function conferma(e: React.FormEvent) {
+    e.preventDefault();
+    if (!richiesta) return;
+    if (richiesta.tipo === 'nome') {
+      void esegui(() => aggiornaAnagrafica({ uid: utente.uid, nome: richiesta.nome, cognome: richiesta.cognome }));
+    } else if (richiesta.tipo === 'password') {
+      void esegui(() => reimpostaPassword({ uid: utente.uid, password: richiesta.password }));
+    } else {
+      void esegui(() =>
+        impostaRuolo({
+          uid: utente.uid,
+          ruolo: richiesta.ruolo,
+          nomeUtente: richiesta.nomeUtente,
+          password: richiesta.password,
+        })
+      );
+    }
   }
 
   return (
     <>
       <tr className={utente.attivo ? undefined : 'disattivato'}>
         <td>
+          <span className="nome">{utente.cognome ?? ''}</span>
+        </td>
+        <td>
           <span className="nome">{utente.nome}</span>
           {sonoIo && <span className="etichetta-io">tu</span>}
         </td>
         <td>
-          <span className="nome-utente">{utente.nomeUtente}</span>
+          {utente.nomeUtente ? (
+            <span className="nome-utente">{utente.nomeUtente}</span>
+          ) : (
+            <span className="non-disponibile">—</span>
+          )}
+        </td>
+        <td>
+          <SceltaRuolo
+            valore={richiesta?.tipo === 'accesso' ? richiesta.ruolo : ruolo}
+            disabled={inCorso || sonoIo}
+            onChange={cambiaRuolo}
+            ariaLabel={`Ruolo: ${chi}`}
+          />
+          {utente.nomeUtente && puoIncassare(ruolo) && (
+            <label className="lettera-in-tabella">
+              Cassa
+              <SceltaLetteraCassa
+                valore={utente.letteraCassa ?? null}
+                disabled={inCorso}
+                onChange={(letteraCassa) => esegui(() => impostaLetteraCassa({ uid: utente.uid, letteraCassa }))}
+                ariaLabel={`Lettera della cassa: ${chi}`}
+              />
+            </label>
+          )}
         </td>
         <td className="centro">
           <input
             type="checkbox"
             checked={utente.attivo}
             disabled={inCorso || sonoIo}
-            onChange={(e) => cambiaAttivo(e.target.checked)}
-            aria-label={`Attivo: ${utente.nome}`}
-          />
-        </td>
-        <td className="centro">
-          <input
-            type="checkbox"
-            checked={utente.amministratore}
-            disabled={inCorso || sonoIo}
-            onChange={(e) => cambiaAmministratore(e.target.checked)}
-            aria-label={`Amministratore: ${utente.nome}`}
+            onChange={(e) => esegui(() => impostaAttivo({ uid: utente.uid, attivo: e.target.checked }))}
+            aria-label={`Attivo: ${chi}`}
           />
         </td>
         <td>
-          {utente.amministratore ? (
-            <span className="tutto">tutto</span>
-          ) : (
-            <div className="caselle-ruoli">
-              {RUOLI_COMANDE.map((ruolo) => (
-                <label key={ruolo}>
-                  <input
-                    type="checkbox"
-                    checked={(utente.accessi.comande ?? []).includes(ruolo)}
-                    disabled={inCorso}
-                    onChange={(e) => cambiaComande(ruolo, e.target.checked)}
-                    aria-label={`${NOME_RUOLO_COMANDE[ruolo]} in Comande: ${utente.nome}`}
-                  />
-                  {NOME_RUOLO_COMANDE[ruolo]}
-                </label>
-              ))}
-            </div>
-          )}
-          {puoIncassare && (
-            <label className="lettera-in-tabella">
-              Cassa
-              <SceltaLetteraCassa
-                valore={utente.letteraCassa ?? null}
-                disabled={inCorso}
-                onChange={cambiaLettera}
-                ariaLabel={`Lettera della cassa: ${utente.nome}`}
-              />
-            </label>
-          )}
-        </td>
-        <td>
-          {utente.amministratore ? (
-            <span className="tutto">tutto</span>
-          ) : (
-            <div className="caselle-ruoli">
-              {RUOLI_CONTABILITA.map((ruolo) => (
-                <label key={ruolo}>
-                  <input
-                    type="checkbox"
-                    checked={(utente.accessi.contabilita ?? []).includes(ruolo)}
-                    disabled={inCorso}
-                    onChange={(e) => cambiaContabilita(ruolo, e.target.checked)}
-                    aria-label={`${NOME_RUOLO_CONTABILITA[ruolo]} in Contabilità: ${utente.nome}`}
-                  />
-                  {NOME_RUOLO_CONTABILITA[ruolo]}
-                </label>
-              ))}
-            </div>
-          )}
-        </td>
-        {APP_FUTURE.map((app) => (
-          <td key={app} className="centro">
-            <span className="non-disponibile" title={`${app} non è ancora stata realizzata`}>
-              —
-            </span>
-          </td>
-        ))}
-        <td className="azioni">
-          {nuovaPassword === null ? (
-            <>
-              <button type="button" disabled={inCorso} onClick={() => setNuovaPassword('')}>
+          <div className="azioni">
+            <button
+              type="button"
+              disabled={inCorso}
+              onClick={() => setRichiesta({ tipo: 'nome', nome: utente.nome, cognome: utente.cognome ?? '' })}
+            >
+              Modifica nome
+            </button>
+            {utente.nomeUtente && (
+              <button type="button" disabled={inCorso} onClick={() => setRichiesta({ tipo: 'password', password: '' })}>
                 Cambia password
               </button>
-              {!sonoIo && (
-                <button type="button" className="bottone-elimina" disabled={inCorso} onClick={elimina}>
-                  Elimina
-                </button>
-              )}
-            </>
-          ) : (
-            <span className="cambio-password">
-              <input
-                type="text"
-                value={nuovaPassword}
-                placeholder="almeno 8 caratteri"
-                onChange={(e) => setNuovaPassword(e.target.value)}
-                autoFocus
-              />
-              <button type="button" disabled={inCorso} onClick={salvaPassword}>
-                Salva
+            )}
+            {!sonoIo && (
+              <button type="button" className="bottone-elimina" disabled={inCorso} onClick={elimina}>
+                Elimina
               </button>
-              <button type="button" disabled={inCorso} onClick={() => setNuovaPassword(null)}>
-                Annulla
-              </button>
-            </span>
-          )}
+            )}
+          </div>
         </td>
       </tr>
+
+      {richiesta && (
+        <tr className="riga-richiesta">
+          <td colSpan={COLONNE}>
+            <form className="richiesta" onSubmit={conferma}>
+              {richiesta.tipo === 'nome' && (
+                <>
+                  <label>
+                    Nome
+                    <input
+                      type="text"
+                      value={richiesta.nome}
+                      onChange={(e) => setRichiesta({ ...richiesta, nome: e.target.value })}
+                      required
+                      autoFocus
+                    />
+                  </label>
+                  <label>
+                    Cognome
+                    <input
+                      type="text"
+                      value={richiesta.cognome}
+                      onChange={(e) => setRichiesta({ ...richiesta, cognome: e.target.value })}
+                      required
+                    />
+                  </label>
+                </>
+              )}
+              {richiesta.tipo === 'password' && (
+                <label>
+                  Nuova password per {chi}
+                  <input
+                    type="text"
+                    value={richiesta.password}
+                    placeholder="almeno 8 caratteri"
+                    onChange={(e) => setRichiesta({ ...richiesta, password: e.target.value })}
+                    required
+                    autoFocus
+                  />
+                </label>
+              )}
+              {richiesta.tipo === 'accesso' && (
+                <>
+                  <p className="spiegazione">
+                    Per entrare come <strong>{NOME_RUOLO[richiesta.ruolo]}</strong>, {chi} ha bisogno di un nome utente
+                    e di una password.
+                  </p>
+                  <label>
+                    N. utente
+                    <input
+                      type="text"
+                      value={richiesta.nomeUtente}
+                      placeholder="mario.rossi"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      onChange={(e) => setRichiesta({ ...richiesta, nomeUtente: e.target.value.toLowerCase() })}
+                      required
+                      autoFocus
+                    />
+                  </label>
+                  <label>
+                    Password
+                    <input
+                      type="text"
+                      value={richiesta.password}
+                      placeholder="almeno 8 caratteri"
+                      onChange={(e) => setRichiesta({ ...richiesta, password: e.target.value })}
+                      required
+                    />
+                  </label>
+                </>
+              )}
+              <button type="submit" className="bottone-principale" disabled={inCorso}>
+                Salva
+              </button>
+              <button
+                type="button"
+                disabled={inCorso}
+                onClick={() => {
+                  setRichiesta(null);
+                  setErrore(null);
+                }}
+              >
+                Annulla
+              </button>
+            </form>
+          </td>
+        </tr>
+      )}
+
       {errore && (
         <tr>
-          <td colSpan={7 + APP_FUTURE.length}>
+          <td colSpan={COLONNE}>
             <p className="errore">{errore}</p>
           </td>
         </tr>
@@ -224,7 +260,7 @@ export function TabellaUtenti({ uidCorrente }: { uidCorrente: string }) {
   const utenti = useUtenti();
 
   if (utenti.length === 0) {
-    return <p className="vuoto">Nessun utente: creane uno qui sopra.</p>;
+    return <p className="vuoto">Nessuna persona: aggiungila qui sopra.</p>;
   }
 
   return (
@@ -232,17 +268,11 @@ export function TabellaUtenti({ uidCorrente }: { uidCorrente: string }) {
       <table className="tabella-utenti">
         <thead>
           <tr>
-            <th>Persona</th>
-            <th>Nome utente</th>
+            <th>Cognome</th>
+            <th>Nome</th>
+            <th>N. utente</th>
+            <th>Ruolo</th>
             <th className="centro">Attivo</th>
-            <th className="centro">Amministratore</th>
-            <th>Comande</th>
-            <th>Contabilità</th>
-            {APP_FUTURE.map((app) => (
-              <th key={app} className="centro colonna-futura">
-                {app}
-              </th>
-            ))}
             <th>Azioni</th>
           </tr>
         </thead>

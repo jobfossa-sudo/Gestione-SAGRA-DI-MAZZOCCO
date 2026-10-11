@@ -33,18 +33,26 @@ const PASSWORD_PROVA = 'prova1234';
 // Un account per ruolo, più uno senza alcun accesso per verificare che non
 // possa fare nulla (come un account che qualcuno si fosse registrato da solo).
 const UTENTI_PROVA = [
-  { nomeUtente: 'admin', nome: 'Amministratore di prova', amministratore: true, accessi: {}, letteraCassa: 'A' },
-  { nomeUtente: 'cassa', nome: 'Cassiera di prova', amministratore: false, accessi: { comande: ['cassa'] }, letteraCassa: 'A' },
-  { nomeUtente: 'cucina', nome: 'Cuoco di prova', amministratore: false, accessi: { comande: ['cucina'] } },
-  { nomeUtente: 'griglia', nome: 'Grigliere di prova', amministratore: false, accessi: { comande: ['griglia'] } },
-  { nomeUtente: 'bar', nome: 'Barista di prova', amministratore: false, accessi: { comande: ['bar'] } },
-  { nomeUtente: 'distribuzione', nome: 'Addetto alla distribuzione', amministratore: false, accessi: { comande: ['distribuzione'] } },
-  { nomeUtente: 'bancobar', nome: 'Addetto al banco BAR', amministratore: false, accessi: { comande: ['bancoBar'] } },
-  { nomeUtente: 'bancobevande', nome: 'Addetto al banco BEVANDE', amministratore: false, accessi: { comande: ['bancoBevande'] } },
-  // Volontaria con due postazioni: verifica il caso dei ruoli multipli.
+  { nomeUtente: 'admin', nome: 'Amministratore', cognome: 'Di Prova', ruolo: 'amministratore', amministratore: true, accessi: {}, letteraCassa: 'A' },
+  { nomeUtente: 'cassa', nome: 'Carla', cognome: 'Cassieri', ruolo: 'cassa', amministratore: false, accessi: { comande: ['cassa'] }, letteraCassa: 'A' },
+  { nomeUtente: 'cucina', nome: 'Cosimo', cognome: 'Cuochi', ruolo: 'cucina', amministratore: false, accessi: { comande: ['cucina'] } },
+  { nomeUtente: 'griglia', nome: 'Gino', cognome: 'Griglia', ruolo: 'griglia', amministratore: false, accessi: { comande: ['griglia'] } },
+  { nomeUtente: 'bar', nome: 'Bruno', cognome: 'Baristi', ruolo: 'bar', amministratore: false, accessi: { comande: ['bar'] } },
+  { nomeUtente: 'distribuzione', nome: 'Dario', cognome: 'Distribuzione', ruolo: 'distribuzione', amministratore: false, accessi: { comande: ['distribuzione'] } },
+  { nomeUtente: 'bancobar', nome: 'Bianca', cognome: 'Banco Bar', ruolo: 'bancoBar', amministratore: false, accessi: { comande: ['bancoBar'] } },
+  { nomeUtente: 'bancobevande', nome: 'Beppe', cognome: 'Banco Bevande', ruolo: 'bancoBevande', amministratore: false, accessi: { comande: ['bancoBevande'] } },
+  // Volontaria con due postazioni, di quando i ruoli erano caselle: senza il
+  // campo "ruolo" verifica che i profili di prima continuino a funzionare.
   { nomeUtente: 'jolly', nome: 'Volontaria tuttofare', amministratore: false, accessi: { comande: ['cassa', 'distribuzione'] }, letteraCassa: 'B' },
-  { nomeUtente: 'contabile', nome: 'Contabile di prova', amministratore: false, accessi: { contabilita: ['contabile'] } },
+  { nomeUtente: 'contabile', nome: 'Conti', cognome: 'Contabile', ruolo: 'contabile', amministratore: false, accessi: { contabilita: ['contabile'] } },
   { nomeUtente: 'senzaruolo', nome: 'Account senza accessi', amministratore: false, accessi: {} },
+];
+
+// Volontari che non entrano nelle app: sono in elenco solo per le presenze.
+// Id fissi, così rilanciare il seed non li raddoppia.
+const PERSONE_SENZA_ACCESSO = [
+  { uid: 'persona-prova-neri', nome: 'Giulia', cognome: 'Neri' },
+  { uid: 'persona-prova-gallo', nome: 'Paolo', cognome: 'Gallo' },
 ];
 
 // Le portate del menù: da qui in poi le gestisce l'amministratore dall'app.
@@ -118,14 +126,17 @@ const PRODOTTI_FITTIZI = [
   { id: 'torta', categoriaId: 'dessert', ordine: 0, settore: 'cucina', nome: 'Torta di mele', note: 'fatta in casa', prezzo: 3, novita: false, esauritoSerata: null },
 ];
 
-async function creaUtenteProva({ nomeUtente, nome, amministratore, accessi, letteraCassa = null }) {
+async function creaUtenteProva({ nomeUtente, nome, cognome, ruolo, amministratore, accessi, letteraCassa = null }) {
   const email = emailDaNomeUtente(nomeUtente);
   let uid;
   try {
     uid = (await admin.auth().getUserByEmail(email)).uid;
+    // Il nome in alto nelle app viene da qui: si tiene pari col profilo.
+    await admin.auth().updateUser(uid, { displayName: [nome, cognome].filter(Boolean).join(' ') });
   } catch (err) {
     if (err.code !== 'auth/user-not-found') throw err;
-    uid = (await admin.auth().createUser({ email, password: PASSWORD_PROVA, displayName: nome })).uid;
+    const displayName = [nome, cognome].filter(Boolean).join(' ');
+    uid = (await admin.auth().createUser({ email, password: PASSWORD_PROVA, displayName })).uid;
   }
   if (!amministratore && Object.keys(accessi).length === 0) return;
   await admin.auth().setCustomUserClaims(uid, { ...accessi, ...(amministratore ? { amministratore: true } : {}) });
@@ -133,6 +144,8 @@ async function creaUtenteProva({ nomeUtente, nome, amministratore, accessi, lett
     uid,
     nomeUtente,
     nome,
+    ...(cognome ? { cognome } : {}),
+    ...(ruolo ? { ruolo } : {}),
     amministratore,
     accessi,
     letteraCassa,
@@ -176,6 +189,21 @@ async function main() {
 
   for (const utente of UTENTI_PROVA) {
     await creaUtenteProva(utente);
+  }
+
+  for (const persona of PERSONE_SENZA_ACCESSO) {
+    const ref = db.doc(`utenti/${persona.uid}`);
+    if ((await ref.get()).exists) continue;
+    await ref.set({
+      ...persona,
+      nomeUtente: null,
+      ruolo: 'nessuno',
+      amministratore: false,
+      accessi: {},
+      letteraCassa: null,
+      attivo: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
   }
 
   console.log(

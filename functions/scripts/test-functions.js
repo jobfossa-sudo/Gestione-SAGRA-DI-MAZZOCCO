@@ -34,7 +34,8 @@ connectFunctionsEmulator(functions, FUNZIONI_HOST, Number(FUNZIONI_PORTA));
 
 const inizializzaSistema = httpsCallable(functions, 'inizializzaSistema');
 const creaUtente = httpsCallable(functions, 'creaUtente');
-const aggiornaPermessi = httpsCallable(functions, 'aggiornaPermessi');
+const impostaRuolo = httpsCallable(functions, 'impostaRuolo');
+const aggiornaAnagrafica = httpsCallable(functions, 'aggiornaAnagrafica');
 const reimpostaPassword = httpsCallable(functions, 'reimpostaPassword');
 const impostaAttivo = httpsCallable(functions, 'impostaAttivo');
 const eliminaUtente = httpsCallable(functions, 'eliminaUtente');
@@ -340,25 +341,43 @@ async function main() {
   await accediCome('cassa');
   await assertRifiutato(
     'la cassa non può creare utenti',
-    creaUtente({ nomeUtente: 'abusivo', nome: 'Abusivo', password: 'password123', amministratore: true, accessi: {} }),
+    creaUtente({ nome: 'Abusivo', cognome: 'Furbo', ruolo: 'amministratore', nomeUtente: 'abusivo', password: 'password123' }),
     'permission-denied'
   );
 
   await accediCome('admin');
   const mario = await assertOk(
     'l’amministratore crea un utente con ruolo in Comande',
-    creaUtente({ nomeUtente: 'mario', nome: 'Mario Rossi', password: 'password-mario', amministratore: false, accessi: { comande: ['cassa'] }, letteraCassa: 'c' })
+    creaUtente({ nome: 'Mario', cognome: 'Rossi', ruolo: 'cassa', nomeUtente: 'mario', password: 'password-mario', letteraCassa: 'c' })
   );
   await assertRifiutato(
     'non si può creare un utente con un nome già in uso',
-    creaUtente({ nomeUtente: 'mario', nome: 'Altro Mario', password: 'password123', amministratore: false, accessi: {} }),
+    creaUtente({ nome: 'Altro', cognome: 'Mario', ruolo: 'cucina', nomeUtente: 'mario', password: 'password123' }),
     'already-exists'
   );
   await assertRifiutato(
     'non si può assegnare un ruolo inesistente',
-    creaUtente({ nomeUtente: 'strano', nome: 'Strano', password: 'password123', amministratore: false, accessi: { comande: ['sindaco'] } }),
+    creaUtente({ nome: 'Strano', cognome: 'Tipo', ruolo: 'sindaco', nomeUtente: 'strano', password: 'password123' }),
     'invalid-argument'
   );
+  await assertRifiutato(
+    'con un ruolo vero il nome utente è obbligatorio',
+    creaUtente({ nome: 'Senza', cognome: 'Nome', ruolo: 'cassa', password: 'password123' }),
+    'invalid-argument'
+  );
+  await assertRifiutato(
+    'il cognome è obbligatorio',
+    creaUtente({ nome: 'Solo', cognome: '', ruolo: 'nessuno' }),
+    'invalid-argument'
+  );
+  const profiloMario = (await db.doc(`utenti/${mario.uid}`).get()).data();
+  record(
+    'il profilo ha nome, cognome e ruolo, e i permessi ricavati dal ruolo',
+    profiloMario?.nome === 'Mario' && profiloMario?.cognome === 'Rossi' && profiloMario?.ruolo === 'cassa' &&
+      JSON.stringify(profiloMario?.accessi) === JSON.stringify({ comande: ['cassa'] }),
+    JSON.stringify(profiloMario)
+  );
+  record('l’account porta nome e cognome', (await admin.auth().getUser(mario.uid)).displayName === 'Mario Rossi');
 
   await accediCome('mario', 'password-mario');
   const ordineMario = await assertOk(
@@ -369,13 +388,13 @@ async function main() {
 
   await accediCome('admin');
   await assertRifiutato(
-    'l’amministratore non può togliere i permessi a sé stesso',
-    aggiornaPermessi({ uid: (await admin.auth().getUserByEmail('admin@utenti.sagra-mazzocco.invalid')).uid, amministratore: false, accessi: {} }),
+    'l’amministratore non può cambiare il proprio ruolo',
+    impostaRuolo({ uid: (await admin.auth().getUserByEmail('admin@utenti.sagra-mazzocco.invalid')).uid, ruolo: 'cassa' }),
     'failed-precondition'
   );
   await assertOk(
     'l’amministratore sposta l’utente in cucina',
-    aggiornaPermessi({ uid: mario.uid, amministratore: false, accessi: { comande: ['cucina'] } })
+    impostaRuolo({ uid: mario.uid, ruolo: 'cucina' })
   );
 
   await accediCome('mario', 'password-mario');
@@ -404,6 +423,68 @@ async function main() {
   await assertOk('l’amministratore riattiva l’utente', impostaAttivo({ uid: mario.uid, attivo: true }));
   await accediCome('mario', 'password-nuova');
   record('l’utente riattivato rientra', true);
+
+  // --- 11b. Persone senza accesso ("solo presenze") -----------------------------
+  await accediCome('admin');
+  const giulia = await assertOk(
+    'l’amministratore aggiunge una persona senza accesso',
+    creaUtente({ nome: 'Giulia', cognome: 'Bianchi', ruolo: 'nessuno', nomeUtente: 'ignorato', password: 'ignorata' })
+  );
+  const profiloGiulia = (await db.doc(`utenti/${giulia.uid}`).get()).data();
+  record('la persona senza accesso è in elenco, senza nome utente', profiloGiulia?.nomeUtente === null && profiloGiulia?.ruolo === 'nessuno');
+  let senzaAccount = false;
+  try {
+    await admin.auth().getUser(giulia.uid);
+  } catch (err) {
+    senzaAccount = err.code === 'auth/user-not-found';
+  }
+  record('e non ha un account per entrare', senzaAccount);
+  await assertRifiutato(
+    'a chi non ha accesso non si cambia la password',
+    reimpostaPassword({ uid: giulia.uid, password: 'password123' }),
+    'failed-precondition'
+  );
+  await assertOk('la si disattiva anche senza account', impostaAttivo({ uid: giulia.uid, attivo: false }));
+  await assertOk('e la si riattiva', impostaAttivo({ uid: giulia.uid, attivo: true }));
+  await assertOk(
+    'si corregge nome e cognome',
+    aggiornaAnagrafica({ uid: giulia.uid, nome: 'Giulia Maria', cognome: 'Bianchi' })
+  );
+  record('il nome nuovo è salvato', (await db.doc(`utenti/${giulia.uid}`).get()).data()?.nome === 'Giulia Maria');
+  await assertRifiutato(
+    'per darle un ruolo servono nome utente e password',
+    impostaRuolo({ uid: giulia.uid, ruolo: 'cassa' }),
+    'invalid-argument'
+  );
+  await assertRifiutato(
+    'e il nome utente non può essere già preso',
+    impostaRuolo({ uid: giulia.uid, ruolo: 'cassa', nomeUtente: 'cassa', password: 'password-giulia' }),
+    'already-exists'
+  );
+  await assertOk(
+    'le si dà il ruolo Cassa con nome utente e password',
+    impostaRuolo({ uid: giulia.uid, ruolo: 'cassa', nomeUtente: 'giulia', password: 'password-giulia' })
+  );
+  await assertOk('e la sua lettera della cassa', impostaLetteraCassa({ uid: giulia.uid, letteraCassa: 'G' }));
+  await accediCome('giulia', 'password-giulia');
+  record('entra con lo stesso id che aveva in elenco', auth.currentUser?.uid === giulia.uid);
+  await assertOk(
+    'e lavora subito in cassa',
+    creaEInvia({ serataId: SERATA_ID, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] })
+  );
+  await accediCome('admin');
+  await assertOk('l’amministratore la riporta a "nessun accesso"', impostaRuolo({ uid: giulia.uid, ruolo: 'nessuno' }));
+  let accountTolto = false;
+  try {
+    await admin.auth().getUser(giulia.uid);
+  } catch (err) {
+    accountTolto = err.code === 'auth/user-not-found';
+  }
+  const giuliaDopo = (await db.doc(`utenti/${giulia.uid}`).get()).data();
+  record('il suo account sparisce', accountTolto);
+  record('ma lei resta in elenco, senza nome utente', giuliaDopo?.nomeUtente === null && giuliaDopo?.cognome === 'Bianchi');
+  await assertOk('una persona senza accesso si elimina', eliminaUtente({ uid: giulia.uid }));
+  record('ed esce dall’elenco', (await db.doc(`utenti/${giulia.uid}`).get()).exists === false);
 
   // --- 12. Eliminazione definitiva di un'utenza --------------------------------
   await accediCome('cassa');
@@ -977,7 +1058,7 @@ async function main() {
   );
   const presa = (await db.doc(`serate/${SERATA_ID}/segnalazioni/${seg1.segnalazioneId}`).get()).data();
   record('da quel momento risulta presa in carico', !!presa?.presaInCaricoAt);
-  record('con il nome di chi ci va', presa?.presaInCaricoDa === 'Cuoco di prova', `nome: ${presa?.presaInCaricoDa}`);
+  record('con il nome di chi ci va', presa?.presaInCaricoDa === 'Cosimo Cuochi', `nome: ${presa?.presaInCaricoDa}`);
 
   await accediCome('cassa');
   await assertOk(
@@ -985,7 +1066,7 @@ async function main() {
     prendiSegnalazione({ serataId: SERATA_ID, segnalazioneId: seg1.segnalazioneId })
   );
   const ancora = (await db.doc(`serate/${SERATA_ID}/segnalazioni/${seg1.segnalazioneId}`).get()).data();
-  record('e resta di chi se n’era preso carico per primo', ancora?.presaInCaricoDa === 'Cuoco di prova');
+  record('e resta di chi se n’era preso carico per primo', ancora?.presaInCaricoDa === 'Cosimo Cuochi');
 
   // Una volta sistemata, la stessa cosa si può segnalare di nuovo: il sapone
   // può finire due volte nella stessa serata.

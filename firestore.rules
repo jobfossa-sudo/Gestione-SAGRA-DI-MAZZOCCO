@@ -158,6 +158,18 @@ service cloud.firestore {
         allow read: if contabile();
         allow write: if contabile();
       }
+
+      // Le giornate di lavoro senza sagra (preparazione, allestimento,
+      // smontaggio) e le ore di chi c'era: la presenza staff.
+      match /giornate/{giornataId} {
+        allow read: if contabile();
+        allow write: if contabile();
+
+        match /presenze/{uid} {
+          allow read: if contabile();
+          allow write: if contabile();
+        }
+      }
     }
 
     // Profilo utente: ognuno legge il proprio, l'amministratore tutti.

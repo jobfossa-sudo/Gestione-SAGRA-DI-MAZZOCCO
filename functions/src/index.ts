@@ -15,7 +15,6 @@ import {
 import { defineString } from 'firebase-functions/params';
 import { onCall, HttpsError, CallableOptions, CallableRequest } from 'firebase-functions/v2/https';
 import {
-  Accessi,
   Permessi,
   RuoloComande,
   Utente,
@@ -24,14 +23,17 @@ import {
   InizializzaSistemaRichiesta,
   InizializzaSistemaRisposta,
   CreaUtenteRichiesta,
-  AggiornaPermessiRichiesta,
+  AggiornaAnagraficaRichiesta,
+  ImpostaRuoloRichiesta,
+  type Ruolo,
+  RUOLI,
+  permessiDelRuolo,
+  nomeCompleto,
   ReimpostaPasswordRichiesta,
   ImpostaAttivoRichiesta,
   EliminaUtenteRichiesta,
   UtenteRisposta,
   RUOLI_COMANDE,
-  RuoloContabilita,
-  RUOLI_CONTABILITA,
   Ordine,
   SottoOrdine,
   Prodotto,
@@ -154,31 +156,6 @@ function vietaAutoBlocco(uidRichiedente: string, uidBersaglio: string, azione: s
   }
 }
 
-function validaRuoliApp<T extends string>(valore: unknown, ammessi: T[], nomeApp: string): T[] {
-  if (valore === undefined) return [];
-  if (!Array.isArray(valore)) {
-    throw new HttpsError('invalid-argument', `I ruoli in ${nomeApp} devono essere un elenco.`);
-  }
-  for (const ruolo of valore) {
-    if (!ammessi.includes(ruolo as T)) {
-      throw new HttpsError('invalid-argument', `Ruolo non valido per ${nomeApp}: ${ruolo}.`);
-    }
-  }
-  // Si riordinano come nell'elenco ufficiale, cosi' due account con gli stessi
-  // ruoli hanno gli stessi permessi scritti nello stesso modo.
-  return ammessi.filter((ruolo) => (valore as T[]).includes(ruolo));
-}
-
-function validaAccessi(valore: unknown): Accessi {
-  const accessi = (valore ?? {}) as Accessi;
-  const comande = validaRuoliApp<RuoloComande>(accessi.comande, RUOLI_COMANDE, 'Comande');
-  const contabilita = validaRuoliApp<RuoloContabilita>(accessi.contabilita, RUOLI_CONTABILITA, 'Contabilità');
-  return {
-    ...(comande.length > 0 ? { comande } : {}),
-    ...(contabilita.length > 0 ? { contabilita } : {}),
-  };
-}
-
 /** Vuoto = nessuna lettera. Le minuscole si accettano e si alzano. */
 function validaLetteraCassa(valore: unknown): string | null {
   if (valore === null || valore === undefined || valore === '') return null;
@@ -196,54 +173,105 @@ function validaTesto(valore: unknown, nomeCampo: string): string {
   return valore.trim();
 }
 
-async function creaAccount(dati: {
-  nomeUtente: string;
-  nome: string;
-  password: string;
-  amministratore: boolean;
-  accessi: Accessi;
-  letteraCassa?: string | null;
-}): Promise<string> {
-  const nomeUtente = dati.nomeUtente.trim().toLowerCase();
+function validaRuolo(valore: unknown): Ruolo {
+  if (!RUOLI.includes(valore as Ruolo)) {
+    throw new HttpsError('invalid-argument', `Ruolo non valido: ${String(valore)}.`);
+  }
+  return valore as Ruolo;
+}
+
+function validaNomeUtente(valore: unknown): string {
+  const nomeUtente = typeof valore === 'string' ? valore.trim().toLowerCase() : '';
+  if (!nomeUtente) throw new HttpsError('invalid-argument', 'Nome utente mancante: serve a chi entra nelle app.');
   if (!REGOLA_NOME_UTENTE.test(nomeUtente)) {
     throw new HttpsError(
       'invalid-argument',
       'Nome utente non valido: da 3 a 30 caratteri tra lettere minuscole, numeri, punto, trattino e trattino basso.'
     );
   }
-  if (dati.password.length < 8) {
+  return nomeUtente;
+}
+
+function validaPassword(valore: unknown): string {
+  if (typeof valore !== 'string' || valore.length < 8) {
     throw new HttpsError('invalid-argument', 'La password deve avere almeno 8 caratteri.');
   }
+  return valore;
+}
 
-  let uid: string;
+/** I permessi del ruolo, nella forma in cui si scrivono sul profilo. */
+function campiDelRuolo(ruolo: Ruolo): Pick<Utente, 'ruolo' | 'amministratore' | 'accessi'> {
+  const permessi = permessiDelRuolo(ruolo);
+  return {
+    ruolo,
+    amministratore: permessi.amministratore === true,
+    accessi: {
+      ...(permessi.comande ? { comande: permessi.comande } : {}),
+      ...(permessi.contabilita ? { contabilita: permessi.contabilita } : {}),
+    },
+  };
+}
+
+/** Crea l'account di accesso con un uid già deciso: quello della riga della
+ * persona, così chi riceve un accesso dopo essere stato "solo presenze" resta
+ * la stessa persona. Imposta anche i permessi del ruolo. */
+async function creaAccesso(dati: { uid: string; nomeUtente: string; password: string; nome: string; ruolo: Ruolo }): Promise<void> {
   try {
-    const account = await getAuth().createUser({
-      email: emailDaNomeUtente(nomeUtente),
+    await getAuth().createUser({
+      uid: dati.uid,
+      email: emailDaNomeUtente(dati.nomeUtente),
       password: dati.password,
       displayName: dati.nome,
     });
-    uid = account.uid;
   } catch (err) {
     if ((err as { code?: string }).code === 'auth/email-already-exists') {
-      throw new HttpsError('already-exists', `Il nome utente "${nomeUtente}" è già in uso.`);
+      throw new HttpsError('already-exists', `Il nome utente "${dati.nomeUtente}" è già in uso.`);
     }
     throw err;
   }
+  await getAuth().setCustomUserClaims(dati.uid, permessiDelRuolo(dati.ruolo));
+}
 
-  const permessi: Permessi = { ...dati.accessi, ...(dati.amministratore ? { amministratore: true } : {}) };
-  await getAuth().setCustomUserClaims(uid, permessi);
+async function creaPersona(dati: {
+  nome: string;
+  cognome: string;
+  ruolo: Ruolo;
+  nomeUtente?: unknown;
+  password?: unknown;
+  letteraCassa?: string | null;
+}): Promise<string> {
+  const uid = db.collection('utenti').doc().id;
+  const conAccesso = dati.ruolo !== 'nessuno';
+  const nomeUtente = conAccesso ? validaNomeUtente(dati.nomeUtente) : null;
+  if (nomeUtente) {
+    await creaAccesso({
+      uid,
+      nomeUtente,
+      password: validaPassword(dati.password),
+      nome: nomeCompleto(dati),
+      ruolo: dati.ruolo,
+    });
+  }
+
   const utente: Utente = {
     uid,
     nomeUtente,
     nome: dati.nome,
-    amministratore: dati.amministratore,
-    accessi: dati.accessi,
-    letteraCassa: dati.letteraCassa ?? null,
+    cognome: dati.cognome,
+    ...campiDelRuolo(dati.ruolo),
+    // La lettera serve solo a chi incassa: a chi non ha accesso non si dà.
+    letteraCassa: conAccesso ? (dati.letteraCassa ?? null) : null,
     attivo: true,
     createdAt: FieldValue.serverTimestamp() as unknown as Utente['createdAt'],
   };
   await db.doc(`utenti/${uid}`).set(utente);
   return uid;
+}
+
+async function leggiPersona(uid: string): Promise<Utente> {
+  const snapshot = await db.doc(`utenti/${uid}`).get();
+  if (!snapshot.exists) throw new HttpsError('not-found', 'Persona inesistente.');
+  return snapshot.data() as Utente;
 }
 
 function validaItemsRichiesti(items: unknown): ItemOrdineRichiesta[] {
@@ -549,12 +577,12 @@ export const inizializzaSistema = onCall(
     });
 
     try {
-      const uid = await creaAccount({
-        nomeUtente: validaTesto(nomeUtente, 'Nome utente'),
+      const uid = await creaPersona({
         nome: validaTesto(nome, 'Nome'),
-        password: typeof password === 'string' ? password : '',
-        amministratore: true,
-        accessi: {},
+        cognome: '',
+        ruolo: 'amministratore',
+        nomeUtente,
+        password,
       });
       return { uid };
     } catch (err) {
@@ -576,16 +604,32 @@ export const inizializzaSistema = onCall(
 export const creaUtente = onCall(CHIAMABILE, async (request: CallableRequest<CreaUtenteRichiesta>): Promise<UtenteRisposta> => {
   richiedeAmministratore(request);
   const dati = request.data ?? ({} as CreaUtenteRichiesta);
-  const uid = await creaAccount({
-    nomeUtente: validaTesto(dati.nomeUtente, 'Nome utente'),
+  const uid = await creaPersona({
     nome: validaTesto(dati.nome, 'Nome'),
-    password: typeof dati.password === 'string' ? dati.password : '',
-    amministratore: dati.amministratore === true,
-    accessi: validaAccessi(dati.accessi),
+    cognome: validaTesto(dati.cognome, 'Cognome'),
+    ruolo: validaRuolo(dati.ruolo),
+    nomeUtente: dati.nomeUtente,
+    password: dati.password,
     letteraCassa: validaLetteraCassa(dati.letteraCassa),
   });
   return { uid };
 });
+
+export const aggiornaAnagrafica = onCall(
+  CHIAMABILE,
+  async (request: CallableRequest<AggiornaAnagraficaRichiesta>): Promise<UtenteRisposta> => {
+    richiedeAmministratore(request);
+    const { uid } = request.data ?? ({} as AggiornaAnagraficaRichiesta);
+    validaTesto(uid, 'Persona');
+    const nome = validaTesto(request.data?.nome, 'Nome');
+    const cognome = validaTesto(request.data?.cognome, 'Cognome');
+    const persona = await leggiPersona(uid);
+    await db.doc(`utenti/${uid}`).update({ nome, cognome });
+    // Il nome dell'account è quello che le app mostrano in alto: va tenuto pari.
+    if (persona.nomeUtente) await getAuth().updateUser(uid, { displayName: nomeCompleto({ nome, cognome }) });
+    return { uid };
+  }
+);
 
 /** La lettera non è un permesso: non cambia cosa la persona può fare, solo
  * come si numerano i suoi ordini. Per questo non serve farla rientrare. */
@@ -601,18 +645,38 @@ export const impostaLetteraCassa = onCall(
   }
 );
 
-export const aggiornaPermessi = onCall(
+/** Tre casi, a seconda di dove si parte e dove si arriva:
+ * - da "nessuno" a un ruolo: nasce l'account (servono nome utente e password);
+ * - da un ruolo a "nessuno": l'account si cancella, la persona resta in elenco
+ *   con le sue presenze;
+ * - da un ruolo a un altro: cambiano i permessi, e chi era collegato rientra. */
+export const impostaRuolo = onCall(
   CHIAMABILE,
-  async (request: CallableRequest<AggiornaPermessiRichiesta>): Promise<UtenteRisposta> => {
+  async (request: CallableRequest<ImpostaRuoloRichiesta>): Promise<UtenteRisposta> => {
     const uidRichiedente = richiedeAmministratore(request);
-    const { uid, amministratore } = request.data ?? ({} as AggiornaPermessiRichiesta);
-    validaTesto(uid, 'Utente');
-    vietaAutoBlocco(uidRichiedente, uid, 'cambiare i permessi');
+    const { uid } = request.data ?? ({} as ImpostaRuoloRichiesta);
+    validaTesto(uid, 'Persona');
+    vietaAutoBlocco(uidRichiedente, uid, 'cambiare il ruolo');
+    const ruolo = validaRuolo(request.data?.ruolo);
+    const persona = await leggiPersona(uid);
 
-    const accessi = validaAccessi(request.data?.accessi);
-    const permessi: Permessi = { ...accessi, ...(amministratore === true ? { amministratore: true } : {}) };
-    await getAuth().setCustomUserClaims(uid, permessi);
-    await db.doc(`utenti/${uid}`).update({ amministratore: amministratore === true, accessi });
+    if (ruolo === 'nessuno') {
+      if (persona.nomeUtente) await getAuth().deleteUser(uid);
+      await db.doc(`utenti/${uid}`).update({ ...campiDelRuolo(ruolo), nomeUtente: null, letteraCassa: null });
+      return { uid };
+    }
+
+    if (!persona.nomeUtente) {
+      const nomeUtente = validaNomeUtente(request.data?.nomeUtente);
+      await creaAccesso({ uid, nomeUtente, password: validaPassword(request.data?.password), nome: nomeCompleto(persona), ruolo });
+      // Una persona disattivata che riceve un accesso nasce disattivata anche lì.
+      if (!persona.attivo) await getAuth().updateUser(uid, { disabled: true });
+      await db.doc(`utenti/${uid}`).update({ ...campiDelRuolo(ruolo), nomeUtente });
+      return { uid };
+    }
+
+    await getAuth().setCustomUserClaims(uid, permessiDelRuolo(ruolo));
+    await db.doc(`utenti/${uid}`).update(campiDelRuolo(ruolo));
     await getAuth().revokeRefreshTokens(uid);
     return { uid };
   }
@@ -624,8 +688,9 @@ export const reimpostaPassword = onCall(
     richiedeAmministratore(request);
     const { uid, password } = request.data ?? ({} as ReimpostaPasswordRichiesta);
     validaTesto(uid, 'Utente');
-    if (typeof password !== 'string' || password.length < 8) {
-      throw new HttpsError('invalid-argument', 'La password deve avere almeno 8 caratteri.');
+    validaPassword(password);
+    if (!(await leggiPersona(uid)).nomeUtente) {
+      throw new HttpsError('failed-precondition', 'Questa persona non ha un accesso alle app: prima dalle un ruolo.');
     }
     await getAuth().updateUser(uid, { password });
     await getAuth().revokeRefreshTokens(uid);
@@ -633,6 +698,8 @@ export const reimpostaPassword = onCall(
   }
 );
 
+/** Disattivare non cancella: la persona resta nello storico delle presenze, ma
+ * non entra più nelle app e non compare più nell'appello. */
 export const impostaAttivo = onCall(
   CHIAMABILE,
   async (request: CallableRequest<ImpostaAttivoRichiesta>): Promise<UtenteRisposta> => {
@@ -641,16 +708,19 @@ export const impostaAttivo = onCall(
     validaTesto(uid, 'Utente');
     vietaAutoBlocco(uidRichiedente, uid, 'cambiare l’attivazione');
 
-    await getAuth().updateUser(uid, { disabled: attivo !== true });
+    const persona = await leggiPersona(uid);
+    if (persona.nomeUtente) {
+      await getAuth().updateUser(uid, { disabled: attivo !== true });
+      await getAuth().revokeRefreshTokens(uid);
+    }
     await db.doc(`utenti/${uid}`).update({ attivo: attivo === true });
-    await getAuth().revokeRefreshTokens(uid);
     return { uid };
   }
 );
 
 /** Cancellazione definitiva: l'account sparisce da Authentication e il suo
- * profilo da Firestore. Gli ordini già registrati non ne contengono
- * riferimenti, quindi lo storico resta integro. */
+ * profilo da Firestore. Gli ordini e le presenze già registrati portano il
+ * nome scritto dentro, quindi lo storico resta leggibile. */
 export const eliminaUtente = onCall(
   CHIAMABILE,
   async (request: CallableRequest<EliminaUtenteRichiesta>): Promise<UtenteRisposta> => {
@@ -659,7 +729,8 @@ export const eliminaUtente = onCall(
     validaTesto(uid, 'Utente');
     vietaAutoBlocco(uidRichiedente, uid, 'eliminare');
 
-    await getAuth().deleteUser(uid);
+    const persona = await leggiPersona(uid);
+    if (persona.nomeUtente) await getAuth().deleteUser(uid);
     await db.doc(`utenti/${uid}`).delete();
     return { uid };
   }
@@ -1232,7 +1303,8 @@ async function costruisciItemsBanco(
  * nessuno. */
 async function leggiNomeUtente(transaction: Transaction, uid: string): Promise<string> {
   const snapshot = await transaction.get(db.doc(`utenti/${uid}`));
-  return (snapshot.data() as Utente | undefined)?.nome ?? '';
+  const persona = snapshot.data() as Utente | undefined;
+  return persona ? nomeCompleto(persona) : '';
 }
 
 export const creaOrdineBanco = onCall(

@@ -35,7 +35,7 @@ function App() {
       <header>
         <div className="marchio">
           <h1>Sagra di Mazzocco · Utenti</h1>
-          <p>Chi può entrare, in quale app e con quale ruolo</p>
+          <p>Le persone della sagra e il ruolo di ciascuna</p>
         </div>
         <div className="utente">
           <span>{utente.displayName} · Amministratore</span>
@@ -49,9 +49,9 @@ function App() {
       <main>
         <NuovoUtente />
         <section className="elenco">
-          <h2>Utenti</h2>
+          <h2>Persone</h2>
           <p className="spiegazione">
-            Le modifiche hanno effetto subito: chi è collegato viene disconnesso e al rientro trova i nuovi permessi.
+            Le modifiche hanno effetto subito: chi è collegato viene disconnesso e al rientro trova il nuovo ruolo. Chi non ha un N. utente non entra nelle app: è in elenco per le presenze.
           </p>
           <TabellaUtenti uidCorrente={utente.uid} />
         </section>

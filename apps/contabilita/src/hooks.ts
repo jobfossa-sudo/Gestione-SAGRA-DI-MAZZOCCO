@@ -1,17 +1,20 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import type {
-  ChiusuraCassa,
-  Edizione,
-  EntrataExtra,
-  OrdineBanco,
-  Ordine,
-  Permessi,
-  Presenza,
-  Serata,
-  Uscita,
-  Utente,
+import {
+  confrontaPersone,
+  type ChiusuraCassa,
+  type Edizione,
+  type EntrataExtra,
+  type Giornata,
+  type OrdineBanco,
+  type Ordine,
+  type Permessi,
+  type Presenza,
+  type PresenzaStaff,
+  type Serata,
+  type Uscita,
+  type Utente,
 } from '@sagra-mazzocco/shared';
 import { auth, db } from './services/firebase';
 
@@ -122,15 +125,17 @@ export function usePresenze(serataId: string | null): Map<string, Presenza> {
   return presenze;
 }
 
-/** I volontari con un account, in ordine alfabetico: sono le righe della
- * griglia delle presenze. */
+/** Tutte le persone della sagra, con o senza accesso alle app, per cognome:
+ * sono le righe della griglia delle presenze. Si ordina qui e non nella
+ * richiesta, perché i profili di prima non hanno il cognome e Firestore li
+ * lascerebbe fuori. */
 export function useUtenti(): Utente[] {
   const [utenti, setUtenti] = useState<Utente[]>([]);
 
   useEffect(
     () =>
-      onSnapshot(query(collection(db, 'utenti'), orderBy('nome')), (snapshot) =>
-        setUtenti(snapshot.docs.map((doc) => doc.data() as Utente))
+      onSnapshot(collection(db, 'utenti'), (snapshot) =>
+        setUtenti(snapshot.docs.map((doc) => doc.data() as Utente).sort(confrontaPersone))
       ),
     []
   );
@@ -212,4 +217,62 @@ export function useTotaliSerate(serataIds: string[]): Map<string, { ordini: Ordi
   }, [chiave]);
 
   return totali;
+}
+
+/** Le giornate staff dell'edizione, dalla più recente. */
+export function useGiornate(edizioneId: string): Giornata[] {
+  const [giornate, setGiornate] = useState<Giornata[]>([]);
+
+  useEffect(
+    () =>
+      onSnapshot(query(collection(db, `edizioni/${edizioneId}/giornate`), orderBy('data', 'desc')), (snapshot) =>
+        setGiornate(snapshot.docs.map((doc) => doc.data() as Giornata))
+      ),
+    [edizioneId]
+  );
+
+  return giornate;
+}
+
+/** Le presenze staff di più giornate, per giornata: servono tutte insieme nel
+ * Report per sommare le ore di ciascuno. */
+export function usePresenzeStaff(edizioneId: string, giornataIds: string[]): Map<string, PresenzaStaff[]> {
+  const [presenze, setPresenze] = useState(new Map<string, PresenzaStaff[]>());
+  const chiave = giornataIds.join(',');
+
+  useEffect(() => {
+    const ids = chiave ? chiave.split(',') : [];
+    const dati = new Map<string, PresenzaStaff[]>();
+    setPresenze(new Map());
+    const spegni = ids.map((id) =>
+      onSnapshot(collection(db, `edizioni/${edizioneId}/giornate/${id}/presenze`), (s) => {
+        dati.set(id, s.docs.map((d) => d.data() as PresenzaStaff));
+        setPresenze(new Map(dati));
+      })
+    );
+    return () => spegni.forEach((f) => f());
+  }, [edizioneId, chiave]);
+
+  return presenze;
+}
+
+/** Le presenze di servizio di più serate, per serata. */
+export function usePresenzeSerate(serataIds: string[]): Map<string, Presenza[]> {
+  const [presenze, setPresenze] = useState(new Map<string, Presenza[]>());
+  const chiave = serataIds.join(',');
+
+  useEffect(() => {
+    const ids = chiave ? chiave.split(',') : [];
+    const dati = new Map<string, Presenza[]>();
+    setPresenze(new Map());
+    const spegni = ids.map((id) =>
+      onSnapshot(collection(db, `serate/${id}/presenze`), (s) => {
+        dati.set(id, s.docs.map((d) => d.data() as Presenza));
+        setPresenze(new Map(dati));
+      })
+    );
+    return () => spegni.forEach((f) => f());
+  }, [chiave]);
+
+  return presenze;
 }

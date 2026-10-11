@@ -4,9 +4,12 @@ import {
   pesoPresenza,
   type ChiusuraCassa,
   type EntrataExtra,
+  type Giornata,
   type Ordine,
   type OrdineBanco,
   type Presenza,
+  type PresenzaStaff,
+  type TipoGiornata,
   type Uscita,
 } from '@sagra-mazzocco/shared';
 
@@ -225,4 +228,62 @@ export function vendutoDiSerata(ordini: Ordine[], ordiniBanco: OrdineBanco[]): R
   }
 
   return [...righe.values()].sort((a, b) => b.quantita - a.quantita);
+}
+
+/** Una riga del riepilogo per persona: quanto ha lavorato nell'edizione. */
+export interface RigaPersona {
+  uid: string;
+  nome: string;
+  /** Presenze di servizio, pesate: due mezze serate fanno una serata. */
+  serate: number;
+  /** Ore staff per tipo di giornata. */
+  ore: Record<TipoGiornata, number>;
+  /** Tutte le ore staff: il lavoro fatto oltre le serate della sagra. */
+  oreStaff: number;
+}
+
+/** Serate di servizio e ore staff di ciascuno, per l'edizione intera.
+ *
+ * Le due cose restano separate apposta: una serata non ha un numero di ore
+ * (nessuno le scrive, si spunta e basta), le giornate staff sì. Sommarle
+ * vorrebbe dire inventarsi quante ore vale una serata. Chi non ha fatto niente
+ * non compare. Il nome viene dall'elenco delle persone se c'è ancora, se no
+ * da quello scritto sulla presenza (chi è stato eliminato resta nello storico). */
+export function riepilogoPersone(
+  nomi: Map<string, string>,
+  presenzeSerate: Presenza[],
+  giornate: Giornata[],
+  presenzeStaff: Map<string, PresenzaStaff[]>
+): RigaPersona[] {
+  const righe = new Map<string, RigaPersona>();
+  const riga = (uid: string, nomeScritto: string): RigaPersona => {
+    let r = righe.get(uid);
+    if (!r) {
+      r = {
+        uid,
+        nome: nomi.get(uid) ?? nomeScritto,
+        serate: 0,
+        ore: { preparazione: 0, allestimento: 0, smontaggio: 0 },
+        oreStaff: 0,
+      };
+      righe.set(uid, r);
+    }
+    return r;
+  };
+
+  for (const presenza of presenzeSerate) {
+    if (!presenza.presente) continue;
+    riga(presenza.uid, presenza.nome).serate += pesoPresenza(presenza);
+  }
+
+  for (const giornata of giornate) {
+    for (const presenza of presenzeStaff.get(giornata.id) ?? []) {
+      if (!presenza.presente) continue;
+      const r = riga(presenza.uid, presenza.nome);
+      r.ore[giornata.tipo] = arrotonda(r.ore[giornata.tipo] + (presenza.ore || 0));
+      r.oreStaff = arrotonda(r.oreStaff + (presenza.ore || 0));
+    }
+  }
+
+  return [...righe.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'it', { sensitivity: 'base' }));
 }

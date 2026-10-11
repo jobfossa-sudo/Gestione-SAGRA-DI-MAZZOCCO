@@ -192,6 +192,16 @@
 }
 .tabella-conti th {
   text-align: left;
+}
+/* Le intestazioni seguono le loro colonne: senza queste due righe la regola
+   qui sopra, più forte di .centro e .destra, le teneva tutte a sinistra. */
+.tabella-conti th.centro {
+  text-align: center;
+}
+.tabella-conti th.destra {
+  text-align: right;
+}
+.tabella-conti th {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -446,4 +456,84 @@
     border: none;
     background: none;
   }
+}
+
+/* ---------- presenze: servizio e staff ---------- */
+
+/* I due modi delle presenze: due bottoni larghi, con sotto una riga che dice
+   di cosa si parla, perché "staff" da solo non dice niente a chi arriva. */
+.scelta-modo {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.scelta-modo button {
+  flex: 1 1 14rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 14px;
+  font-weight: 700;
+  text-align: left;
+}
+.scelta-modo button small {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.scelta-modo button.attivo {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.presenze .scelta-serata {
+  padding: 0;
+}
+.nuova-giornata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.nuova-giornata label,
+.scelta-giornata,
+.tasti-appello label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.nuova-giornata input,
+.nuova-giornata select,
+.scelta-giornata select {
+  width: auto;
+  min-width: 12rem;
+}
+.scelta-giornata select {
+  min-width: 22rem;
+  max-width: 100%;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.tasti-appello {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+.tasti-appello button {
+  width: auto;
+}
+.tasti-appello input {
+  width: 6rem;
+}
+.casella-ore {
+  width: 5rem;
+  text-align: center;
 }
