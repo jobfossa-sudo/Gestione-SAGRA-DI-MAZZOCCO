@@ -1183,64 +1183,92 @@ export interface ChiusuraCassa {
   aggiornatoDa: string;
 }
 
-/** La presenza di servizio: chi c'era a lavorare, sera per sera. Una spunta e
- * nient'altro: se chiedessi gli orari di entrata e uscita non lo compilerebbe
- * nessuno. */
-export interface Presenza {
-  /** L'id della persona nell'elenco utenti (anche di chi non ha un account),
-   * così una persona è una riga sola. */
-  uid: string;
-  serataId: string;
-  nome: string;
-  presente: boolean;
-  /** Mezza serata pesa mezzo: chi arriva alle dieci non ha fatto la serata. */
-  meta: boolean;
-  aggiornatoAt: FirestoreTimestampLike;
-}
+// ---------------------------------------------------------------------------
+// Le presenze
+//
+// Una giornata per data, di quattro tipi. Per ogni persona tre spunte:
+// presente, servizio (solo nelle serate di sagra: l'orario è quello della
+// serata, uguale per tutti) ed extra, con le ore scritte a mano. Il servizio
+// dice quante persone servono per fare una serata; l'extra conta il lavoro in
+// più — chi monta il tendone, chi prepara i sughi, chi resta a pulire — che
+// altrimenti non comparirebbe da nessuna parte.
+// ---------------------------------------------------------------------------
 
-/** Le giornate di lavoro senza sagra: la presenza staff. Il lavoro di chi
- * monta il tendone o prepara i sughi il giorno prima non sta nell'incasso di
- * nessuna serata, e senza contarlo a parte sparirebbe. Qui si contano le ore,
- * perché sono giornate di lunghezza diversa da persona a persona. */
-export type TipoGiornata = 'preparazione' | 'allestimento' | 'smontaggio';
+export type TipoGiornata = 'sagra' | 'preparazione' | 'allestimento' | 'smontaggio';
 
-export const TIPI_GIORNATA: TipoGiornata[] = ['preparazione', 'allestimento', 'smontaggio'];
+export const TIPI_GIORNATA: TipoGiornata[] = ['sagra', 'preparazione', 'allestimento', 'smontaggio'];
 
 export const NOME_TIPO_GIORNATA: Record<TipoGiornata, string> = {
+  sagra: 'Serata di sagra',
   preparazione: 'Preparazione',
   allestimento: 'Allestimento',
   smontaggio: 'Smontaggio',
 };
 
-/** In `edizioni/{anno}/giornate/{id}`. L'id è "data-tipo" (2027-06-20-allestimento):
- * la stessa giornata creata due volte da due computer resta una sola. */
+/** Orario proposto per una serata nuova: si cambia in alto, una volta sola. */
+export const ORARIO_SERVIZIO_INIZIALE = { oraInizio: '19:00', oraFine: '00:00' };
+
+/** In `edizioni/{anno}/giornate/{data}`. L'id è la data (AAAA-MM-GG): una
+ * giornata per giorno, e quella di una serata di sagra ha lo stesso id della
+ * serata di Comande, così ore e incassi si incontrano da soli. */
 export interface Giornata {
   id: string;
-  /** AAAA-MM-GG. */
   data: string;
   tipo: TipoGiornata;
+  /** "HH:MM". Valgono per il servizio, cioè solo nelle serate di sagra. */
+  oraInizio: string;
+  oraFine: string;
   createdAt: FirestoreTimestampLike;
 }
 
-export function idGiornata(data: string, tipo: TipoGiornata): string {
-  return `${data}-${tipo}`;
-}
-
-/** In `edizioni/{anno}/giornate/{giornata}/presenze/{uid}`. */
-export interface PresenzaStaff {
+/** In `edizioni/{anno}/giornate/{data}/presenze/{uid}`. */
+export interface Presenza {
+  /** L'id della persona nell'elenco utenti (anche di chi non ha un account),
+   * così una persona è una riga sola. */
   uid: string;
   giornataId: string;
+  /** Scritto anche qui: chi viene eliminato dall'elenco resta nello storico. */
   nome: string;
   presente: boolean;
-  /** Le ore lavorate quel giorno. 0 = c'era, ma le ore non sono state scritte. */
-  ore: number;
+  /** Ha fatto l'orario della serata. Ha senso solo nelle serate di sagra. */
+  servizio: boolean;
+  extra: boolean;
+  /** Le ore extra, scritte a mano. 0 = non ancora scritte. */
+  oreExtra: number;
   aggiornatoAt: FirestoreTimestampLike;
 }
 
-/** Quanto pesa una presenza nel conto della resa per volontario. */
-export function pesoPresenza(presenza: { presente: boolean; meta: boolean }): number {
-  if (!presenza.presente) return 0;
-  return presenza.meta ? 0.5 : 1;
+/** "19:00" -> 1140 minuti. Null se non è un orario. */
+function minutiDa(orario: string): number | null {
+  const parti = /^(\d{1,2}):(\d{2})$/.exec(orario ?? '');
+  if (!parti) return null;
+  const ore = Number(parti[1]);
+  const minuti = Number(parti[2]);
+  if (ore > 23 || minuti > 59) return null;
+  return ore * 60 + minuti;
+}
+
+/** Le ore di servizio della serata. Se la fine viene prima dell'inizio la
+ * serata è andata oltre la mezzanotte (19:00 → 01:00 = 6 ore). */
+export function oreServizio(giornata: Pick<Giornata, 'tipo' | 'oraInizio' | 'oraFine'> | null | undefined): number {
+  if (!giornata || giornata.tipo !== 'sagra') return 0;
+  const inizio = minutiDa(giornata.oraInizio);
+  const fine = minutiDa(giornata.oraFine);
+  if (inizio === null || fine === null) return 0;
+  const durata = fine > inizio ? fine - inizio : fine + 24 * 60 - inizio;
+  return Math.round((durata / 60) * 100) / 100;
+}
+
+/** Le ore di una persona in una giornata: il servizio vale l'orario della
+ * serata, l'extra quello che è stato scritto. */
+export function oreDi(
+  presenza: Pick<Presenza, 'presente' | 'servizio' | 'extra' | 'oreExtra'> | undefined,
+  giornata: Pick<Giornata, 'tipo' | 'oraInizio' | 'oraFine'> | null | undefined
+): { servizio: number; extra: number; totale: number } {
+  if (!presenza?.presente) return { servizio: 0, extra: 0, totale: 0 };
+  const servizio = presenza.servizio ? oreServizio(giornata) : 0;
+  const extra = presenza.extra ? presenza.oreExtra || 0 : 0;
+  return { servizio, extra, totale: Math.round((servizio + extra) * 100) / 100 };
 }
 
 /** Di quante ore la serata "sborda" oltre la mezzanotte.

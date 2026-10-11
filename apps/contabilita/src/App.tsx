@@ -18,8 +18,8 @@ const SCHEDE = ['Serata', 'Chiusura', 'Uscite', 'Entrate extra', 'Presenze', 'Re
 type Scheda = (typeof SCHEDE)[number];
 
 /** Le schede che parlano di una sera precisa. Le altre guardano l'edizione
- * intera, e il selettore della serata lì non vuol dire niente. Presenze lo
- * mostra da sé, e solo per il servizio: le giornate staff non sono serate. */
+ * intera, e il selettore della serata lì non vuol dire niente. Presenze ha il
+ * suo calendario: le giornate di lavoro non sono solo le serate. */
 const SCHEDE_DI_SERATA: Scheda[] = ['Serata', 'Chiusura'];
 
 function App() {
@@ -99,7 +99,7 @@ function Conti({ nome, amministratore }: { nome: string; amministratore: boolean
 
       <main>
         {scheda === 'Presenze' ? (
-          <Presenze serate={serate} serataId={serataId} edizioneId={edizioneId} onCambiaSerata={setSerataScelta} />
+          <Presenze serate={serate} dataIniziale={serataId ?? oggi} />
         ) : serate.length === 0 ? (
           <p className="vuoto">
             Non c'è ancora nessuna serata. Le serate le apre l'app Comande: quando la prima sagra comincia, qui

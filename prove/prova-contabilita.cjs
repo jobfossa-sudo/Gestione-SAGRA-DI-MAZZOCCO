@@ -199,36 +199,37 @@ async function entra(browser, indirizzo, utente) {
   );
 
   // --- Le presenze ----------------------------------------------------------
+  // Si apre sulla serata di oggi, che in Comande esiste: è una serata di sagra.
   await conti.getByRole('button', { name: 'Presenze' }).click();
   await conti.waitForTimeout(1500);
-  verifica('c’è un volontario per riga', (await conti.locator('.tabella-presenze tbody tr').count()) > 0);
+  verifica('c’è una persona per riga', (await conti.locator('.tabella-presenze tbody tr').count()) > 0);
+  verifica(
+    'la giornata di oggi è una serata di sagra, con l’orario del servizio',
+    (await conti.getByLabel('Tipo di giornata').inputValue()) === 'sagra' &&
+      (await conti.getByLabel('Servizio dalle').isVisible())
+  );
   const primo = conti.locator('.tabella-presenze tbody tr').first();
 
-  // Si riparte da zero: le presenze restano in archivio da un giro all'altro,
-  // e trovando la riga già spuntata i conti qui sotto non tornerebbero.
-  if (await primo.locator('input[type=checkbox]').nth(1).isChecked()) {
-    await primo.locator('input[type=checkbox]').nth(1).click();
-    await conti.waitForTimeout(1200);
-  }
-  if (await primo.locator('input[type=checkbox]').first().isChecked()) {
-    await primo.locator('input[type=checkbox]').first().click();
+  // Si riparte da zero: le presenze restano in archivio da un giro all'altro.
+  if (await primo.getByLabel(/^Presente:/).isChecked()) {
+    await primo.getByLabel(/^Presente:/).click();
     await conti.waitForTimeout(1200);
   }
 
-  await primo.locator('input[type=checkbox]').first().check();
+  await primo.getByLabel(/^Servizio serata:/).check();
   verifica(
-    'spuntare una presenza fa comparire la resa per volontario',
+    'il servizio segna anche la presenza',
+    await attendi(async () => primo.getByLabel(/^Presente:/).isChecked())
+  );
+  verifica(
+    'e fa comparire la resa per volontario',
     await attendi(async () => cifra(await conti.locator('.quadrato-incasso .valore-quadrato').innerText()) > 0)
   );
-  const resaIntera = cifra(await conti.locator('.quadrato-incasso .valore-quadrato').innerText());
-  await primo.locator('input[type=checkbox]').nth(1).check();
+  const oreSera = (await conti.locator('.durata-servizio strong').innerText()).trim();
   verifica(
-    'mezza serata pesa la metà, quindi la resa raddoppia',
-    await attendi(async () => {
-      const ora = cifra(await conti.locator('.quadrato-incasso .valore-quadrato').innerText());
-      return Math.abs(ora - resaIntera * 2) < 0.02;
-    }),
-    `intera ${resaIntera.toFixed(2)}`
+    'le ore della persona sono quelle dell’orario',
+    await attendi(async () => (await primo.locator('td').last().innerText()).trim() === oreSera),
+    `orario ${oreSera}`
   );
   await conti.screenshot({ path: RISULTATI + '/contabilita-presenze.png', fullPage: true });
 

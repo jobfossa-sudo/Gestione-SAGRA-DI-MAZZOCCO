@@ -111,11 +111,6 @@ service cloud.firestore {
         allow write: if contabile();
       }
 
-      match /presenze/{uid} {
-        allow read: if contabile();
-        allow write: if contabile();
-      }
-
       // Segnalazioni dai bagni. Le manda un cliente col telefono, quindi senza
       // accesso: arrivano dalla Cloud Function, che è l'unica a poterle
       // scrivere. Le legge il personale, a cui compare l'avviso. Il cliente
@@ -159,8 +154,8 @@ service cloud.firestore {
         allow write: if contabile();
       }
 
-      // Le giornate di lavoro senza sagra (preparazione, allestimento,
-      // smontaggio) e le ore di chi c'era: la presenza staff.
+      // Le giornate (serate di sagra, preparazione, allestimento, smontaggio)
+      // e le presenze di ciascuno, con le ore. Una giornata per data.
       match /giornate/{giornataId} {
         allow read: if contabile();
         allow write: if contabile();

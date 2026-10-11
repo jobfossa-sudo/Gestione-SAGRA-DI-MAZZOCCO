@@ -458,47 +458,18 @@
   }
 }
 
-/* ---------- presenze: servizio e staff ---------- */
+/* ---------- presenze ---------- */
 
-/* I due modi delle presenze: due bottoni larghi, con sotto una riga che dice
-   di cosa si parla, perché "staff" da solo non dice niente a chi arriva. */
-.scelta-modo {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.scelta-modo button {
-  flex: 1 1 14rem;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 10px 14px;
-  font-weight: 700;
-  text-align: left;
-}
-.scelta-modo button small {
-  font-weight: 400;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-.scelta-modo button.attivo {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.presenze .scelta-serata {
-  padding: 0;
-}
-.nuova-giornata {
+/* In alto, in fila: il calendario, il tipo di giornata e, nelle serate di
+   sagra, l'orario del servizio uguale per tutti. */
+.scelta-giornata {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 16px;
+  margin: 6px 0 4px;
 }
-.nuova-giornata label,
-.scelta-giornata,
+.scelta-giornata label,
 .tasti-appello label {
   display: flex;
   flex-direction: column;
@@ -507,18 +478,38 @@
   font-weight: 600;
   color: var(--text-muted);
 }
-.nuova-giornata input,
-.nuova-giornata select,
-.scelta-giornata select {
+.scelta-giornata select,
+.scelta-giornata input {
   width: auto;
-  min-width: 12rem;
-}
-.scelta-giornata select {
-  min-width: 22rem;
-  max-width: 100%;
+  min-width: 10rem;
   font-size: 1rem;
   font-weight: 600;
   color: var(--text);
+}
+.calendario {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+.calendario button {
+  width: auto;
+  padding: 8px 12px;
+}
+.orario-servizio {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+.orario-servizio input {
+  min-width: 7rem;
+}
+.durata-servizio {
+  padding-bottom: 9px;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 .tasti-appello {
   display: flex;
@@ -536,4 +527,76 @@
 .casella-ore {
   width: 5rem;
   text-align: center;
+}
+.tabella-presenze td,
+.tabella-presenze th {
+  white-space: nowrap;
+}
+
+/* Le giornate già segnate: un tocco e si apre quella. */
+.elenco-giornate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.elenco-giornate button {
+  width: auto;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+.elenco-giornate button small {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.elenco-giornate button.attiva {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tabella-giornate th small {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Il foglio delle stampe sta fuori dall'app (in fondo alla pagina) e si vede
+   solo stampando: tutto il resto sparisce. */
+.foglio-stampa {
+  display: none;
+}
+@media print {
+  body.stampa-presenze #root {
+    display: none !important;
+  }
+  body.stampa-presenze .foglio-stampa {
+    display: block;
+    color: #000;
+    background: #fff;
+    font-size: 10pt;
+  }
+  .foglio-stampa h1 {
+    font-size: 14pt;
+    margin-bottom: 2mm;
+  }
+  .foglio-stampa p {
+    margin-bottom: 4mm;
+  }
+  .foglio-stampa table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .foglio-stampa th,
+  .foglio-stampa td {
+    border: 0.5pt solid #999;
+    padding: 1.5mm 2mm;
+    color: #000;
+  }
+  .foglio-stampa thead {
+    display: table-header-group;
+  }
+  .foglio-stampa tr {
+    break-inside: avoid;
+  }
 }

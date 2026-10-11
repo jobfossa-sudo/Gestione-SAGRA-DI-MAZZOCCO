@@ -3,6 +3,7 @@ import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { useEffect, useState } from 'react';
 import {
   confrontaPersone,
+  edizioneDiSerata,
   type ChiusuraCassa,
   type Edizione,
   type EntrataExtra,
@@ -11,7 +12,6 @@ import {
   type Ordine,
   type Permessi,
   type Presenza,
-  type PresenzaStaff,
   type Serata,
   type Uscita,
   type Utente,
@@ -110,19 +110,35 @@ export function useChiusure(serataId: string | null): {
   return stato;
 }
 
-/** Chi c'era, per uid. */
-export function usePresenze(serataId: string | null): Map<string, Presenza> {
+/** Chi c'era in una giornata, per uid. La giornata di una serata di sagra ha
+ * lo stesso id della serata, quindi qui si passa anche un serataId. */
+export function usePresenze(data: string | null): Map<string, Presenza> {
   const [presenze, setPresenze] = useState(new Map<string, Presenza>());
 
   useEffect(() => {
     setPresenze(new Map());
-    if (!serataId) return;
-    return onSnapshot(collection(db, `serate/${serataId}/presenze`), (snapshot) =>
+    if (!data) return;
+    return onSnapshot(collection(db, `edizioni/${edizioneDiSerata(data)}/giornate/${data}/presenze`), (snapshot) =>
       setPresenze(new Map(snapshot.docs.map((doc) => [doc.id, doc.data() as Presenza])))
     );
-  }, [serataId]);
+  }, [data]);
 
   return presenze;
+}
+
+/** Una giornata, se è già stata creata. */
+export function useGiornata(data: string | null): { giornata: Giornata | null; caricata: boolean } {
+  const [stato, setStato] = useState<{ giornata: Giornata | null; caricata: boolean }>({ giornata: null, caricata: false });
+
+  useEffect(() => {
+    setStato({ giornata: null, caricata: false });
+    if (!data) return;
+    return onSnapshot(doc(db, `edizioni/${edizioneDiSerata(data)}/giornate`, data), (snapshot) =>
+      setStato({ giornata: snapshot.exists() ? (snapshot.data() as Giornata) : null, caricata: true })
+    );
+  }, [data]);
+
+  return stato;
 }
 
 /** Tutte le persone della sagra, con o senza accesso alle app, per cognome:
@@ -219,13 +235,13 @@ export function useTotaliSerate(serataIds: string[]): Map<string, { ordini: Ordi
   return totali;
 }
 
-/** Le giornate staff dell'edizione, dalla più recente. */
+/** Le giornate dell'edizione, in ordine di data. */
 export function useGiornate(edizioneId: string): Giornata[] {
   const [giornate, setGiornate] = useState<Giornata[]>([]);
 
   useEffect(
     () =>
-      onSnapshot(query(collection(db, `edizioni/${edizioneId}/giornate`), orderBy('data', 'desc')), (snapshot) =>
+      onSnapshot(query(collection(db, `edizioni/${edizioneId}/giornate`), orderBy('data')), (snapshot) =>
         setGiornate(snapshot.docs.map((doc) => doc.data() as Giornata))
       ),
     [edizioneId]
@@ -234,45 +250,25 @@ export function useGiornate(edizioneId: string): Giornata[] {
   return giornate;
 }
 
-/** Le presenze staff di più giornate, per giornata: servono tutte insieme nel
- * Report per sommare le ore di ciascuno. */
-export function usePresenzeStaff(edizioneId: string, giornataIds: string[]): Map<string, PresenzaStaff[]> {
-  const [presenze, setPresenze] = useState(new Map<string, PresenzaStaff[]>());
-  const chiave = giornataIds.join(',');
-
-  useEffect(() => {
-    const ids = chiave ? chiave.split(',') : [];
-    const dati = new Map<string, PresenzaStaff[]>();
-    setPresenze(new Map());
-    const spegni = ids.map((id) =>
-      onSnapshot(collection(db, `edizioni/${edizioneId}/giornate/${id}/presenze`), (s) => {
-        dati.set(id, s.docs.map((d) => d.data() as PresenzaStaff));
-        setPresenze(new Map(dati));
-      })
-    );
-    return () => spegni.forEach((f) => f());
-  }, [edizioneId, chiave]);
-
-  return presenze;
-}
-
-/** Le presenze di servizio di più serate, per serata. */
-export function usePresenzeSerate(serataIds: string[]): Map<string, Presenza[]> {
+/** Le presenze di più giornate, per giornata: servono tutte insieme per i
+ * riepiloghi e le stampe. */
+export function usePresenzeGiornate(edizioneId: string, giornataIds: string[]): Map<string, Presenza[]> {
   const [presenze, setPresenze] = useState(new Map<string, Presenza[]>());
-  const chiave = serataIds.join(',');
+  // L'elenco arriva come array nuovo a ogni disegno: si confronta il contenuto.
+  const chiave = giornataIds.join(',');
 
   useEffect(() => {
     const ids = chiave ? chiave.split(',') : [];
     const dati = new Map<string, Presenza[]>();
     setPresenze(new Map());
     const spegni = ids.map((id) =>
-      onSnapshot(collection(db, `serate/${id}/presenze`), (s) => {
+      onSnapshot(collection(db, `edizioni/${edizioneId}/giornate/${id}/presenze`), (s) => {
         dati.set(id, s.docs.map((d) => d.data() as Presenza));
         setPresenze(new Map(dati));
       })
     );
     return () => spegni.forEach((f) => f());
-  }, [chiave]);
+  }, [edizioneId, chiave]);
 
   return presenze;
 }

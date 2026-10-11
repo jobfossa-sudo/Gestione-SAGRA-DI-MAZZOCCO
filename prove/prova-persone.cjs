@@ -106,72 +106,103 @@ async function entra(browser, indirizzo, utente, password = 'prova1234') {
     await attendi(async () => (await riga(admin).locator('.nome-utente').count()) === 0)
   );
 
-  // --- Contabilità: la presenza staff ---------------------------------------
+  // --- Contabilità: le presenze di una giornata -------------------------------
   const conti = await entra(browser, CONTABILITA, 'contabile');
   await conti.getByRole('button', { name: 'Presenze' }).click();
   await conti.waitForTimeout(1000);
-  verifica('le presenze hanno i due modi, servizio e staff', await conti.getByRole('tab', { name: /Staff/ }).isVisible());
   verifica(
-    'nel servizio c’è anche chi non ha un accesso',
+    'nell’appello c’è anche chi non ha un accesso',
     await attendi(async () => (await conti.locator('.tabella-presenze tbody tr', { hasText: cognome }).count()) > 0)
   );
 
-  await conti.getByRole('tab', { name: /Staff/ }).click();
-  // Una data fuori dalla sagra e solo di questa prova, per non mescolarsi.
+  // Una data di gennaio solo di questa prova, scelta dal calendario.
   const anno = new Date().getFullYear();
   const data = `${anno}-01-${String((Number(suffisso) % 27) + 1).padStart(2, '0')}`;
-  await conti.getByLabel('Data').fill(data);
-  await conti.getByLabel('Tipo').selectOption('smontaggio');
-  await conti.getByRole('button', { name: '+ Nuova giornata' }).click();
-  verifica(
-    'si crea una giornata di smontaggio',
-    await attendi(async () => /Smontaggio/.test(await conti.locator('.scelta-giornata select').innerText()))
-  );
-  await conti.locator('.scelta-giornata select').selectOption(`${data}-smontaggio`);
+  await conti.getByLabel('Data', { exact: true }).fill(data);
   await conti.waitForTimeout(800);
+  verifica(
+    'una data senza serata si propone come preparazione, senza servizio',
+    (await conti.getByLabel('Tipo di giornata').inputValue()) === 'preparazione' &&
+      (await conti.getByLabel('Servizio dalle').count()) === 0
+  );
 
-  const rigaStaff = () => conti.locator('.tabella-presenze tbody tr', { hasText: cognome }).first();
-  await rigaStaff().locator('input[type=checkbox]').check();
-  await conti.getByLabel('Ore a tutti i presenti').fill('4,5');
+  // Diventa una serata di sagra, dalle 19 all'una: 6 ore a testa.
+  await conti.getByLabel('Tipo di giornata').selectOption('sagra');
+  await conti.getByLabel('Servizio dalle').fill('19:00');
+  await conti.getByLabel('alle', { exact: true }).fill('01:00');
+  verifica(
+    'l’orario oltre mezzanotte fa 6 ore',
+    await attendi(async () => (await conti.locator('.durata-servizio strong').innerText()).trim() === '6')
+  );
+
+  const rigaAda = () => conti.locator('.tabella-presenze tbody tr', { hasText: cognome }).first();
+  await rigaAda().getByLabel(/^Servizio serata:/).check();
+  await rigaAda().getByLabel(/^Ore extra:/).fill('2,5');
+  await rigaAda().getByLabel(/^Ore extra:/).press('Enter');
+  verifica(
+    'scrivendo le ore extra si spunta da sola la presenza extra',
+    await attendi(async () => rigaAda().getByLabel(/^Presenza extra:/).isChecked())
+  );
+  verifica(
+    'e le ore totali sono servizio + extra (6 + 2,5)',
+    await attendi(async () => (await rigaAda().locator('td').last().innerText()).trim() === '8,5')
+  );
+
+  await conti.getByRole('button', { name: 'Tutti presenti' }).click();
+  await conti.getByLabel('Ore extra a tutti i presenti').fill('1');
   await conti.getByRole('button', { name: 'Applica' }).click();
   verifica(
-    '"Ore a tutti" dà le ore a chi c’era',
-    await attendi(async () => (await rigaStaff().locator('.casella-ore').inputValue()) === '4,5')
+    '"Ore extra a tutti" vale per tutti i presenti',
+    await attendi(async () => (await rigaAda().getByLabel(/^Ore extra:/).inputValue()) === '1')
   );
+  await conti.screenshot({ path: RISULTATI + '/contabilita-giornata.png', fullPage: true });
 
-  // Scrivere delle ore a chi non era spuntato lo segna presente.
-  const altra = conti.locator('.tabella-presenze tbody tr').filter({ hasNotText: cognome }).first();
-  const altraPresente = await altra.locator('input[type=checkbox]').isChecked();
-  if (!altraPresente) {
-    await altra.locator('.casella-ore').fill('2');
-    await altra.locator('.casella-ore').press('Enter');
-    verifica(
-      'scrivendo delle ore la persona risulta presente',
-      await attendi(async () => altra.locator('input[type=checkbox]').isChecked())
-    );
-  }
-  await conti.screenshot({ path: RISULTATI + '/contabilita-staff.png', fullPage: true });
+  // --- Le stampe -----------------------------------------------------------------
+  await conti.evaluate(() => {
+    window.__stampe = 0;
+    window.print = () => {
+      window.__stampe += 1;
+      window.dispatchEvent(new Event('afterprint'));
+    };
+  });
+  await conti.getByRole('button', { name: /Stampa le giornate/ }).click();
+  verifica('il tasto stampa le giornate', await attendi(async () => (await conti.evaluate(() => window.__stampe)) === 1));
+  await conti.getByRole('button', { name: /Stampa il totale/ }).click();
+  verifica('e il tasto stampa il totale', await attendi(async () => (await conti.evaluate(() => window.__stampe)) === 2));
+
+  // Il foglio della tabella unica, guardato come uscirebbe dalla stampante.
+  await conti.evaluate(() => {
+    window.print = () => {};
+  });
+  await conti.getByRole('button', { name: /Stampa le giornate/ }).click();
+  await conti.emulateMedia({ media: 'print' });
+  await conti.waitForTimeout(300);
+  const rigaFoglio = conti.locator('.foglio-stampa tbody tr', { hasText: cognome });
+  verifica(
+    'il foglio ha la persona con le sue 7 ore (6 + 1)',
+    (await rigaFoglio.count()) > 0 && (await rigaFoglio.locator('td').last().innerText()).trim() === '7'
+  );
+  await conti.screenshot({ path: RISULTATI + '/contabilita-stampa-giornate.png', fullPage: true });
+  await conti.emulateMedia({ media: 'screen' });
+  await conti.evaluate(() => window.dispatchEvent(new Event('afterprint')));
 
   // --- Il report per persona --------------------------------------------------
   await conti.getByRole('button', { name: 'Report' }).click();
   const rigaReport = conti.locator('.tabella-ore tbody tr', { hasText: cognome });
   verifica(
-    'il Report mostra le ore staff della persona',
-    await attendi(async () => (await rigaReport.count()) > 0 && /4,5/.test(await rigaReport.innerText())),
+    'il Report mostra le ore della persona',
+    await attendi(async () => (await rigaReport.count()) > 0 && (await rigaReport.locator('td').last().innerText()).trim() === '7'),
     (await rigaReport.count()) > 0 ? await rigaReport.innerText() : 'riga assente'
   );
-  await conti.screenshot({ path: RISULTATI + '/contabilita-report-ore.png', fullPage: true });
 
   // --- Pulizia ----------------------------------------------------------------
   await conti.getByRole('button', { name: 'Presenze' }).click();
-  await conti.getByRole('tab', { name: /Staff/ }).click();
-  await conti.locator('.scelta-giornata select').selectOption(`${data}-smontaggio`);
+  await conti.getByLabel('Data', { exact: true }).fill(data);
   await conti.waitForTimeout(800);
   await conti.getByRole('button', { name: 'Elimina questa giornata' }).click();
   verifica(
     'la giornata si elimina',
-    await attendi(async () => !(await conti.locator('.scelta-giornata select').innerText().catch(() => '')).includes(data.slice(8)) ||
-      !(await conti.locator(`.scelta-giornata option[value="${data}-smontaggio"]`).count()))
+    await attendi(async () => (await conti.getByRole('button', { name: 'Elimina questa giornata' }).count()) === 0)
   );
 
   await riga(admin).getByRole('button', { name: 'Elimina' }).click();

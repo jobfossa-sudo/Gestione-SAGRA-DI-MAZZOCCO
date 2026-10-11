@@ -1,15 +1,14 @@
 import {
   NOME_BANCO,
   pagamentoDi,
-  pesoPresenza,
+  oreDi,
+  oreServizio as oreServizioGiornata,
   type ChiusuraCassa,
   type EntrataExtra,
   type Giornata,
   type Ordine,
   type OrdineBanco,
   type Presenza,
-  type PresenzaStaff,
-  type TipoGiornata,
   type Uscita,
 } from '@sagra-mazzocco/shared';
 
@@ -173,31 +172,38 @@ export function contoEconomico(
   };
 }
 
-/** Quanto ha reso la serata per ogni volontario presente.
+/** Quanto ha reso la serata per chi era in servizio.
  *
- * Mezza serata pesa mezzo, così chi arriva alle dieci non conta come chi c'è
- * da mezzogiorno. È un indicatore grezzo e va detto: non misura quanto lavora
- * una persona, misura quante persone servono per fare quell'incasso. */
+ * Contano solo le persone spuntate in "servizio": chi è passato il pomeriggio
+ * a preparare (extra) non era a servire. È un indicatore grezzo e va detto:
+ * non misura quanto lavora una persona, misura quante persone servono per
+ * fare quell'incasso. */
 export interface RendimentoVolontari {
   presenti: number;
-  /** Presenze pesate: due mezze serate fanno una persona. */
-  peso: number;
+  inServizio: number;
+  /** Le ore di servizio di tutti insieme: persone in servizio × orario. */
+  oreServizio: number;
   incassoPerVolontario: number;
+  incassoPerOra: number;
   copertiPerVolontario: number;
 }
 
 export function rendimentoVolontari(
   incasso: number,
   coperti: number,
-  presenze: Presenza[]
+  presenze: Presenza[],
+  giornata: Giornata | null
 ): RendimentoVolontari {
   const presenti = presenze.filter((p) => p.presente).length;
-  const peso = presenze.reduce((somma, p) => somma + pesoPresenza(p), 0);
+  const inServizio = presenze.filter((p) => p.presente && p.servizio).length;
+  const oreServizio = arrotonda(inServizio * oreServizioGiornata(giornata));
   return {
     presenti,
-    peso,
-    incassoPerVolontario: peso > 0 ? arrotonda(incasso / peso) : 0,
-    copertiPerVolontario: peso > 0 ? Math.round(coperti / peso) : 0,
+    inServizio,
+    oreServizio,
+    incassoPerVolontario: inServizio > 0 ? arrotonda(incasso / inServizio) : 0,
+    incassoPerOra: oreServizio > 0 ? arrotonda(incasso / oreServizio) : 0,
+    copertiPerVolontario: inServizio > 0 ? Math.round(coperti / inServizio) : 0,
   };
 }
 
@@ -234,56 +240,60 @@ export function vendutoDiSerata(ordini: Ordine[], ordiniBanco: OrdineBanco[]): R
 export interface RigaPersona {
   uid: string;
   nome: string;
-  /** Presenze di servizio, pesate: due mezze serate fanno una serata. */
-  serate: number;
-  /** Ore staff per tipo di giornata. */
-  ore: Record<TipoGiornata, number>;
-  /** Tutte le ore staff: il lavoro fatto oltre le serate della sagra. */
-  oreStaff: number;
+  /** Giornate in cui era presente, di qualunque tipo. */
+  giornate: number;
+  /** Serate di sagra fatte in servizio. */
+  serateServizio: number;
+  oreServizio: number;
+  oreExtra: number;
+  oreTotali: number;
+  /** Le ore di ogni giornata, per id: le colonne della tabella unica. */
+  perGiornata: Record<string, number>;
 }
 
-/** Serate di servizio e ore staff di ciascuno, per l'edizione intera.
+/** Le ore di ciascuno nell'edizione, giornata per giornata e in totale.
  *
- * Le due cose restano separate apposta: una serata non ha un numero di ore
- * (nessuno le scrive, si spunta e basta), le giornate staff sì. Sommarle
- * vorrebbe dire inventarsi quante ore vale una serata. Chi non ha fatto niente
- * non compare. Il nome viene dall'elenco delle persone se c'è ancora, se no
- * da quello scritto sulla presenza (chi è stato eliminato resta nello storico). */
+ * Chi non ha fatto niente non compare. Il nome viene dall'elenco delle
+ * persone se c'è ancora, se no da quello scritto sulla presenza: chi è stato
+ * eliminato resta nello storico. */
 export function riepilogoPersone(
   nomi: Map<string, string>,
-  presenzeSerate: Presenza[],
   giornate: Giornata[],
-  presenzeStaff: Map<string, PresenzaStaff[]>
+  presenze: Map<string, Presenza[]>
 ): RigaPersona[] {
   const righe = new Map<string, RigaPersona>();
-  const riga = (uid: string, nomeScritto: string): RigaPersona => {
-    let r = righe.get(uid);
-    if (!r) {
-      r = {
-        uid,
-        nome: nomi.get(uid) ?? nomeScritto,
-        serate: 0,
-        ore: { preparazione: 0, allestimento: 0, smontaggio: 0 },
-        oreStaff: 0,
-      };
-      righe.set(uid, r);
-    }
-    return r;
-  };
-
-  for (const presenza of presenzeSerate) {
-    if (!presenza.presente) continue;
-    riga(presenza.uid, presenza.nome).serate += pesoPresenza(presenza);
-  }
 
   for (const giornata of giornate) {
-    for (const presenza of presenzeStaff.get(giornata.id) ?? []) {
+    for (const presenza of presenze.get(giornata.id) ?? []) {
       if (!presenza.presente) continue;
-      const r = riga(presenza.uid, presenza.nome);
-      r.ore[giornata.tipo] = arrotonda(r.ore[giornata.tipo] + (presenza.ore || 0));
-      r.oreStaff = arrotonda(r.oreStaff + (presenza.ore || 0));
+      let r = righe.get(presenza.uid);
+      if (!r) {
+        r = {
+          uid: presenza.uid,
+          nome: nomi.get(presenza.uid) ?? presenza.nome,
+          giornate: 0,
+          serateServizio: 0,
+          oreServizio: 0,
+          oreExtra: 0,
+          oreTotali: 0,
+          perGiornata: {},
+        };
+        righe.set(presenza.uid, r);
+      }
+      const ore = oreDi(presenza, giornata);
+      r.giornate += 1;
+      if (ore.servizio > 0) r.serateServizio += 1;
+      r.oreServizio = arrotonda(r.oreServizio + ore.servizio);
+      r.oreExtra = arrotonda(r.oreExtra + ore.extra);
+      r.oreTotali = arrotonda(r.oreTotali + ore.totale);
+      r.perGiornata[giornata.id] = ore.totale;
     }
   }
 
   return [...righe.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'it', { sensitivity: 'base' }));
+}
+
+/** Le ore di tutti in una giornata: i totali in fondo alla tabella unica. */
+export function oreDellaGiornata(giornata: Giornata, presenze: Presenza[]): number {
+  return arrotonda(presenze.reduce((somma, p) => somma + oreDi(p, giornata).totale, 0));
 }

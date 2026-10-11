@@ -1,4 +1,4 @@
-import { useOrdini, useOrdiniBanco, useEntrate, usePresenze, useUscite } from '../hooks';
+import { useOrdini, useOrdiniBanco, useEntrate, useGiornata, usePresenze, useUscite } from '../hooks';
 import { contoEconomico, incassoDiSerata, rendimentoVolontari, vendutoDiSerata } from '../services/conti';
 import { euro } from '../services/formato';
 import { Quadrato } from './Quadrato';
@@ -15,10 +15,11 @@ export function Serata({ serataId, edizioneId }: { serataId: string | null; ediz
   const uscite = useUscite(edizioneId);
   const entrate = useEntrate(edizioneId);
   const presenze = usePresenze(serataId);
+  const { giornata } = useGiornata(serataId);
 
   const incasso = incassoDiSerata(ordini, ordiniBanco);
   const conto = contoEconomico(incasso.totale, entrate, uscite, serataId);
-  const resa = rendimentoVolontari(incasso.totale, incasso.coperti, [...presenze.values()]);
+  const resa = rendimentoVolontari(incasso.totale, incasso.coperti, [...presenze.values()], giornata);
   const venduto = vendutoDiSerata(ordini, ordiniBanco).slice(0, 8);
 
   return (
@@ -48,15 +49,19 @@ export function Serata({ serataId, edizioneId }: { serataId: string | null; ediz
           spiegazione="Incasso diviso il numero di comande"
         />
         <Quadrato
-          titolo="Volontari presenti"
-          valore={resa.presenti === 0 ? '—' : String(resa.presenti)}
-          spiegazione={resa.presenti === 0 ? 'Da spuntare nella scheda Presenze' : `${resa.peso} serate piene`}
+          titolo="Volontari in servizio"
+          valore={resa.inServizio === 0 ? '—' : String(resa.inServizio)}
+          spiegazione={
+            resa.inServizio === 0
+              ? 'Da spuntare nella scheda Presenze'
+              : `${String(resa.oreServizio).replace('.', ',')} ore di servizio in tutto`
+          }
         />
         <Quadrato
           titolo="Resa per volontario"
-          valore={resa.peso === 0 ? '—' : euro(resa.incassoPerVolontario)}
+          valore={resa.inServizio === 0 ? '—' : euro(resa.incassoPerVolontario)}
           spiegazione={
-            resa.peso === 0
+            resa.inServizio === 0
               ? 'Compare quando ci sono le presenze'
               : `${resa.copertiPerVolontario} coperti a testa`
           }
