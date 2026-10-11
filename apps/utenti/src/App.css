@@ -37,7 +37,9 @@
 .app-utenti main {
   flex: 1;
   width: 100%;
-  max-width: 1200px;
+  /* Si allarga quanto serve alla tabella delle persone, che sta tutta su
+     una riga per persona; il modulo qui sopra resta comodo da leggere. */
+  max-width: none;
   margin: 0 auto;
   padding: 14px 24px;
   display: flex;
@@ -279,4 +281,30 @@
 .richiesta input {
   min-width: 180px;
   padding: 7px 9px;
+}
+
+/* ---------- una persona, una riga ---------- */
+
+/* Niente va a capo nella tabella: nomi, tasti e tendine restano affiancati.
+   Se lo schermo è stretto, la tabella scorre di lato invece di raddoppiare
+   le righe. */
+.tabella-utenti td,
+.tabella-utenti th {
+  white-space: nowrap;
+}
+.tabella-utenti .azioni {
+  flex-wrap: nowrap;
+}
+.cella-ruolo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cella-ruolo .lettera-in-tabella {
+  margin-top: 0;
+}
+.nuovo-utente {
+  width: 100%;
+  max-width: 1200px;
+  align-self: center;
 }

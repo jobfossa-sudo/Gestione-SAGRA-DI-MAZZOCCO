@@ -102,23 +102,25 @@ function RigaUtente({ utente, sonoIo }: { utente: Utente; sonoIo: boolean }) {
           )}
         </td>
         <td>
-          <SceltaRuolo
-            valore={richiesta?.tipo === 'accesso' ? richiesta.ruolo : ruolo}
-            disabled={inCorso || sonoIo}
-            onChange={cambiaRuolo}
-            ariaLabel={`Ruolo: ${chi}`}
-          />
-          {utente.nomeUtente && puoIncassare(ruolo) && (
-            <label className="lettera-in-tabella">
-              Cassa
-              <SceltaLetteraCassa
-                valore={utente.letteraCassa ?? null}
-                disabled={inCorso}
-                onChange={(letteraCassa) => esegui(() => impostaLetteraCassa({ uid: utente.uid, letteraCassa }))}
-                ariaLabel={`Lettera della cassa: ${chi}`}
-              />
-            </label>
-          )}
+          <div className="cella-ruolo">
+            <SceltaRuolo
+              valore={richiesta?.tipo === 'accesso' ? richiesta.ruolo : ruolo}
+              disabled={inCorso || sonoIo}
+              onChange={cambiaRuolo}
+              ariaLabel={`Ruolo: ${chi}`}
+            />
+            {utente.nomeUtente && puoIncassare(ruolo) && (
+              <label className="lettera-in-tabella">
+                Cassa
+                <SceltaLetteraCassa
+                  valore={utente.letteraCassa ?? null}
+                  disabled={inCorso}
+                  onChange={(letteraCassa) => esegui(() => impostaLetteraCassa({ uid: utente.uid, letteraCassa }))}
+                  ariaLabel={`Lettera della cassa: ${chi}`}
+                />
+              </label>
+            )}
+          </div>
         </td>
         <td className="centro">
           <input
