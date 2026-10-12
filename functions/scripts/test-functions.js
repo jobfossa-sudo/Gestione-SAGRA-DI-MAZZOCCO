@@ -1110,6 +1110,97 @@ async function main() {
   );
   const scontrino = (await db.doc(`serate/${SERATA_ID}/ordiniBanco/${scontrinoPos.ordineId}`).get()).data();
   record('e resta scritto sullo scontrino del banco', scontrino?.pagamento === 'elettronico');
+
+  // --- Archivio dell'edizione: salva, azzera, ricarica ---------------------------
+  // Un anno finto, tutto suo, per non toccare i dati delle altre prove.
+  const riepilogoEdizioni = httpsCallable(functions, 'riepilogoEdizioni');
+  const esportaEdizione = httpsCallable(functions, 'esportaEdizione');
+  const azzeraEdizione = httpsCallable(functions, 'azzeraEdizione');
+  const ricaricaEdizione = httpsCallable(functions, 'ricaricaEdizione');
+  const ANNO = '2031';
+  const quando = admin.firestore.Timestamp.fromMillis(Date.UTC(2031, 6, 1, 19, 30, 0, 123));
+  await db.doc(`serate/${ANNO}-07-01`).set({ id: `${ANNO}-07-01`, data: `${ANNO}-07-01`, aperta: true, contatoreOrdini: 2 });
+  await db.doc(`serate/${ANNO}-07-01/ordini/o1`).set({ id: 'o1', stato: 'completata', totale: 10, createdAt: quando, items: [{ nome: 'Pasta', quantita: 1, prezzo: 10 }] });
+  await db.doc(`serate/${ANNO}-07-01/ordini/o2`).set({ id: 'o2', stato: 'in_evasione', totale: 5, createdAt: quando, items: [] });
+  await db.doc(`serate/${ANNO}-07-01/ordiniBanco/b1`).set({ id: 'b1', stato: 'incassato', totale: 3, createdAt: quando });
+  await db.doc(`edizioni/${ANNO}/uscite/u1`).set({ id: 'u1', importo: 40, immagineId: 'scontrino-2031', createdAt: quando });
+  await db.doc(`immagini/scontrino-2031`).set({ dati: 'data:image/png;base64,AAAA' });
+  // Una giornata "fantasma" (senza documento) con le presenze sotto: non deve perdersi.
+  await db.doc(`edizioni/${ANNO}/giornate/${ANNO}-06-30/presenze/p1`).set({ uid: 'p1', presente: true, extra: true, oreExtra: 4 });
+
+  await accediCome('cassa');
+  await assertRifiutato('chi non è amministratore non scarica l’archivio', esportaEdizione({ anno: ANNO }), 'permission-denied');
+  await assertRifiutato('né azzera un’edizione', azzeraEdizione({ anno: ANNO, conferma: `AZZERA ${ANNO}` }), 'permission-denied');
+
+  await accediCome('admin');
+  const riepilogo = await assertOk('l’amministratore vede le edizioni', riepilogoEdizioni());
+  const r2031 = riepilogo?.edizioni.find((e) => e.anno === ANNO);
+  record(
+    'con quanto c’è dentro',
+    r2031?.serate === 1 && r2031?.ordini === 2 && r2031?.ordiniBanco === 1 && r2031?.uscite === 1,
+    JSON.stringify(r2031)
+  );
+  await assertRifiutato(
+    'non si azzera senza aver prima salvato',
+    azzeraEdizione({ anno: ANNO, conferma: `AZZERA ${ANNO}` }),
+    'failed-precondition'
+  );
+
+  const archivio = await assertOk('l’archivio si scarica', esportaEdizione({ anno: ANNO }));
+  const percorsi = (archivio?.movimenti ?? []).map((d) => d.percorso);
+  record('dentro ci sono serata, ordini e scontrini', ['serate/2031-07-01', 'serate/2031-07-01/ordini/o1', 'serate/2031-07-01/ordiniBanco/b1'].every((p) => percorsi.includes(p)));
+  record('e le presenze sotto una giornata senza documento', percorsi.includes(`edizioni/${ANNO}/giornate/${ANNO}-06-30/presenze/p1`));
+  record('e la foto dello scontrino della spesa', percorsi.includes('immagini/scontrino-2031'));
+  record('ma niente di altri anni', percorsi.every((p) => p.startsWith(`serate/${ANNO}-`) || p.startsWith(`edizioni/${ANNO}`) || p.startsWith('immagini/')));
+  record('il menù e le persone ci sono come riferimento', (archivio?.riferimento ?? []).some((d) => d.percorso.startsWith('prodotti/')) && (archivio?.riferimento ?? []).some((d) => d.percorso.startsWith('utenti/')));
+  const ordineArchiviato = archivio?.movimenti.find((d) => d.percorso.endsWith('/ordini/o1'));
+  record('le date sono scritte in modo da tornare date', JSON.stringify(ordineArchiviato?.dati.createdAt) === JSON.stringify({ __timestamp: [quando.seconds, quando.nanoseconds] }));
+
+  await assertRifiutato(
+    'senza la frase di conferma non si azzera',
+    azzeraEdizione({ anno: ANNO, conferma: 'azzera' }),
+    'invalid-argument'
+  );
+  await assertOk('con la conferma l’edizione si azzera', azzeraEdizione({ anno: ANNO, conferma: `AZZERA ${ANNO}` }));
+  record('la serata non c’è più', (await db.doc(`serate/${ANNO}-07-01`).get()).exists === false);
+  record('e nemmeno i suoi ordini', (await db.collection(`serate/${ANNO}-07-01/ordini`).get()).empty);
+  record('né le presenze', (await db.collection(`edizioni/${ANNO}/giornate/${ANNO}-06-30/presenze`).get()).empty);
+  record('né la foto dello scontrino', (await db.doc('immagini/scontrino-2031').get()).exists === false);
+  record('il menù invece resta', !(await db.collection('prodotti').get()).empty);
+  record('e le altre edizioni pure', (await db.doc(`serate/${SERATA_ID}`).get()).exists);
+  await assertRifiutato(
+    'un salvataggio vale per un azzeramento solo',
+    azzeraEdizione({ anno: ANNO, conferma: `AZZERA ${ANNO}` }),
+    'failed-precondition'
+  );
+
+  await assertRifiutato(
+    'un archivio manomesso non scrive fuori dall’edizione',
+    ricaricaEdizione({ archivio: { ...archivio, movimenti: [{ percorso: 'prodotti/pasta', dati: { prezzo: 0 } }] } }),
+    'invalid-argument'
+  );
+  await assertRifiutato(
+    'un file che non è un archivio viene rifiutato',
+    ricaricaEdizione({ archivio: { app: 'altro', movimenti: [] } }),
+    'invalid-argument'
+  );
+  await assertOk('l’archivio si ricarica', ricaricaEdizione({ archivio }));
+  const ordineTornato = (await db.doc(`serate/${ANNO}-07-01/ordini/o1`).get()).data();
+  record('gli ordini tornano com’erano', ordineTornato?.totale === 10 && ordineTornato?.items?.[0]?.nome === 'Pasta');
+  record('con le date vere, al nanosecondo', ordineTornato?.createdAt instanceof admin.firestore.Timestamp && ordineTornato.createdAt.isEqual(quando));
+  record('e torna anche la foto dello scontrino', (await db.doc('immagini/scontrino-2031').get()).exists);
+  const dopo = (await riepilogoEdizioni()).data.edizioni.find((e) => e.anno === ANNO);
+  record('i conti tornano uguali a prima', JSON.stringify(dopo) === JSON.stringify(r2031), `${JSON.stringify(dopo)} vs ${JSON.stringify(r2031)}`);
+  await assertRifiutato(
+    'non si ricarica sopra un’edizione che ha già dei dati',
+    ricaricaEdizione({ archivio }),
+    'failed-precondition'
+  );
+
+  // Pulizia dell'anno finto.
+  await db.recursiveDelete(db.doc(`serate/${ANNO}-07-01`));
+  await db.recursiveDelete(db.doc(`edizioni/${ANNO}`));
+  await db.doc('immagini/scontrino-2031').delete();
   console.log('\nRisultati test Cloud Functions:');
   let tuttiOk = true;
   for (const e of esiti) {

@@ -308,3 +308,117 @@
   max-width: 1200px;
   align-self: center;
 }
+
+/* ---------- schede e archivio ---------- */
+
+.schede {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.schede button {
+  border: none;
+  background: none;
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+  padding: 10px 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.schede button:hover:not(:disabled) {
+  background: none;
+  color: var(--text);
+}
+.schede button.attiva {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.archivio {
+  width: 100%;
+  max-width: 1000px;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.archivio .passo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.archivio h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.05rem;
+}
+.numero-passo {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.9rem;
+}
+/* L'azzeramento si riconosce da lontano: bordo rosso, e spento finché non
+   si è scaricato l'archivio. */
+.passo-pericoloso {
+  border-color: var(--danger);
+}
+.passo-pericoloso .numero-passo {
+  background: var(--danger);
+}
+.passo-pericoloso.spento {
+  opacity: 0.6;
+}
+.riga-azzera {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.riga-azzera input {
+  width: 14rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.scelta-anno {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.scelta-anno select {
+  width: auto;
+  min-width: 8rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.conteggi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 8px;
+  font-size: 0.92rem;
+}
+.fatto {
+  color: var(--success, green);
+  font-weight: 600;
+}
+.in-corso {
+  font-weight: 600;
+  color: var(--accent);
+}
+.anteprima-archivio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}

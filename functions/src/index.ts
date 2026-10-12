@@ -24,6 +24,16 @@ import {
   InizializzaSistemaRisposta,
   CreaUtenteRichiesta,
   AggiornaAnagraficaRichiesta,
+  AnnoRichiesta,
+  ArchivioEdizione,
+  AzzeraEdizioneRichiesta,
+  DocumentoArchiviato,
+  OperazioneArchivioRisposta,
+  RicaricaEdizioneRichiesta,
+  RiepilogoEdizione,
+  RiepilogoEdizioniRisposta,
+  VERSIONE_ARCHIVIO,
+  percorsoDellEdizione,
   ImpostaRuoloRichiesta,
   type Ruolo,
   RUOLI,
@@ -1526,5 +1536,241 @@ export const prendiSegnalazione = onCall(
     });
 
     return { segnalazioneId };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Archivio dell'edizione (app "Utenti") — tutto riservato all'amministratore.
+//
+// Salvare, azzerare e ricaricare passano dal server per due ragioni: gli
+// ordini dal browser non si possono scrivere né cancellare (lo vietano le
+// regole, apposta), e un'operazione che cancella un anno intero deve avere un
+// solo posto dove si decide se si può fare.
+// ---------------------------------------------------------------------------
+
+/** Abbastanza tempo e memoria per un'edizione intera: qualche migliaio di
+ * documenti, più le foto degli scontrini. */
+const CHIAMABILE_ARCHIVIO: CallableOptions = { ...CHIAMABILE, timeoutSeconds: 540, memory: '1GiB' };
+
+/** Quanto resta valido il salvataggio: dopo, per azzerare va rifatto. Così
+ * non si azzera un'edizione salvata ieri e poi cambiata stamattina. */
+const VALIDITA_SALVATAGGIO_MS = 2 * 60 * 60 * 1000;
+
+function validaAnno(valore: unknown): string {
+  if (typeof valore !== 'string' || !/^\d{4}$/.test(valore)) {
+    throw new HttpsError('invalid-argument', 'Anno dell’edizione non valido.');
+  }
+  return valore;
+}
+
+/** Le date diventano { __timestamp: [s, ns] }: nel file JSON non esiste un
+ * tipo "data", e così al ricaricamento tornano date vere e non testi. */
+function codifica(valore: unknown): unknown {
+  if (valore instanceof Timestamp) return { __timestamp: [valore.seconds, valore.nanoseconds] };
+  if (Array.isArray(valore)) return valore.map(codifica);
+  if (valore && typeof valore === 'object') {
+    return Object.fromEntries(Object.entries(valore).map(([k, v]) => [k, codifica(v)]));
+  }
+  return valore;
+}
+
+function decodifica(valore: unknown): unknown {
+  if (Array.isArray(valore)) return valore.map(decodifica);
+  if (valore && typeof valore === 'object') {
+    const ts = (valore as { __timestamp?: unknown }).__timestamp;
+    if (Array.isArray(ts) && ts.length === 2 && Object.keys(valore).length === 1) {
+      return new Timestamp(Number(ts[0]), Number(ts[1]));
+    }
+    return Object.fromEntries(Object.entries(valore).map(([k, v]) => [k, decodifica(v)]));
+  }
+  return valore;
+}
+
+/** A pezzi, per non lanciare mille richieste insieme. */
+async function aPezzi<T, R>(elementi: T[], quanti: number, fai: (elemento: T) => Promise<R>): Promise<R[]> {
+  const risultati: R[] = [];
+  for (let i = 0; i < elementi.length; i += quanti) {
+    risultati.push(...(await Promise.all(elementi.slice(i, i + quanti).map(fai))));
+  }
+  return risultati;
+}
+
+/** Un documento e tutto quello che ci sta sotto, a qualunque profondità.
+ * Si scende anche nei documenti "fantasma" (che non esistono ma hanno
+ * raccolte sotto di sé), altrimenti quello che c'è sotto andrebbe perso. */
+async function raccogli(ref: DocumentReference, fuori: DocumentoArchiviato[]): Promise<void> {
+  const [snapshot, raccolte] = await Promise.all([ref.get(), ref.listCollections()]);
+  if (snapshot.exists) fuori.push({ percorso: ref.path, dati: codifica(snapshot.data()) as Record<string, unknown> });
+  for (const raccolta of raccolte) {
+    const documenti = await raccolta.listDocuments();
+    await aPezzi(documenti, 50, (documento) => raccogli(documento, fuori));
+  }
+}
+
+/** I documenti che contengono un'edizione: le sue serate e il suo documento. */
+async function radiciDellEdizione(anno: string): Promise<DocumentReference[]> {
+  const serate = (await db.collection('serate').listDocuments()).filter((ref) => ref.id.startsWith(`${anno}-`));
+  return [...serate, db.doc(`edizioni/${anno}`)];
+}
+
+async function movimentiDellEdizione(anno: string): Promise<DocumentoArchiviato[]> {
+  const movimenti: DocumentoArchiviato[] = [];
+  for (const radice of await radiciDellEdizione(anno)) await raccogli(radice, movimenti);
+  // Le foto degli scontrini delle spese e delle entrate di quest'anno.
+  const immagini = new Set(
+    movimenti
+      .filter((d) => /^edizioni\/[^/]+\/(uscite|entrate)\//.test(d.percorso))
+      .map((d) => d.dati.immagineId)
+      .filter((id): id is string => typeof id === 'string' && id !== '')
+  );
+  for (const id of immagini) {
+    const snapshot = await db.doc(`immagini/${id}`).get();
+    if (snapshot.exists) movimenti.push({ percorso: snapshot.ref.path, dati: codifica(snapshot.data()) as Record<string, unknown> });
+  }
+  return movimenti;
+}
+
+/** Il menù, le persone e i biglietti com'erano: si salvano per leggerli, non si
+ * azzerano e non si ricaricano. Le immagini dei biglietti restano fuori: sono
+ * grandi e sono le stesse da un anno all'altro. */
+async function riferimentoAttuale(): Promise<DocumentoArchiviato[]> {
+  const riferimento: DocumentoArchiviato[] = [];
+  for (const nome of ['categorie', 'prodotti', 'componenti', 'biglietti', 'utenti']) {
+    const snapshot = await db.collection(nome).get();
+    for (const documento of snapshot.docs) {
+      riferimento.push({ percorso: documento.ref.path, dati: codifica(documento.data()) as Record<string, unknown> });
+    }
+  }
+  for (const banco of await db.collection('banchi').listDocuments()) await raccogli(banco, riferimento);
+  return riferimento;
+}
+
+export const riepilogoEdizioni = onCall(
+  CHIAMABILE_ARCHIVIO,
+  async (request: CallableRequest<void>): Promise<RiepilogoEdizioniRisposta> => {
+    richiedeAmministratore(request);
+    const anni = new Set<string>();
+    for (const ref of await db.collection('serate').listDocuments()) anni.add(ref.id.slice(0, 4));
+    for (const ref of await db.collection('edizioni').listDocuments()) anni.add(ref.id);
+
+    const edizioni: RiepilogoEdizione[] = [];
+    for (const anno of [...anni].filter((a) => /^\d{4}$/.test(a)).sort().reverse()) {
+      const serate = (await db.collection('serate').listDocuments()).filter((ref) => ref.id.startsWith(`${anno}-`));
+      const conta = async (percorso: string) => (await db.collection(percorso).count().get()).data().count;
+      const perSerata = await aPezzi(serate, 20, async (ref) => ({
+        esiste: (await ref.get()).exists,
+        ordini: await conta(`${ref.path}/ordini`),
+        ordiniBanco: await conta(`${ref.path}/ordiniBanco`),
+      }));
+      const somma = (campo: 'ordini' | 'ordiniBanco') => perSerata.reduce((totale, s) => totale + s[campo], 0);
+      const riepilogo: RiepilogoEdizione = {
+        anno,
+        serate: perSerata.filter((s) => s.esiste).length,
+        ordini: somma('ordini'),
+        ordiniBanco: somma('ordiniBanco'),
+        uscite: await conta(`edizioni/${anno}/uscite`),
+        entrate: await conta(`edizioni/${anno}/entrate`),
+        giornate: await conta(`edizioni/${anno}/giornate`),
+        documenti: 0,
+      };
+      riepilogo.documenti =
+        riepilogo.serate + riepilogo.ordini + riepilogo.ordiniBanco + riepilogo.uscite + riepilogo.entrate + riepilogo.giornate;
+      // Un anno rimasto con solo documenti vuoti non si mostra.
+      if (riepilogo.documenti > 0) edizioni.push(riepilogo);
+    }
+    return { edizioni };
+  }
+);
+
+export const esportaEdizione = onCall(
+  CHIAMABILE_ARCHIVIO,
+  async (request: CallableRequest<AnnoRichiesta>): Promise<ArchivioEdizione> => {
+    richiedeAmministratore(request);
+    const anno = validaAnno(request.data?.anno);
+    const archivio: ArchivioEdizione = {
+      app: 'sagra-mazzocco',
+      versione: VERSIONE_ARCHIVIO,
+      anno,
+      creatoAt: new Date().toISOString(),
+      movimenti: await movimentiDellEdizione(anno),
+      riferimento: await riferimentoAttuale(),
+    };
+    // Si annota che l'edizione è stata salvata: azzerarla senza averla
+    // salvata poco prima non si può.
+    await db.doc('config/archivio').set({ [anno]: FieldValue.serverTimestamp() }, { merge: true });
+    return archivio;
+  }
+);
+
+export const azzeraEdizione = onCall(
+  CHIAMABILE_ARCHIVIO,
+  async (request: CallableRequest<AzzeraEdizioneRichiesta>): Promise<OperazioneArchivioRisposta> => {
+    richiedeAmministratore(request);
+    const anno = validaAnno(request.data?.anno);
+    if (request.data?.conferma !== `AZZERA ${anno}`) {
+      throw new HttpsError('invalid-argument', `Per confermare scrivi esattamente: AZZERA ${anno}`);
+    }
+    const salvato = (await db.doc('config/archivio').get()).get(anno) as Timestamp | undefined;
+    if (!salvato || Date.now() - salvato.toMillis() > VALIDITA_SALVATAGGIO_MS) {
+      throw new HttpsError(
+        'failed-precondition',
+        `Prima di azzerare scarica l'archivio del ${anno}: l'ultimo salvataggio manca o è di più di due ore fa.`
+      );
+    }
+
+    const movimenti = await movimentiDellEdizione(anno);
+    for (const radice of await radiciDellEdizione(anno)) await db.recursiveDelete(radice);
+    for (const immagine of movimenti.filter((d) => d.percorso.startsWith('immagini/'))) {
+      await db.doc(immagine.percorso).delete();
+    }
+    // Il salvataggio vale per un azzeramento solo.
+    await db.doc('config/archivio').set({ [anno]: FieldValue.delete() }, { merge: true });
+    return { anno, documenti: movimenti.length };
+  }
+);
+
+export const ricaricaEdizione = onCall(
+  CHIAMABILE_ARCHIVIO,
+  async (request: CallableRequest<RicaricaEdizioneRichiesta>): Promise<OperazioneArchivioRisposta> => {
+    richiedeAmministratore(request);
+    const archivio = request.data?.archivio;
+    if (!archivio || archivio.app !== 'sagra-mazzocco' || !Array.isArray(archivio.movimenti)) {
+      throw new HttpsError('invalid-argument', 'Questo file non è un archivio della Sagra di Mazzocco.');
+    }
+    if (archivio.versione !== VERSIONE_ARCHIVIO) {
+      throw new HttpsError('invalid-argument', `Archivio di una versione che questa app non conosce (${archivio.versione}).`);
+    }
+    const anno = validaAnno(archivio.anno);
+    for (const documento of archivio.movimenti) {
+      const percorso = documento?.percorso;
+      // Un percorso valido ha un numero pari di pezzi (raccolta/documento) ed
+      // è dentro l'edizione: un file manomesso non scrive altrove.
+      if (
+        typeof percorso !== 'string' ||
+        percorso.split('/').length % 2 !== 0 ||
+        percorso.split('/').some((pezzo) => !pezzo) ||
+        !percorsoDellEdizione(percorso, anno) ||
+        !documento.dati ||
+        typeof documento.dati !== 'object'
+      ) {
+        throw new HttpsError('invalid-argument', `L'archivio contiene un documento non valido: ${String(percorso)}.`);
+      }
+    }
+
+    // Mai due edizioni mescolate: si ricarica solo dove non c'è niente.
+    const giaPresenti = await movimentiDellEdizione(anno);
+    if (giaPresenti.length > 0) {
+      throw new HttpsError(
+        'failed-precondition',
+        `Nel ${anno} ci sono già dei dati (${giaPresenti.length} documenti). Si ricarica solo in un'edizione vuota: prima salvala e azzerala.`
+      );
+    }
+
+    const scrittore = db.bulkWriter();
+    for (const documento of archivio.movimenti) {
+      void scrittore.set(db.doc(documento.percorso), decodifica(documento.dati) as Record<string, unknown>);
+    }
+    await scrittore.close();
+    return { anno, documenti: archivio.movimenti.length };
   }
 );

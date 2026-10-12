@@ -1298,3 +1298,100 @@ export function idSerata(momento: Date = new Date()): string {
 export function edizioneDiSerata(serataId: string): string {
   return serataId.slice(0, 4);
 }
+
+// ---------------------------------------------------------------------------
+// L'archivio di un'edizione
+//
+// A fine sagra l'edizione si salva in un file e si azzera, così l'anno dopo si
+// riparte pulito; il file si può ricaricare per riguardarla. Nel file c'è
+// tutto, documento per documento, nella forma esatta dell'archivio: i
+// "movimenti" (serate con ordini e incassi, spese, entrate, presenze), che
+// sono quello che si azzera e si ricarica, e il "riferimento" (menù, persone,
+// biglietti) com'era quel giorno, che non si tocca mai: serve a leggere.
+// ---------------------------------------------------------------------------
+
+export const VERSIONE_ARCHIVIO = 1;
+
+export interface DocumentoArchiviato {
+  /** Il percorso completo, es. "serate/2026-10-11/ordini/abc". */
+  percorso: string;
+  /** I campi del documento. Le date sono scritte come { __timestamp: [secondi, nanosecondi] }. */
+  dati: Record<string, unknown>;
+}
+
+export interface ArchivioEdizione {
+  app: 'sagra-mazzocco';
+  versione: number;
+  anno: string;
+  /** Quando è stato fatto, ISO. */
+  creatoAt: string;
+  movimenti: DocumentoArchiviato[];
+  riferimento: DocumentoArchiviato[];
+}
+
+/** Quanto c'è in un'edizione: si mostra prima di salvare, azzerare o ricaricare. */
+export interface RiepilogoEdizione {
+  anno: string;
+  serate: number;
+  ordini: number;
+  ordiniBanco: number;
+  uscite: number;
+  entrate: number;
+  giornate: number;
+  documenti: number;
+}
+
+/** Un documento dei movimenti dell'anno? Le serate si riconoscono dall'id (la
+ * data), il resto sta sotto l'edizione; le immagini sono le foto degli
+ * scontrini delle spese di quell'anno. */
+export function percorsoDellEdizione(percorso: string, anno: string): boolean {
+  return (
+    new RegExp(`^serate/${anno}-[^/]+(/|$)`).test(percorso) ||
+    new RegExp(`^edizioni/${anno}(/|$)`).test(percorso) ||
+    /^immagini\/[^/]+$/.test(percorso)
+  );
+}
+
+export function riepilogoDiMovimenti(anno: string, movimenti: DocumentoArchiviato[]): RiepilogoEdizione {
+  const conta = (regola: RegExp) => movimenti.filter((d) => regola.test(d.percorso)).length;
+  return {
+    anno,
+    serate: conta(/^serate\/[^/]+$/),
+    ordini: conta(/^serate\/[^/]+\/ordini\/[^/]+$/),
+    ordiniBanco: conta(/^serate\/[^/]+\/ordiniBanco\/[^/]+$/),
+    uscite: conta(/^edizioni\/[^/]+\/uscite\/[^/]+$/),
+    entrate: conta(/^edizioni\/[^/]+\/entrate\/[^/]+$/),
+    giornate: conta(/^edizioni\/[^/]+\/giornate\/[^/]+$/),
+    documenti: movimenti.length,
+  };
+}
+
+/** Una data dell'archivio ({ __timestamp: [s, ns] }) come Date, o null. */
+export function dataArchiviata(valore: unknown): Date | null {
+  const ts = (valore as { __timestamp?: [number, number] } | null)?.__timestamp;
+  if (!Array.isArray(ts)) return null;
+  return new Date(ts[0] * 1000 + Math.floor(ts[1] / 1e6));
+}
+
+export interface AnnoRichiesta {
+  anno: string;
+}
+
+export interface RiepilogoEdizioniRisposta {
+  edizioni: RiepilogoEdizione[];
+}
+
+export interface AzzeraEdizioneRichiesta {
+  anno: string;
+  /** Va scritto a mano: "AZZERA 2026". */
+  conferma: string;
+}
+
+export interface RicaricaEdizioneRichiesta {
+  archivio: ArchivioEdizione;
+}
+
+export interface OperazioneArchivioRisposta {
+  anno: string;
+  documenti: number;
+}
