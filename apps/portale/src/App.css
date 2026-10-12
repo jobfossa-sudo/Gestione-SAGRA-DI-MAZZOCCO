@@ -1,0 +1,422 @@
+.app-portale {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+
+.app-portale header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 9px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.marchio h1 {
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+.marchio p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.utente {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.utente button {
+  padding: 7px 14px;
+  font-size: 0.85rem;
+}
+
+/* ---------- il menù delle app ---------- */
+
+.menu-app,
+.pagina-qr {
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 24px 40px;
+}
+.menu-app h2 {
+  font-size: 1.15rem;
+  margin-bottom: 14px;
+}
+.griglia-app {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 16px;
+}
+
+/* Ogni riquadro prende il colore della sua app: lo scrive qui una volta, e
+   icona, bordo e scritta "Entra" lo usano. */
+.riquadro-app {
+  --colore: var(--accent);
+  --colore-soft: var(--accent-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 220px;
+  padding: 20px 18px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 6px solid var(--colore);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-decoration: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.app-comande {
+  --colore: var(--app-comande);
+  --colore-soft: var(--app-comande-soft);
+}
+.app-contabilita {
+  --colore: var(--app-contabilita);
+  --colore-soft: var(--app-contabilita-soft);
+}
+.app-utenti {
+  --colore: var(--app-utenti);
+  --colore-soft: var(--app-utenti-soft);
+}
+.app-magazzino {
+  --colore: var(--app-magazzino);
+  --colore-soft: var(--app-magazzino-soft);
+}
+/* I QR non sono un'app: riquadro neutro, nel colore del testo. */
+.app-qr {
+  --colore: var(--text);
+  --colore-soft: var(--surface-alt);
+}
+
+a.riquadro-app:hover,
+a.riquadro-app:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--colore);
+  box-shadow: 0 8px 24px rgba(42, 35, 29, 0.14);
+}
+.icona-riquadro {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: var(--colore-soft);
+  color: var(--colore);
+}
+.icona-app {
+  width: 48px;
+  height: 48px;
+}
+.nome-app {
+  margin-top: 6px;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--colore);
+}
+.descrizione-app {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+.stato-app {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--colore);
+}
+
+/* Spento: si vede, ma grigio e senza colore, e non risponde al clic. */
+.riquadro-app.spento {
+  cursor: not-allowed;
+  border-top-color: var(--border-strong);
+  box-shadow: none;
+  background: var(--surface-alt);
+}
+.riquadro-app.spento .icona-riquadro {
+  background: var(--border);
+  color: var(--text-muted);
+  filter: grayscale(1);
+  opacity: 0.7;
+}
+.riquadro-app.spento .nome-app,
+.riquadro-app.spento .stato-app {
+  color: var(--text-muted);
+}
+.lucchetto {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---------- la pagina dei QR ---------- */
+
+.intestazione-qr {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+.intestazione-qr h2 {
+  font-size: 1.2rem;
+}
+.spiegazione {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  margin: 3px 0 9px;
+  max-width: 95ch;
+}
+.griglia-qr {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  margin: 12px 0 16px;
+}
+.riquadro-qr {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+.riquadro-qr h3 {
+  font-size: 1.05rem;
+}
+.indirizzo-qr {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  word-break: break-all;
+  margin-bottom: 10px;
+}
+.tasti-qr {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.tasti-qr button {
+  width: auto;
+}
+.tasti-qr .bottone-principale {
+  padding: 10px 16px;
+}
+.stampa-copie {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+.stampa-copie label {
+  font-size: 0.75rem;
+  gap: 2px;
+}
+.stampa-copie input {
+  width: 4.5rem;
+  padding: 8px;
+}
+.anteprima-cartello {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0;
+}
+/* Il QR è sempre nero su bianco, anche col tema scuro: così si legge sempre. */
+.qr-codice {
+  background: #fff;
+  padding: 10px;
+  border-radius: 8px;
+  width: 180px;
+  height: 180px;
+}
+.qr-codice svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Il QR a tutto schermo, da far inquadrare dal telefono: bianco, enorme, e
+   si chiude toccando ovunque. */
+.qr-a-schermo {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px;
+  background: #fff;
+  color: #2a231d;
+  text-align: center;
+}
+.qr-a-schermo h2 {
+  color: #2a231d;
+  font-size: 1.6rem;
+}
+.qr-a-schermo .qr-codice {
+  width: min(82vw, 62vh);
+  height: min(82vw, 62vh);
+  padding: 0;
+}
+.qr-a-schermo p {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.qr-a-schermo button {
+  width: auto;
+}
+
+/* ---------- i cartelli da stampare (A5) ---------- */
+
+/* Sullo schermo l'area di stampa non esiste: vive solo sulla carta. */
+.area-stampa {
+  display: none;
+}
+
+@media print {
+  /* Esce solo il foglio: l'app resta fuori dalla stampa. */
+  body > *:not(.area-stampa) {
+    display: none !important;
+  }
+  .area-stampa {
+    display: block;
+    background: #fff;
+    color: #000;
+  }
+  .foglio {
+    /* Un foglio per pagina, anche quando se ne stampano diversi insieme. I
+       margini li dà il foglio stesso. */
+    padding: 10mm;
+    break-after: page;
+    page-break-after: always;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .foglio:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+}
+
+/* I colori del cartello sono scritti a mano e non presi dal tema: il foglio
+   finisce su carta bianca, dove il tema scuro non esiste. Sono quelli di
+   sempre, gli stessi dei cartelli già stampati. */
+.foglio-qr {
+  text-align: center;
+  color: #2a231d;
+  /* Il cartello è carta: non segue la grandezza scelta sullo schermo. */
+  font-size: 12.75pt;
+}
+.banda-qr {
+  background: linear-gradient(135deg, #c2410c 0%, #9f1239 100%);
+  color: #fff;
+  border-radius: 6mm;
+  padding: 8mm 6mm;
+}
+.banda-qr h1 {
+  /* Il colore va ripetuto: i titoli dell'app hanno il loro, che qui sarebbe
+     scuro su fondo colorato. */
+  color: #fff;
+  margin: 2mm 0 0;
+  font-size: 30pt;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+.banda-qr p {
+  margin: 3mm 0 0;
+  font-size: 13pt;
+}
+.anno-qr {
+  display: inline-block;
+  padding: 1mm 4mm;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  font-size: 12pt;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+/* Il cartello del bagno è come quello dei tavoli ma di un altro colore: sul
+   tavolo di chi stampa non si confondono. */
+.foglio-qr-bagno .banda-qr {
+  background: linear-gradient(135deg, #0e7490 0%, #155e75 100%);
+}
+.cornice-qr {
+  display: inline-block;
+  margin: 7mm auto 0;
+  padding: 4mm;
+  background: #fff;
+  border: 1.2mm solid #c2410c;
+  border-radius: 5mm;
+}
+.cornice-qr .qr-codice {
+  width: 72mm;
+  height: 72mm;
+  padding: 0;
+  border-radius: 0;
+}
+.invito-qr {
+  margin: 4mm 0 0;
+  font-size: 13pt;
+  font-weight: 700;
+  color: #9a3412;
+}
+.istruzioni-qr {
+  list-style: none;
+  margin: 6mm 0 0;
+  padding: 0;
+  text-align: left;
+  font-size: 12pt;
+  line-height: 1.35;
+}
+.istruzioni-qr li {
+  display: flex;
+  align-items: baseline;
+  gap: 3mm;
+  padding: 2mm 0;
+  border-bottom: 0.3mm dotted #d4c8b8;
+}
+.istruzioni-qr li:last-child {
+  border-bottom: none;
+}
+.istruzioni-qr .passo {
+  display: block;
+  flex: none;
+  width: 7mm;
+  height: 7mm;
+  border-radius: 50%;
+  background: #c2410c;
+  color: #fff;
+  font-weight: 800;
+  font-size: 11pt;
+  text-align: center;
+  line-height: 7mm;
+}
+.piede-qr {
+  margin: 6mm 0 0;
+  font-size: 15pt;
+  font-weight: 800;
+  color: #9f1239;
+}
+
+@media print {
+  /* Senza questo i browser stampano i fondi colorati in bianco. */
+  .area-stampa,
+  .foglio-qr,
+  .banda-qr,
+  .istruzioni-qr .passo,
+  .cornice-qr {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

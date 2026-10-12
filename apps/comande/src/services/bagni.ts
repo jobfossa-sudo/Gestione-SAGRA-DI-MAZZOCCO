@@ -11,8 +11,3 @@ export function segnalazioneDaIndirizzo(): { attiva: boolean; bagno: Bagno | nul
   return { attiva: true, bagno: BAGNI.includes(valore as Bagno) ? (valore as Bagno) : null };
 }
 
-/** L'indirizzo da mettere nel QR di un bagno: la pagina da cui si sta usando
- * l'app, più quale bagno è. */
-export function indirizzoBagno(bagno: Bagno): string {
-  return `${window.location.origin}${window.location.pathname}?bagno=${bagno}`;
-}

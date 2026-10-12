@@ -317,3 +317,87 @@ label {
 .login .selettore-tema {
   align-self: center;
 }
+
+/* ---------------------------------------------------------------------------
+   Il colore di ciascuna app.
+
+   Ogni app si riconosce dal suo colore: Comande arancione, Contabilità verde
+   petrolio, Utenti viola, Magazzino azzurro. Tutto il resto (sfondo, riquadri,
+   testi, verde delle conferme, rosso degli errori) resta uguale per tutte.
+   L'app dice chi è con data-app sul documento, scritto in index.html, e
+   prende il suo colore come --accent; il menù delle app usa i quattro colori
+   insieme, per i riquadri.
+
+   Il verde della Contabilità tende all'azzurro apposta: il verde pieno vuol
+   già dire "fatto, tutto a posto", e un tasto non deve sembrare una conferma.
+   Nel tema scuro le tinte sono più accese, ma abbastanza piene da reggere la
+   scritta bianca dei tasti.
+   --------------------------------------------------------------------------- */
+:root {
+  --app-comande: #c2410c;
+  --app-comande-hover: #9a3412;
+  --app-comande-soft: #fdf0e7;
+  --app-contabilita: #0f766e;
+  --app-contabilita-hover: #115e59;
+  --app-contabilita-soft: #e6f4f1;
+  --app-utenti: #6d28d9;
+  --app-utenti-hover: #5b21b6;
+  --app-utenti-soft: #f1ebfd;
+  --app-magazzino: #0369a1;
+  --app-magazzino-hover: #075985;
+  --app-magazzino-soft: #e7f3fa;
+}
+:root[data-tema='scuro'] {
+  --app-comande: #f97316;
+  --app-comande-hover: #fb923c;
+  --app-comande-soft: #2e1b0e;
+  --app-contabilita: #14b8a6;
+  --app-contabilita-hover: #2dd4bf;
+  --app-contabilita-soft: #0d2522;
+  --app-utenti: #8b5cf6;
+  --app-utenti-hover: #a78bfa;
+  --app-utenti-soft: #221a35;
+  --app-magazzino: #0ea5e9;
+  --app-magazzino-hover: #38bdf8;
+  --app-magazzino-soft: #0b2230;
+}
+:root[data-app='comande'] {
+  --accent: var(--app-comande);
+  --accent-hover: var(--app-comande-hover);
+  --accent-soft: var(--app-comande-soft);
+}
+:root[data-app='contabilita'] {
+  --accent: var(--app-contabilita);
+  --accent-hover: var(--app-contabilita-hover);
+  --accent-soft: var(--app-contabilita-soft);
+}
+:root[data-app='utenti'] {
+  --accent: var(--app-utenti);
+  --accent-hover: var(--app-utenti-hover);
+  --accent-soft: var(--app-utenti-soft);
+}
+:root[data-app='magazzino'] {
+  --accent: var(--app-magazzino);
+  --accent-hover: var(--app-magazzino-hover);
+  --accent-soft: var(--app-magazzino-soft);
+}
+
+/* Il tasto per tornare al menù delle app, in alto in ogni app. */
+.torna-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+  background: var(--surface);
+}
+.torna-menu:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}

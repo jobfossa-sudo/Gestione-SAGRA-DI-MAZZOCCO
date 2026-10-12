@@ -1,6 +1,6 @@
 import { signOut } from 'firebase/auth';
 import { useState, type ComponentType } from 'react';
-import { NOME_RUOLO_COMANDE, type RuoloComande } from '@sagra-mazzocco/shared';
+import { indirizzoApp, NOME_RUOLO_COMANDE, type RuoloComande } from '@sagra-mazzocco/shared';
 import './App.css';
 import { AreaCassa } from './components/AreaCassa';
 import { AreaStampa } from './components/AreaStampa';
@@ -12,7 +12,6 @@ import { Composizioni } from './components/Composizioni';
 import { GestioneMenu } from './components/GestioneMenu';
 import { Login } from './components/Login';
 import { MenuQr } from './components/MenuQr';
-import { QrMenu } from './components/QrMenu';
 import { SegnalaBagno } from './components/SegnalaBagno';
 import { Pannelli } from './components/Pannelli';
 import { Distribuzione } from './components/Distribuzione';
@@ -48,7 +47,6 @@ const AREE: Area[] = [
   { nome: 'Gestione menù', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: GestioneMenu, larga: true },
   { nome: 'Composizioni', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Composizioni, larga: true },
   { nome: 'Biglietti', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: Biglietti, larga: true },
-  { nome: 'QR', ruoli: [] as RuoloComande[], soloAmministratore: true, contenuto: QrMenu, larga: true },
   { nome: 'Cassa', ruoli: ['cassa'] as RuoloComande[], soloAmministratore: false, contenuto: AreaCassa, larga: false },
   { nome: 'Pannelli', ruoli: ['cucina', 'griglia', 'bar'] as RuoloComande[], soloAmministratore: false, contenuto: Pannelli, larga: false, schermoDaLontano: true },
   { nome: 'Distribuzione', ruoli: ['distribuzione'] as RuoloComande[], soloAmministratore: false, contenuto: Distribuzione, larga: false },
@@ -145,6 +143,9 @@ function App() {
           </nav>
         )}
         <div className="utente">
+          <a className="torna-menu" href={indirizzoApp('portale', import.meta.env.DEV)}>
+            ◀ Menù
+          </a>
           <span>
             {utente.displayName} · {nomeRuolo}
           </span>

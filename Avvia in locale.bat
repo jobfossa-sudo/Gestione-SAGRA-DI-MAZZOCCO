@@ -1,6 +1,6 @@
 @echo off
 rem Accende tutto per provare le app sul computer, con dati finti:
-rem Firebase locale (emulatori), app Comande e app Utenti.
+rem Firebase locale (emulatori), il menu delle app e le app Comande, Utenti e Contabilita.
 rem Per spegnere basta chiudere le finestre che si aprono.
 cd /d "%~dp0"
 
@@ -13,6 +13,7 @@ if errorlevel 1 (
 )
 
 start "Firebase locale" cmd /k firebase emulators:start --only firestore,functions,auth
+start "Menu delle app" cmd /k "cd apps\portale && npm run dev"
 start "App Comande" cmd /k "cd apps\comande && npm run dev"
 start "App Utenti" cmd /k "cd apps\utenti && npm run dev"
 start "App Contabilita" cmd /k "cd apps\contabilita && npm run dev"
@@ -23,9 +24,10 @@ if errorlevel 1 (
   exit /b 1
 )
 
-start "" http://127.0.0.1:5173
+start "" http://127.0.0.1:5170
 echo.
 echo Tutto acceso.
+echo   Menu delle app: http://127.0.0.1:5170  (si parte da qui)
 echo   Comande: http://127.0.0.1:5173
 echo   Utenti:  http://127.0.0.1:5174
 echo   Contabilita: http://127.0.0.1:5175

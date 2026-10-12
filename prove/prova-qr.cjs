@@ -109,7 +109,8 @@ function verifica(descrizione, condizione, extra = '') {
     (foglioComanda.match(/[A-Z]\d{4}/) || ['nessuno'])[0]
   );
 
-  // L'amministratore stampa il cartello con il QR del menù.
+  // L'amministratore stampa il cartello con il QR del menù, dalla pagina
+  // "Codici QR" del menù delle app.
   const admin = await browser.newPage();
   await admin.addInitScript(() => {
     window.__stampe = [];
@@ -118,26 +119,22 @@ function verifica(descrizione, condizione, extra = '') {
       window.__stampe.push(area ? area.innerHTML : '(vuota)');
     };
   });
-  await admin.goto(URL);
+  await admin.goto('http://127.0.0.1:5170/#qr');
   await admin.getByLabel('Nome utente').fill('admin');
   await admin.getByLabel('Password').fill('prova1234');
   await admin.getByRole('button', { name: 'Entra' }).click();
-  await admin.waitForTimeout(2000);
-  await admin.getByRole('button', { name: 'QR', exact: true }).click();
   await admin.waitForTimeout(2500);
-  verifica(
-    'l’amministratore vede un solo QR per il menù',
-    (await admin.locator('.qr-menu:not(.qr-bagni) > .anteprima-cartello svg').count()) === 1
-  );
+  const riquadroMenu = admin.locator('.riquadro-qr', { hasText: 'Menù dei tavoli' });
+  verifica('l’amministratore vede un solo QR per il menù', (await riquadroMenu.locator('.anteprima-cartello svg').count()) === 1);
   verifica(
     'il QR porta al menù senza numero di tavolo',
-    /\?menu$/.test(await admin.innerText('.indirizzo-qr')),
-    await admin.innerText('.indirizzo-qr')
+    /\?menu$/.test(await riquadroMenu.locator('.indirizzo-qr').innerText()),
+    await riquadroMenu.locator('.indirizzo-qr').innerText()
   );
 
-  await admin.getByLabel('Quante copie').fill('3');
+  await admin.getByLabel('Quante copie del cartello del menù').fill('3');
   await admin.waitForTimeout(500);
-  await admin.getByRole('button', { name: /Stampa 3 copie/ }).click();
+  await admin.getByRole('button', { name: '🖨 Stampa 3' }).click();
   await admin.waitForTimeout(2500);
   const stampe = await admin.evaluate(() => window.__stampe);
   const foglio = stampe[0] || '';

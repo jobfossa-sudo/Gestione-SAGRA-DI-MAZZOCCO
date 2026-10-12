@@ -10,7 +10,3 @@ export function menuDaIndirizzo(): { attivo: boolean; tavolo: number | null } {
   return { attivo: true, tavolo: valore !== null && Number.isInteger(numero) && numero > 0 ? numero : null };
 }
 
-/** L'indirizzo da mettere nel QR: la pagina da cui si sta usando l'app. */
-export function indirizzoMenu(): string {
-  return `${window.location.origin}${window.location.pathname}?menu`;
-}

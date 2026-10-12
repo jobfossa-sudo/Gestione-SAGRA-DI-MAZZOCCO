@@ -29,7 +29,7 @@ async function attendi(condizione, tentativi = 40, pausa = 500) {
   return false;
 }
 
-async function entra(browser, utente) {
+async function entra(browser, utente, indirizzo = URL) {
   const pagina = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   await pagina.addInitScript(() => {
     window.__stampe = [];
@@ -39,7 +39,7 @@ async function entra(browser, utente) {
     };
   });
   pagina.on('pageerror', (e) => console.log(`[${utente}] ERRORE PAGINA:`, e.message));
-  await pagina.goto(URL);
+  await pagina.goto(indirizzo);
   await pagina.getByLabel('Nome utente').fill(utente);
   await pagina.getByLabel('Password').fill('prova1234');
   await pagina.getByRole('button', { name: 'Entra' }).click();
@@ -166,21 +166,20 @@ async function telefonoInBagno(browser, bagno) {
     /non valido/i.test(await sbagliato.innerText('body'))
   );
 
-  // --- I cartelli da stampare, nella scheda QR -----------------------------
-  const admin = await entra(browser, 'admin');
-  await admin.getByRole('button', { name: 'QR', exact: true }).click();
+  // --- I cartelli da stampare, nella pagina "Codici QR" del menù delle app ---
+  const admin = await entra(browser, 'admin', 'http://127.0.0.1:5170/#qr');
   await admin.waitForTimeout(2500);
-  verifica('la scheda si chiama solo "QR"', (await admin.locator('header nav button', { hasText: /^QR$/ }).count()) === 1);
-  const schermata = await admin.innerText('.qr-schede');
-  verifica('tiene insieme il QR del menù e quelli dei bagni', /QR del menù/.test(schermata) && /QR dei bagni/.test(schermata));
-  verifica('c’è un cartello per ciascuno dei tre bagni', (await admin.locator('.cartello-bagno').count()) === 3);
+  const schermata = await admin.innerText('.pagina-qr');
+  verifica('tiene insieme il QR del menù e quelli dei bagni', /Menù dei tavoli/.test(schermata) && /Bagno Uomini/.test(schermata));
+  const cartelliBagno = admin.locator('.riquadro-qr', { hasText: 'Bagno' });
+  verifica('c’è un cartello per ciascuno dei tre bagni', (await cartelliBagno.count()) === 3);
   verifica(
     'ogni cartello porta il suo indirizzo',
     /\?bagno=uomini/.test(schermata) && /\?bagno=donne/.test(schermata) && /\?bagno=disabile/.test(schermata)
   );
-  verifica('e ciascuno ha il suo QR disegnato', (await admin.locator('.cartello-bagno svg').count()) === 3);
+  verifica('e ciascuno ha il suo QR disegnato', (await cartelliBagno.locator('svg').count()) === 3);
 
-  await admin.getByRole('button', { name: 'Stampa tutti e tre i cartelli' }).click();
+  await admin.getByRole('button', { name: /tutti e tre i bagni/ }).click();
   verifica(
     'si stampano tutti e tre in una volta',
     await attendi(async () => (await admin.evaluate(() => window.__stampe.length)) > 0)

@@ -1,0 +1,8 @@
+{
+  "name": "gestione-sagra-mazzocco",
+  "private": true,
+  "description": "Le app della Sagra di Mazzocco, pubblicate insieme sotto un unico indirizzo.",
+  "scripts": {
+    "build": "node scripts/costruisci.mjs"
+  }
+}

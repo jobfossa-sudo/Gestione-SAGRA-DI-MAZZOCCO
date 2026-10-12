@@ -1395,3 +1395,41 @@ export interface OperazioneArchivioRisposta {
   anno: string;
   documenti: number;
 }
+
+// ---------------------------------------------------------------------------
+// Dove sta ciascuna app
+//
+// Pubblicate, le app stanno tutte sotto un unico indirizzo: il menù delle app
+// alla radice e ciascuna nella sua cartella (/comande/, /contabilita/…). Un
+// solo indirizzo vuol dire anche un solo accesso: si entra una volta e si
+// passa da un'app all'altra. Sul computer, per provarle, ognuna gira invece
+// sulla sua porta.
+// ---------------------------------------------------------------------------
+
+export type AppSagra = 'portale' | 'comande' | 'contabilita' | 'utenti' | 'magazzino';
+
+const PORTE_SVILUPPO: Record<AppSagra, number> = {
+  portale: 5170,
+  comande: 5173,
+  utenti: 5174,
+  contabilita: 5175,
+  magazzino: 5176,
+};
+
+/** L'indirizzo di un'app, da usare nei collegamenti. `sviluppo` è
+ * import.meta.env.DEV dell'app che chiede. */
+export function indirizzoApp(app: AppSagra, sviluppo: boolean): string {
+  if (sviluppo) return `http://127.0.0.1:${PORTE_SVILUPPO[app]}/`;
+  return app === 'portale' ? '/' : `/${app}/`;
+}
+
+/** Gli indirizzi che i clienti aprono inquadrando i QR: il menù dei tavoli e
+ * le segnalazioni dei bagni, che sono pagine dell'app Comande. Completi di
+ * dominio, perché finiscono stampati. */
+export function indirizzoQrMenu(origine: string, sviluppo: boolean): string {
+  return `${new URL(indirizzoApp('comande', sviluppo), origine).href}?menu`;
+}
+
+export function indirizzoQrBagno(origine: string, sviluppo: boolean, bagno: Bagno): string {
+  return `${new URL(indirizzoApp('comande', sviluppo), origine).href}?bagno=${bagno}`;
+}

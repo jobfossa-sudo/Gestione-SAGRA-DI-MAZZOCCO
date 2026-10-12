@@ -12,6 +12,9 @@ const carattere = fileURLToPath(new URL('../../shared/src/carattere.ts', import.
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Percorsi relativi: pubblicata, ogni app vive nella sua cartella sotto lo
+  // stesso indirizzo (/comande/), e così funziona ovunque la si metta.
+  base: './',
   plugins: [
     react(),
     // L'app si installa sul dispositivo: se la rete della sagra cade, la

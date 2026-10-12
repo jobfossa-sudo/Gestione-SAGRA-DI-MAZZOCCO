@@ -1,6 +1,6 @@
 import { signOut } from 'firebase/auth';
 import { useState } from 'react';
-import { edizioneDiSerata, idSerata } from '@sagra-mazzocco/shared';
+import { edizioneDiSerata, idSerata, indirizzoApp } from '@sagra-mazzocco/shared';
 import { Chiusura } from './components/Chiusura';
 import { Entrate } from './components/Entrate';
 import { Login } from './components/Login';
@@ -74,6 +74,9 @@ function Conti({ nome, amministratore }: { nome: string; amministratore: boolean
           <p>Quanto è entrato, quanto è uscito, cosa resta</p>
         </div>
         <div className="utente">
+          <a className="torna-menu" href={indirizzoApp('portale', import.meta.env.DEV)}>
+            ◀ Menù
+          </a>
           <span>
             {nome} · {amministratore ? 'Amministratore' : 'Contabile'}
           </span>

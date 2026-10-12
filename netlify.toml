@@ -1,0 +1,9 @@
+# Un solo sito per tutte le app: il menù alla radice, le app in /comande/,
+# /contabilita/ e /utenti/. Su Netlify la "Base directory" va lasciata vuota
+# (la radice del progetto), altrimenti questo file non viene letto.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"

@@ -11,6 +11,9 @@ const carattere = fileURLToPath(new URL('../../shared/src/carattere.ts', import.
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Percorsi relativi: pubblicata, ogni app vive nella sua cartella sotto lo
+  // stesso indirizzo (/utenti/), e così funziona ovunque la si metta.
+  base: './',
   plugins: [react()],
   resolve: {
     // Il più specifico va per primo, altrimenti "…/shared" cattura anche

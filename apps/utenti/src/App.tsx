@@ -1,5 +1,6 @@
 import { signOut } from 'firebase/auth';
 import { useState } from 'react';
+import { indirizzoApp } from '@sagra-mazzocco/shared';
 import { Archivio } from './components/Archivio';
 import { Login } from './components/Login';
 import { NuovoUtente } from './components/NuovoUtente';
@@ -40,6 +41,9 @@ function App() {
           <p>Le persone della sagra e il ruolo di ciascuna</p>
         </div>
         <div className="utente">
+          <a className="torna-menu" href={indirizzoApp('portale', import.meta.env.DEV)}>
+            ◀ Menù
+          </a>
           <span>{utente.displayName} · Amministratore</span>
           <SelettoreCarattere />
           <SelettoreTema />
