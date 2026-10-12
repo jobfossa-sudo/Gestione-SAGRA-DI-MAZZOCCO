@@ -56,7 +56,8 @@ function App() {
 /** L'app vera e propria. Sta qui dentro, e non in App, perché i suoi ascolti
  * di Firestore devono partire a permessi già in mano. */
 function Conti({ nome, amministratore }: { nome: string; amministratore: boolean }) {
-  const serate = useSerate();
+  const arrivate = useSerate();
+  const serate = arrivate ?? [];
   const [scheda, setScheda] = useState<Scheda>('Serata');
   const [serataScelta, setSerataScelta] = useState<string | null>(null);
 
@@ -103,6 +104,8 @@ function Conti({ nome, amministratore }: { nome: string; amministratore: boolean
       <main>
         {scheda === 'Presenze' ? (
           <Presenze serate={serate} dataIniziale={serataId ?? oggi} />
+        ) : arrivate === null ? (
+          <p className="vuoto">Carico i conti…</p>
         ) : serate.length === 0 ? (
           <p className="vuoto">
             Non c'è ancora nessuna serata. Le serate le apre l'app Comande: quando la prima sagra comincia, qui

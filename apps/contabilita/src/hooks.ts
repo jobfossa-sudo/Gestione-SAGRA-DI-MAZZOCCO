@@ -39,8 +39,10 @@ export function useUtenteAutenticato(): { utente: User | null; permessi: Permess
 
 /** Tutte le serate, dalla più recente. Le crea Comande quando si apre una
  * serata: qui si leggono e basta. */
-export function useSerate(): Serata[] {
-  const [serate, setSerate] = useState<Serata[]>([]);
+export function useSerate(): Serata[] | null {
+  // Null finché il server non ha risposto: "nessuna serata" e "non ancora
+  // arrivate" sono due cose diverse, e online la differenza si vede.
+  const [serate, setSerate] = useState<Serata[] | null>(null);
 
   useEffect(
     () =>
