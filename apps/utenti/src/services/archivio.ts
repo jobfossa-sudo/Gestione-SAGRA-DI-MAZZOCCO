@@ -54,6 +54,40 @@ export async function leggiFileArchivio(file: File): Promise<ArchivioEdizione> {
   return archivio;
 }
 
+/** Il browser sa aprire la finestra "Salva con nome" (Chrome ed Edge)? Allora
+ * si sceglie la cartella, anche una chiavetta USB; altrimenti il file va nei
+ * Download e lo si sposta a mano. */
+export const puoScegliereDove = typeof window !== 'undefined' && 'showSaveFilePicker' in window;
+
+type FinestraSalva = (opzioni: {
+  suggestedName: string;
+  types: { description: string; accept: Record<string, string[]> }[];
+}) => Promise<{ createWritable: () => Promise<{ write: (dati: Blob) => Promise<void>; close: () => Promise<void> }> }>;
+
+/** Salva il file dove sceglie la persona. Restituisce false se ha chiuso la
+ * finestra senza salvare. Va chiamata subito dopo un clic: il browser apre la
+ * finestra solo in risposta a un gesto di chi usa la pagina. */
+export async function salvaFile(blob: Blob, nomeFile: string): Promise<boolean> {
+  if (!puoScegliereDove) {
+    scarica(blob, nomeFile);
+    return true;
+  }
+  try {
+    const finestra = (window as unknown as { showSaveFilePicker: FinestraSalva }).showSaveFilePicker;
+    const destinazione = await finestra({
+      suggestedName: nomeFile,
+      types: [{ description: 'Archivio della sagra (.zip)', accept: { 'application/zip': ['.zip'] } }],
+    });
+    const scrittura = await destinazione.createWritable();
+    await scrittura.write(blob);
+    await scrittura.close();
+    return true;
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') return false;
+    throw err;
+  }
+}
+
 export function scarica(blob: Blob, nomeFile: string) {
   const indirizzo = URL.createObjectURL(blob);
   const link = document.createElement('a');

@@ -85,6 +85,21 @@ async function entra(browser) {
   const pagina = await browser.newPage({ viewport: { width: 1400, height: 950 }, acceptDownloads: true });
   pagina.on('pageerror', (e) => console.log('ERRORE PAGINA:', e.message));
   pagina.on('dialog', (d) => d.accept());
+  // La finestra "Salva con nome" di Windows una prova automatica non la può
+  // cliccare: si finge di averla, e il file "salvato" si tiene in pagina.
+  await pagina.addInitScript(() => {
+    window.showSaveFilePicker = async (opzioni) => ({
+      createWritable: async () => ({
+        write: async (blob) => {
+          const byte = new Uint8Array(await blob.arrayBuffer());
+          let binario = '';
+          for (let i = 0; i < byte.length; i += 0x8000) binario += String.fromCharCode(...byte.subarray(i, i + 0x8000));
+          window.__salvato = { nome: opzioni.suggestedName, base64: btoa(binario) };
+        },
+        close: async () => {},
+      }),
+    });
+  });
   await pagina.goto(UTENTI);
   await pagina.getByLabel('Nome utente').fill('admin');
   await pagina.getByLabel('Password').fill('prova1234');
@@ -93,19 +108,28 @@ async function entra(browser) {
   return pagina;
 }
 
+/** La finestra della password: si scrive e si conferma. */
+async function confermaPassword(pagina, password = 'prova1234') {
+  await pagina.locator('.finestra-conferma').getByLabel('Password').fill(password);
+  await pagina.locator('.finestra-conferma').getByRole('button', { name: 'Conferma' }).click();
+}
+
 async function scaricaArchivio(pagina) {
-  const [download] = await Promise.all([
-    pagina.waitForEvent('download', { timeout: 120_000 }),
-    pagina.getByRole('button', { name: `⬇ Scarica l'archivio del ${ANNO}` }).click(),
-  ]);
-  const file = path.join(RISULTATI, download.suggestedFilename());
-  await download.saveAs(file);
+  await pagina.evaluate(() => (window.__salvato = null));
+  await pagina.getByRole('button', { name: `Prepara l'archivio del ${ANNO}` }).click();
+  await confermaPassword(pagina);
+  await pagina.getByRole('button', { name: /Scegli dove salvarlo/ }).click({ timeout: 120_000 });
+  await attendi(async () => !!(await pagina.evaluate(() => window.__salvato)));
+  const salvato = await pagina.evaluate(() => window.__salvato);
+  const file = path.join(RISULTATI, salvato.nome);
+  fs.writeFileSync(file, Buffer.from(salvato.base64, 'base64'));
   return file;
 }
 
 async function azzera(pagina) {
   await pagina.getByLabel('Frase di conferma').fill(`AZZERA ${ANNO}`);
   await pagina.getByRole('button', { name: `Azzera il ${ANNO}` }).click();
+  await confermaPassword(pagina);
   return attendi(async () => /azzerata/.test((await pagina.locator('.successo').textContent().catch(() => '')) ?? ''));
 }
 
@@ -128,8 +152,22 @@ async function azzera(pagina) {
   );
 
   // --- 1. Salva ---------------------------------------------------------------
+  await pagina.getByRole('button', { name: `Prepara l'archivio del ${ANNO}` }).click();
+  verifica('per salvare chiede la password dell’amministratore', await pagina.locator('.finestra-conferma').isVisible());
+  verifica(
+    'con il nome utente già scritto',
+    (await pagina.locator('.finestra-conferma').getByLabel('Nome utente').inputValue()) === 'admin'
+  );
+  await confermaPassword(pagina, 'sbagliata1');
+  verifica(
+    'una password sbagliata viene rifiutata',
+    await attendi(async () => /Password errata/.test((await pagina.locator('.finestra-conferma .errore').textContent().catch(() => '')) ?? ''))
+  );
+  await pagina.locator('.finestra-conferma').getByRole('button', { name: 'Annulla' }).click();
+  verifica('e annullando non si prepara niente', (await pagina.getByRole('button', { name: /Scegli dove salvarlo/ }).count()) === 0);
+
   const file = await scaricaArchivio(pagina);
-  verifica('si scarica un file .zip', file.endsWith('.zip'), path.basename(file));
+  verifica('si sceglie dove salvare, e si salva un file .zip', file.endsWith('.zip'), path.basename(file));
   const zip = await JSZip.loadAsync(fs.readFileSync(file));
   verifica(
     'dentro ci sono i dati completi, l’Excel e il LEGGIMI',
@@ -170,6 +208,8 @@ async function azzera(pagina) {
     await attendi(async () => /2032/.test((await pagina.locator('.anteprima-archivio').textContent().catch(() => '')) ?? ''))
   );
   await pagina.getByRole('button', { name: `Ricarica nel ${ANNO}` }).click();
+  verifica('anche per ricaricare chiede la password', await pagina.locator('.finestra-conferma').isVisible());
+  await confermaPassword(pagina);
   verifica(
     'l’archivio si ricarica',
     await attendi(async () => /ricaricata/.test((await pagina.locator('.successo').textContent().catch(() => '')) ?? ''))
@@ -181,6 +221,7 @@ async function azzera(pagina) {
   // Ricaricare sopra dati che ci sono già non si può.
   await pagina.getByLabel("File dell'archivio").setInputFiles(file);
   await pagina.getByRole('button', { name: `Ricarica nel ${ANNO}` }).click();
+  await confermaPassword(pagina);
   verifica(
     'sopra un’edizione piena non si ricarica',
     await attendi(async () => /ci sono già dei dati/.test((await pagina.locator('.errore').last().textContent().catch(() => '')) ?? ''))

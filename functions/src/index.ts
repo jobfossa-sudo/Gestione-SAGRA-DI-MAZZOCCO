@@ -1556,6 +1556,21 @@ const CHIAMABILE_ARCHIVIO: CallableOptions = { ...CHIAMABILE, timeoutSeconds: 54
  * non si azzera un'edizione salvata ieri e poi cambiata stamattina. */
 const VALIDITA_SALVATAGGIO_MS = 2 * 60 * 60 * 1000;
 
+/** Quanto vale la conferma della password: salvare, azzerare e ricaricare
+ * un'edizione si fanno solo se l'amministratore l'ha appena riscritta. */
+const VALIDITA_CONFERMA_MS = 5 * 60 * 1000;
+
+/** Il controllo vero, che la schermata da sola non basta a garantire: un
+ * computer lasciato acceso con l'app aperta non deve poter azzerare un anno.
+ * auth_time è il momento dell'ultimo accesso con la password, scritto da
+ * Firebase nel gettone dell'account e non modificabile dal browser. */
+function richiedeConfermaRecente(request: CallableRequest<unknown>): void {
+  const accesso = Number(request.auth?.token.auth_time ?? 0) * 1000;
+  if (Date.now() - accesso > VALIDITA_CONFERMA_MS) {
+    throw new HttpsError('unauthenticated', 'Per questa operazione conferma di nuovo la password dell’amministratore.');
+  }
+}
+
 function validaAnno(valore: unknown): string {
   if (typeof valore !== 'string' || !/^\d{4}$/.test(valore)) {
     throw new HttpsError('invalid-argument', 'Anno dell’edizione non valido.');
@@ -1686,6 +1701,7 @@ export const esportaEdizione = onCall(
   CHIAMABILE_ARCHIVIO,
   async (request: CallableRequest<AnnoRichiesta>): Promise<ArchivioEdizione> => {
     richiedeAmministratore(request);
+    richiedeConfermaRecente(request);
     const anno = validaAnno(request.data?.anno);
     const archivio: ArchivioEdizione = {
       app: 'sagra-mazzocco',
@@ -1706,6 +1722,7 @@ export const azzeraEdizione = onCall(
   CHIAMABILE_ARCHIVIO,
   async (request: CallableRequest<AzzeraEdizioneRichiesta>): Promise<OperazioneArchivioRisposta> => {
     richiedeAmministratore(request);
+    richiedeConfermaRecente(request);
     const anno = validaAnno(request.data?.anno);
     if (request.data?.conferma !== `AZZERA ${anno}`) {
       throw new HttpsError('invalid-argument', `Per confermare scrivi esattamente: AZZERA ${anno}`);
@@ -1733,6 +1750,7 @@ export const ricaricaEdizione = onCall(
   CHIAMABILE_ARCHIVIO,
   async (request: CallableRequest<RicaricaEdizioneRichiesta>): Promise<OperazioneArchivioRisposta> => {
     richiedeAmministratore(request);
+    richiedeConfermaRecente(request);
     const archivio = request.data?.archivio;
     if (!archivio || archivio.app !== 'sagra-mazzocco' || !Array.isArray(archivio.movimenti)) {
       throw new HttpsError('invalid-argument', 'Questo file non è un archivio della Sagra di Mazzocco.');

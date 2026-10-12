@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { riepilogoDiMovimenti, type ArchivioEdizione, type RiepilogoEdizione } from '@sagra-mazzocco/shared';
-import { creaFileArchivio, leggiFileArchivio, scarica } from '../services/archivio';
+import { creaFileArchivio, leggiFileArchivio, puoScegliereDove, salvaFile } from '../services/archivio';
+import { ConfermaIdentita } from './ConfermaIdentita';
 import { azzeraEdizione, esportaEdizione, messaggioErrore, ricaricaEdizione, riepilogoEdizioni } from '../services/callables';
 
 /** "9 serate · 1.240 ordini dei tavoli · …": quanto c'è, a colpo d'occhio. */
@@ -33,8 +34,9 @@ function adesso(): string {
 /** Salvare, azzerare e ricaricare un'edizione della sagra.
  *
  * I tre passi sono separati e in quest'ordine apposta: l'azzeramento si
- * accende solo dopo aver scaricato il file in questa stessa schermata (e il
- * server lo ricontrolla), e chiede di scrivere a mano la frase di conferma. */
+ * accende solo dopo aver salvato il file in questa stessa schermata (e il
+ * server lo ricontrolla), e chiede di scrivere a mano la frase di conferma.
+ * Tutti e tre chiedono prima la password dell'amministratore. */
 export function Archivio() {
   const [edizioni, setEdizioni] = useState<RiepilogoEdizione[] | null>(null);
   const [anno, setAnno] = useState<string | null>(null);
@@ -45,6 +47,12 @@ export function Archivio() {
   const [scaricati, setScaricati] = useState<Record<string, string>>({});
   const [conferma, setConferma] = useState('');
   const [daRicaricare, setDaRicaricare] = useState<ArchivioEdizione | null>(null);
+  /** L'operazione che aspetta la password, con la frase che la descrive. */
+  const [richiesta, setRichiesta] = useState<{ azione: string; poi: () => void } | null>(null);
+  /** L'archivio preparato e non ancora salvato: si salva con un clic a parte,
+   * perché il browser apre la finestra "Salva con nome" solo in risposta a un
+   * clic, e preparare l'archivio può richiedere più di qualche secondo. */
+  const [pronto, setPronto] = useState<{ anno: string; nome: string; file: Blob; documenti: number } | null>(null);
 
   async function aggiorna() {
     try {
@@ -75,27 +83,48 @@ export function Archivio() {
   const scelta = edizioni?.find((e) => e.anno === anno) ?? null;
   const fraseConferma = anno ? `AZZERA ${anno}` : '';
 
-  const salva = () =>
-    esegui('Preparo l’archivio…', async () => {
-      const { data: archivio } = await esportaEdizione({ anno: anno! });
-      const nome = `sagra-mazzocco-${anno}-${adesso()}.zip`;
-      scarica(await creaFileArchivio(archivio), nome);
-      setScaricati((prec) => ({ ...prec, [anno!]: nome }));
-      return `Scaricato "${nome}" (${archivio.movimenti.length} documenti). Conservalo in un posto sicuro, meglio in due.`;
+  /** Prima la password, poi l'operazione. */
+  function conPassword(azione: string, poi: () => void) {
+    setErrore(null);
+    setEsito(null);
+    setRichiesta({ azione, poi });
+  }
+
+  const prepara = () =>
+    conPassword(`salvare l'archivio del ${anno}`, () =>
+      esegui('Preparo l’archivio…', async () => {
+        const { data: archivio } = await esportaEdizione({ anno: anno! });
+        const nome = `sagra-mazzocco-${anno}-${adesso()}.zip`;
+        setPronto({ anno: anno!, nome, file: await creaFileArchivio(archivio), documenti: archivio.movimenti.length });
+        return `Archivio del ${anno} pronto: ${archivio.movimenti.length} documenti. Ora scegli dove salvarlo.`;
+      })
+    );
+
+  const salvaPronto = () =>
+    esegui('Salvo il file…', async () => {
+      const daSalvare = pronto!;
+      const salvato = await salvaFile(daSalvare.file, daSalvare.nome);
+      if (!salvato) return 'Salvataggio annullato: il file non è stato scritto. Premi di nuovo per scegliere dove salvarlo.';
+      setPronto(null);
+      setScaricati((prec) => ({ ...prec, [daSalvare.anno]: daSalvare.nome }));
+      return puoScegliereDove
+        ? `Salvato "${daSalvare.nome}". Conservane una seconda copia, per esempio su una chiavetta.`
+        : `Scaricato "${daSalvare.nome}" nella cartella Download. Copialo su una chiavetta o in un posto sicuro.`;
     });
 
-  const azzera = () => {
-    if (!window.confirm(`Ultima conferma: cancellare tutti i movimenti del ${anno}? Non si torna indietro se non ricaricando il file.`)) {
-      return;
-    }
-    return esegui('Azzero l’edizione…', async () => {
-      const { data } = await azzeraEdizione({ anno: anno!, conferma });
-      setConferma('');
-      setScaricati(({ [anno!]: _tolto, ...resto }) => resto);
-      await aggiorna();
-      return `Edizione ${data.anno} azzerata: cancellati ${data.documenti} documenti. Persone, menù e biglietti sono rimasti.`;
+  const azzera = () =>
+    conPassword(`azzerare l'edizione ${anno}`, () => {
+      if (!window.confirm(`Ultima conferma: cancellare tutti i movimenti del ${anno}? Non si torna indietro se non ricaricando il file.`)) {
+        return;
+      }
+      void esegui('Azzero l’edizione…', async () => {
+        const { data } = await azzeraEdizione({ anno: anno!, conferma });
+        setConferma('');
+        setScaricati(({ [anno!]: _tolto, ...resto }) => resto);
+        await aggiorna();
+        return `Edizione ${data.anno} azzerata: cancellati ${data.documenti} documenti. Persone, menù e biglietti sono rimasti.`;
+      });
     });
-  };
 
   async function scegliFile(file: File | undefined) {
     setDaRicaricare(null);
@@ -110,15 +139,28 @@ export function Archivio() {
   }
 
   const ricarica = () =>
-    esegui('Ricarico l’archivio…', async () => {
-      const { data } = await ricaricaEdizione({ archivio: daRicaricare! });
-      setDaRicaricare(null);
-      await aggiorna();
-      return `Edizione ${data.anno} ricaricata: ${data.documenti} documenti di nuovo nell'app.`;
-    });
+    conPassword(`ricaricare l'archivio del ${daRicaricare!.anno}`, () =>
+      esegui('Ricarico l’archivio…', async () => {
+        const { data } = await ricaricaEdizione({ archivio: daRicaricare! });
+        setDaRicaricare(null);
+        await aggiorna();
+        return `Edizione ${data.anno} ricaricata: ${data.documenti} documenti di nuovo nell'app.`;
+      })
+    );
 
   return (
     <div className="archivio">
+      {richiesta && (
+        <ConfermaIdentita
+          azione={richiesta.azione}
+          onAnnulla={() => setRichiesta(null)}
+          onConfermato={() => {
+            const poi = richiesta.poi;
+            setRichiesta(null);
+            poi();
+          }}
+        />
+      )}
       <section className="elenco">
         <h2>Archivio delle edizioni</h2>
         <p className="spiegazione">
@@ -158,14 +200,28 @@ export function Archivio() {
               <span className="numero-passo">1</span> Salva l'archivio
             </h3>
             <p className="spiegazione">
-              Scarica sul computer un file .zip con dentro un <strong>Excel</strong> da aprire (un foglio per serate,
-              ordini, presenze, spese, entrate, chiusure, menù e persone) e i <strong>dati completi</strong> per
-              poter ricaricare l'edizione un giorno.
+              Prepara un file .zip con dentro un <strong>Excel</strong> da aprire (un foglio per serate, ordini,
+              presenze, spese, entrate, chiusure, menù e persone) e i <strong>dati completi</strong> per poter
+              ricaricare l'edizione un giorno.{' '}
+              {puoScegliereDove
+                ? 'Poi scegli tu dove salvarlo: sul computer o su una chiavetta USB.'
+                : 'Questo browser lo mette nella cartella Download: da lì copialo su una chiavetta. (Con Chrome o Edge si sceglie la cartella.)'}
             </p>
-            <button type="button" className="bottone-principale" disabled={!!inCorso} onClick={salva}>
-              ⬇ Scarica l'archivio del {anno}
-            </button>
-            {scaricati[anno!] && <p className="fatto">✓ Scaricato: {scaricati[anno!]}</p>}
+            {pronto?.anno === anno ? (
+              <div className="pronto">
+                <p>
+                  ✓ Archivio pronto: <strong>{pronto.nome}</strong> ({pronto.documenti} documenti)
+                </p>
+                <button type="button" className="bottone-principale" disabled={!!inCorso} onClick={salvaPronto}>
+                  {puoScegliereDove ? '💾 Scegli dove salvarlo…' : '⬇ Scarica il file'}
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="bottone-principale" disabled={!!inCorso} onClick={prepara}>
+                Prepara l'archivio del {anno}
+              </button>
+            )}
+            {scaricati[anno!] && <p className="fatto">✓ Salvato: {scaricati[anno!]}</p>}
           </section>
 
           <section className={`elenco passo passo-pericoloso ${scaricati[anno!] ? '' : 'spento'}`}>
@@ -179,7 +235,7 @@ export function Archivio() {
                   Per confermare scrivi <strong>{fraseConferma}</strong>.
                 </>
               ) : (
-                <strong>Si può fare solo dopo aver scaricato l'archivio qui sopra.</strong>
+                <strong>Si può fare solo dopo aver salvato l'archivio qui sopra.</strong>
               )}
             </p>
             <div className="riga-azzera">

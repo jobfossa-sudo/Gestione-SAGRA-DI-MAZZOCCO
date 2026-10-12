@@ -1197,6 +1197,34 @@ async function main() {
     'failed-precondition'
   );
 
+  // La password va riconfermata da poco: lo controlla il server, non solo la
+  // schermata. Si chiama la funzione con un gettone non firmato (l'emulatore
+  // li accetta) e un accesso vecchio di un'ora.
+  async function chiamaConAccessoDi(nome, secondiFa, dati) {
+    const ora = Math.floor(Date.now() / 1000);
+    const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+    const gettone = `${b64({ alg: 'none', typ: 'JWT' })}.${b64({
+      iss: 'https://securetoken.google.com/gestione-sagra-mazzocco', aud: 'gestione-sagra-mazzocco',
+      auth_time: ora - secondiFa, iat: ora, exp: ora + 3600, sub: 'uid-finto', user_id: 'uid-finto',
+      amministratore: true, firebase: { sign_in_provider: 'password' },
+    })}.`;
+    const risposta = await fetch(`http://${FUNZIONI_HOST}:${FUNZIONI_PORTA}/gestione-sagra-mazzocco/us-central1/${nome}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${gettone}` },
+      body: JSON.stringify({ data: dati }),
+    });
+    return (await risposta.json()).error?.status ?? 'OK';
+  }
+  record('con la password appena confermata il server esporta', (await chiamaConAccessoDi('esportaEdizione', 10, { anno: ANNO })) === 'OK');
+  for (const [nome, dati] of [
+    ['esportaEdizione', { anno: ANNO }],
+    ['azzeraEdizione', { anno: ANNO, conferma: `AZZERA ${ANNO}` }],
+    ['ricaricaEdizione', { archivio }],
+  ]) {
+    const esito = await chiamaConAccessoDi(nome, 3600, dati);
+    record(`${nome}: con l’accesso di un’ora fa il server rifiuta`, esito === 'UNAUTHENTICATED', esito);
+  }
+
   // Pulizia dell'anno finto.
   await db.recursiveDelete(db.doc(`serate/${ANNO}-07-01`));
   await db.recursiveDelete(db.doc(`edizioni/${ANNO}`));
