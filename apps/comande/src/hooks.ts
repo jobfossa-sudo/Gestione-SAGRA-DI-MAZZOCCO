@@ -1,9 +1,10 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { BIGLIETTI_INIZIALI, TIPI_BIGLIETTO } from '@sagra-mazzocco/shared';
+import { BIGLIETTI_INIZIALI, edizioneAperta, TIPI_BIGLIETTO } from '@sagra-mazzocco/shared';
 import type {
   Banco,
+  Edizione,
   CategoriaBanco,
   ProdottoBanco,
   OrdineBanco,
@@ -335,4 +336,24 @@ export function useSegnalazioniAperte(): SegnalazioneBagno[] {
   );
 
   return segnalazioni;
+}
+
+/** L'edizione aperta (di norma l'unica che c'è). `caricata` è falso finché
+ * il server non ha risposto. Va montato dopo l'accesso: un ascolto partito
+ * prima viene rifiutato e non riprova. */
+export function useEdizioneAperta(): { edizione: Edizione | null; caricata: boolean } {
+  const [stato, setStato] = useState<{ edizione: Edizione | null; caricata: boolean }>({ edizione: null, caricata: false });
+
+  useEffect(
+    () =>
+      onSnapshot(
+        collection(db, 'edizioni'),
+        (snapshot) =>
+          setStato({ edizione: edizioneAperta(snapshot.docs.map((doc) => doc.data() as Edizione)), caricata: true }),
+        () => setStato({ edizione: null, caricata: true })
+      ),
+    []
+  );
+
+  return stato;
 }

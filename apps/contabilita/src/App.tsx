@@ -9,9 +9,10 @@ import { Report } from './components/Report';
 import { SceltaSerata } from './components/SceltaSerata';
 import { SelettoreCarattere } from './components/SelettoreCarattere';
 import { SelettoreTema } from './components/SelettoreTema';
+import { FasciaProva } from './components/FasciaProva';
 import { Serata } from './components/Serata';
 import { Uscite } from './components/Uscite';
-import { useSerate, useUtenteAutenticato } from './hooks';
+import { useEdizioneAperta, useSerate, useUtenteAutenticato } from './hooks';
 import { auth } from './services/firebase';
 
 const SCHEDE = ['Serata', 'Chiusura', 'Uscite', 'Entrate extra', 'Presenze', 'Report'] as const;
@@ -58,6 +59,7 @@ function App() {
 function Conti({ nome, amministratore }: { nome: string; amministratore: boolean }) {
   const arrivate = useSerate();
   const serate = arrivate ?? [];
+  const { edizione, caricata } = useEdizioneAperta();
   const [scheda, setScheda] = useState<Scheda>('Serata');
   const [serataScelta, setSerataScelta] = useState<string | null>(null);
 
@@ -65,10 +67,13 @@ function Conti({ nome, amministratore }: { nome: string; amministratore: boolean
   // stata: riaprendo l'app il giorno dopo si trova già la sera giusta.
   const oggi = idSerata();
   const serataId = serataScelta ?? (serate.some((s) => s.id === oggi) ? oggi : (serate[0]?.id ?? null));
-  const edizioneId = edizioneDiSerata(serataId ?? oggi);
+  // Si lavora sull'edizione aperta, anche per le spese fatte l'anno prima
+  // della sagra; senza edizione si va per anno, come si è sempre fatto.
+  const edizioneId = edizione?.id ?? edizioneDiSerata(serataId ?? oggi);
 
   return (
     <div className="app-contabilita">
+      <FasciaProva />
       <header>
         <div className="marchio">
           <h1>Sagra di Mazzocco · Contabilità</h1>
@@ -102,8 +107,10 @@ function Conti({ nome, amministratore }: { nome: string; amministratore: boolean
       )}
 
       <main>
-        {scheda === 'Presenze' ? (
-          <Presenze serate={serate} dataIniziale={serataId ?? oggi} />
+        {!caricata ? (
+          <p className="vuoto">Carico i conti…</p>
+        ) : scheda === 'Presenze' ? (
+          <Presenze serate={serate} dataIniziale={serataId ?? oggi} edizioneAperta={edizione?.id ?? null} />
         ) : arrivate === null ? (
           <p className="vuoto">Carico i conti…</p>
         ) : serate.length === 0 ? (

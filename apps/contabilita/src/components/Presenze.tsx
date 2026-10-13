@@ -79,14 +79,24 @@ const ASSENTE: Stato = { presente: false, servizio: false, extra: false, oreExtr
  * - **Servizio**: ha fatto la serata. Solo nelle serate di sagra; le ore sono
  *   quelle dell'orario scritto in alto, uguale per tutti.
  * - **Extra**: ha lavorato in più, e accanto si scrivono le ore. */
-export function Presenze({ serate, dataIniziale }: { serate: Serata[]; dataIniziale: string }) {
+export function Presenze({
+  serate,
+  dataIniziale,
+  edizioneAperta,
+}: {
+  serate: Serata[];
+  dataIniziale: string;
+  /** L'edizione aperta: tutte le giornate finiscono lì, anche quelle di
+   * preparazione dell'anno prima. Senza edizione si va per anno. */
+  edizioneAperta: string | null;
+}) {
   const [data, setData] = useState(dataIniziale);
-  const edizioneId = edizioneDiSerata(data);
+  const edizioneId = edizioneAperta ?? edizioneDiSerata(data);
   const utenti = useUtenti();
 
   return (
     <div className="presenze">
-      <Giornaliero data={data} onCambiaData={setData} serate={serate} utenti={utenti} />
+      <Giornaliero edizioneId={edizioneId} data={data} onCambiaData={setData} serate={serate} utenti={utenti} />
       <Stampe edizioneId={edizioneId} utenti={utenti} onApri={setData} dataAperta={data} />
     </div>
   );
@@ -97,19 +107,20 @@ export function Presenze({ serate, dataIniziale }: { serate: Serata[]; dataInizi
 // ---------------------------------------------------------------------------
 
 function Giornaliero({
+  edizioneId,
   data,
   onCambiaData,
   serate,
   utenti,
 }: {
+  edizioneId: string;
   data: string;
   onCambiaData: (data: string) => void;
   serate: Serata[];
   utenti: Utente[];
 }) {
-  const edizioneId = edizioneDiSerata(data);
-  const { giornata: salvata, caricata } = useGiornata(data);
-  const presenze = usePresenze(data);
+  const { giornata: salvata, caricata } = useGiornata(edizioneId, data);
+  const presenze = usePresenze(edizioneId, data);
   const ordini = useOrdini(data);
   const ordiniBanco = useOrdiniBanco(data);
   const [errore, setErrore] = useState<string | null>(null);

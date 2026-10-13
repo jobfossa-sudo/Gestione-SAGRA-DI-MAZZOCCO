@@ -15,6 +15,7 @@ import { MenuQr } from './components/MenuQr';
 import { SegnalaBagno } from './components/SegnalaBagno';
 import { Pannelli } from './components/Pannelli';
 import { Distribuzione } from './components/Distribuzione';
+import { FasciaProva } from './components/FasciaProva';
 import { SelettoreCarattere } from './components/SelettoreCarattere';
 import { SelettoreTema } from './components/SelettoreTema';
 import { useUtenteAutenticato } from './hooks';
@@ -121,6 +122,7 @@ function App() {
 
   return (
     <div className="app-cassa">
+      <FasciaProva />
       <AvvisoRete />
       {!area.schermoDaLontano && <AvvisoBagni />}
       <header>

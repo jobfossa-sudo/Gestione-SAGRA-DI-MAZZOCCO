@@ -2,6 +2,7 @@ import { signOut } from 'firebase/auth';
 import { useState } from 'react';
 import { indirizzoApp } from '@sagra-mazzocco/shared';
 import { Archivio } from './components/Archivio';
+import { FasciaProva } from './components/FasciaProva';
 import { Login } from './components/Login';
 import { NuovoUtente } from './components/NuovoUtente';
 import { SelettoreCarattere } from './components/SelettoreCarattere';
@@ -35,6 +36,7 @@ function App() {
 
   return (
     <div className="app-utenti">
+      <FasciaProva />
       <header>
         <div className="marchio">
           <h1>Sagra di Mazzocco · Utenti</h1>

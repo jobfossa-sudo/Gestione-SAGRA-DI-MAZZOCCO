@@ -3,7 +3,7 @@ import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { useEffect, useState } from 'react';
 import {
   confrontaPersone,
-  edizioneDiSerata,
+  edizioneAperta,
   type ChiusuraCassa,
   type Edizione,
   type EntrataExtra,
@@ -114,31 +114,31 @@ export function useChiusure(serataId: string | null): {
 
 /** Chi c'era in una giornata, per uid. La giornata di una serata di sagra ha
  * lo stesso id della serata, quindi qui si passa anche un serataId. */
-export function usePresenze(data: string | null): Map<string, Presenza> {
+export function usePresenze(edizioneId: string, data: string | null): Map<string, Presenza> {
   const [presenze, setPresenze] = useState(new Map<string, Presenza>());
 
   useEffect(() => {
     setPresenze(new Map());
     if (!data) return;
-    return onSnapshot(collection(db, `edizioni/${edizioneDiSerata(data)}/giornate/${data}/presenze`), (snapshot) =>
+    return onSnapshot(collection(db, `edizioni/${edizioneId}/giornate/${data}/presenze`), (snapshot) =>
       setPresenze(new Map(snapshot.docs.map((doc) => [doc.id, doc.data() as Presenza])))
     );
-  }, [data]);
+  }, [edizioneId, data]);
 
   return presenze;
 }
 
 /** Una giornata, se è già stata creata. */
-export function useGiornata(data: string | null): { giornata: Giornata | null; caricata: boolean } {
+export function useGiornata(edizioneId: string, data: string | null): { giornata: Giornata | null; caricata: boolean } {
   const [stato, setStato] = useState<{ giornata: Giornata | null; caricata: boolean }>({ giornata: null, caricata: false });
 
   useEffect(() => {
     setStato({ giornata: null, caricata: false });
     if (!data) return;
-    return onSnapshot(doc(db, `edizioni/${edizioneDiSerata(data)}/giornate`, data), (snapshot) =>
+    return onSnapshot(doc(db, `edizioni/${edizioneId}/giornate`, data), (snapshot) =>
       setStato({ giornata: snapshot.exists() ? (snapshot.data() as Giornata) : null, caricata: true })
     );
-  }, [data]);
+  }, [edizioneId, data]);
 
   return stato;
 }
@@ -161,18 +161,24 @@ export function useUtenti(): Utente[] {
   return utenti;
 }
 
-export function useEdizione(edizioneId: string): Edizione | null {
-  const [edizione, setEdizione] = useState<Edizione | null>(null);
+/** L'edizione aperta (di norma l'unica che c'è): spese, entrate e presenze
+ * finiscono lì, anche quelle fatte l'anno prima della sagra. `caricata` è
+ * falso finché il server non ha risposto. */
+export function useEdizioneAperta(): { edizione: Edizione | null; caricata: boolean } {
+  const [stato, setStato] = useState<{ edizione: Edizione | null; caricata: boolean }>({ edizione: null, caricata: false });
 
   useEffect(
     () =>
-      onSnapshot(doc(db, 'edizioni', edizioneId), (snapshot) =>
-        setEdizione(snapshot.exists() ? (snapshot.data() as Edizione) : null)
+      onSnapshot(
+        collection(db, 'edizioni'),
+        (snapshot) =>
+          setStato({ edizione: edizioneAperta(snapshot.docs.map((doc) => doc.data() as Edizione)), caricata: true }),
+        () => setStato({ edizione: null, caricata: true })
       ),
-    [edizioneId]
+    []
   );
 
-  return edizione;
+  return stato;
 }
 
 export function useUscite(edizioneId: string): Uscita[] {

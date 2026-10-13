@@ -14,8 +14,8 @@ export function Serata({ serataId, edizioneId }: { serataId: string | null; ediz
   const ordiniBanco = useOrdiniBanco(serataId);
   const uscite = useUscite(edizioneId);
   const entrate = useEntrate(edizioneId);
-  const presenze = usePresenze(serataId);
-  const { giornata } = useGiornata(serataId);
+  const presenze = usePresenze(edizioneId, serataId);
+  const { giornata } = useGiornata(edizioneId, serataId);
 
   const incasso = incassoDiSerata(ordini, ordiniBanco);
   const conto = contoEconomico(incasso.totale, entrate, uscite, serataId);

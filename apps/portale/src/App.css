@@ -420,3 +420,240 @@ a.riquadro-app:focus-visible {
     print-color-adjust: exact;
   }
 }
+
+/* ---------- l'edizione, in cima al menù ---------- */
+
+.scheda-edizione,
+.modulo-edizione,
+.avviso-edizione {
+  margin-bottom: 22px;
+}
+.scheda-edizione,
+.modulo-edizione {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--oro);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+.scheda-edizione {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: 14px 20px;
+}
+.scheda-edizione h2 {
+  font-size: 1.25rem;
+  margin: 2px 0 3px;
+}
+.scheda-edizione button {
+  width: auto;
+  flex: none;
+}
+.occhiello-edizione {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--oro);
+}
+.periodo-edizione {
+  font-weight: 600;
+}
+.stato-edizione {
+  margin-top: 3px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+.avviso-edizione {
+  padding: 12px 16px;
+  border: 1px solid var(--oro);
+  border-radius: var(--radius);
+  background: var(--oro-soft);
+  font-weight: 600;
+}
+
+/* La prova si riconosce dalle strisce in alto, le stesse della fascia che le
+   altre app mostrano in cima. */
+.scheda-edizione.di-prova,
+.modulo-edizione.di-prova {
+  position: relative;
+  overflow: hidden;
+  padding-top: 24px;
+}
+.scheda-edizione.di-prova::before,
+.modulo-edizione.di-prova::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: var(--strisce-prova);
+}
+
+.modulo-edizione {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px 18px;
+}
+.intestazione-modulo h2 {
+  font-size: 1.2rem;
+}
+.campi-edizione {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .campi-edizione {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.colonna-campi {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.tipo-edizione {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.tipo-edizione legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.tipo-edizione label {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  color: var(--text);
+  font-weight: 400;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.tipo-edizione label.scelto {
+  border-color: var(--oro);
+  background: var(--oro-soft);
+}
+.tipo-edizione input {
+  width: auto;
+  margin-top: 3px;
+  accent-color: var(--oro);
+}
+.tipo-edizione strong {
+  display: block;
+  font-size: 0.95rem;
+}
+.tipo-fisso {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+.serate-scelte {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+.etichetta-serate,
+.etichetta-calendario {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.etichetta-calendario {
+  display: block;
+  margin-bottom: 6px;
+}
+.serata-scelta {
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--oro) 35%, transparent);
+  border-radius: 999px;
+  background: var(--oro-soft);
+  color: var(--oro);
+  font-weight: 700;
+}
+.tasti-edizione {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.tasti-edizione button {
+  width: auto;
+}
+.suggerimento {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Il calendario: un mese alla volta, si tocca un giorno per spuntarlo. */
+.calendario {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+.testa-calendario {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.testa-calendario button {
+  padding: 4px 12px;
+}
+.nome-mese {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.griglia-calendario {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.giorno-settimana {
+  padding: 2px 0;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.giorno-settimana.fine-settimana {
+  color: var(--accent);
+}
+.giorno {
+  min-height: 36px;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--surface);
+  font-weight: 600;
+}
+.giorno.oggi {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+/* Il testo prende il colore del fondo della pagina: bianco sul giallo scuro
+   del tema chiaro, scuro sul giallo acceso del tema scuro. */
+.giorno.spuntato,
+.giorno.spuntato:hover:not(:disabled) {
+  background: var(--oro);
+  border-color: var(--oro);
+  color: var(--surface);
+}

@@ -1,4 +1,5 @@
 import { indirizzoApp, type AppSagra, type Permessi } from '@sagra-mazzocco/shared';
+import { RiquadroEdizione } from './Edizione';
 import { IconaComande, IconaContabilita, IconaMagazzino, IconaQr, IconaUtenti, Lucchetto } from './Icone';
 
 interface Riquadro {
@@ -65,6 +66,7 @@ const RIQUADRI: Riquadro[] = [
 export function Menu({ permessi }: { permessi: Permessi }) {
   return (
     <main className="menu-app">
+      <RiquadroEdizione amministratore={permessi.amministratore === true} />
       <h2>Scegli dove entrare</h2>
       <div className="griglia-app">
         {RIQUADRI.map(({ id, nome, descrizione, Icona, destinazione, spento }) => {

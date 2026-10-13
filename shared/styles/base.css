@@ -382,6 +382,44 @@ label {
   --accent-soft: var(--app-magazzino-soft);
 }
 
+/* ---------------------------------------------------------------------------
+   L'edizione di prova.
+
+   Quando si sta provando il sistema, ogni app lo dice con una fascia gialla
+   in cima, orlata di strisce gialle e nere come un cantiere: chi passa davanti
+   a una cassa deve capire al volo che quei numeri non sono la sagra vera. I
+   colori sono scritti a mano e non presi dal tema: un cartello di cantiere è
+   uguale di giorno e di notte.
+   --------------------------------------------------------------------------- */
+:root {
+  --strisce-prova: repeating-linear-gradient(-45deg, #facc15 0 12px, #2a231d 12px 24px);
+}
+.fascia-prova {
+  position: relative;
+  padding: 5px 16px 12px;
+  background: #fde047;
+  color: #2a231d;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.fascia-prova::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  background: var(--strisce-prova);
+}
+@media print {
+  .fascia-prova {
+    display: none;
+  }
+}
+
 /* Il tasto per tornare al menù delle app, in alto in ogni app. */
 .torna-menu {
   display: inline-flex;

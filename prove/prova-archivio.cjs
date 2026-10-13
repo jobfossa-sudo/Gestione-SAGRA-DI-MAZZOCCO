@@ -16,6 +16,7 @@ const { chromium } = require('playwright');
 // Le stesse librerie che usa l'app, per aprire il file scaricato.
 const JSZip = require('../apps/utenti/node_modules/jszip');
 const ExcelJS = require('../apps/utenti/node_modules/exceljs');
+const { mettiDaParteEdizioni, rimettiEdizioni } = require('./edizioni-da-parte.cjs');
 
 const UTENTI = 'http://127.0.0.1:5174/';
 const ANNO = '2032';
@@ -134,6 +135,10 @@ async function azzera(pagina) {
 }
 
 (async () => {
+  // Ricaricare si può solo senza un'edizione aperta: quella del computer, se
+  // c'è, si mette da parte e torna alla fine.
+  const messe = await mettiDaParteEdizioni();
+  try {
   await prepara();
   const browser = await chromium.launch();
   const pagina = await entra(browser);
@@ -218,14 +223,19 @@ async function azzera(pagina) {
   const dopo = await pagina.locator('.conteggi').first().innerText();
   verifica('e i conti tornano uguali a prima', dopo === conteggi, dopo.replace(/\s+/g, ' '));
 
-  // Ricaricare sopra dati che ci sono già non si può.
-  await pagina.getByLabel("File dell'archivio").setInputFiles(file);
-  await pagina.getByRole('button', { name: `Ricarica nel ${ANNO}` }).click();
-  await confermaPassword(pagina);
+  // Ricaricata, l'edizione è quella aperta: un'altra sopra non si ricarica.
+  const ricaricata = await fetch(`${FIRESTORE}/edizioni/${ANNO}`, { headers: { Authorization: 'Bearer owner' } }).then((r) => r.json());
   verifica(
-    'sopra un’edizione piena non si ricarica',
-    await attendi(async () => /ci sono già dei dati/.test((await pagina.locator('.errore').last().textContent().catch(() => '')) ?? ''))
+    'l’edizione ricaricata torna a essere quella aperta, con la sua serata',
+    ricaricata.fields?.serate?.arrayValue?.values?.[0]?.stringValue === `${ANNO}-07-01`,
+    JSON.stringify(ricaricata.fields ?? ricaricata)
   );
+  await pagina.getByLabel("File dell'archivio").setInputFiles(file);
+  verifica(
+    'con un’edizione aperta non se ne ricarica un’altra: lo dice',
+    await attendi(async () => /già un'edizione aperta/.test((await pagina.locator('.anteprima-archivio .errore').textContent().catch(() => '')) ?? ''))
+  );
+  verifica('e il tasto per ricaricare è spento', await pagina.getByRole('button', { name: `Ricarica nel ${ANNO}` }).isDisabled());
 
   // --- Pulizia: si salva e si azzera di nuovo -------------------------------------
   const daButtare = await scaricaArchivio(pagina);
@@ -233,6 +243,9 @@ async function azzera(pagina) {
   for (const f of [file, daButtare]) fs.rmSync(f, { force: true });
 
   await browser.close();
+  } finally {
+    await rimettiEdizioni(messe);
+  }
   const passati = esiti.filter((e) => e.ok).length;
   console.log(`\n${passati}/${esiti.length} controlli passati.`);
   process.exit(passati === esiti.length ? 0 : 1);

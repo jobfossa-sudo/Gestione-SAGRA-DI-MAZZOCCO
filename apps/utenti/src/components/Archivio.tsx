@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { riepilogoDiMovimenti, type ArchivioEdizione, type RiepilogoEdizione } from '@sagra-mazzocco/shared';
 import { creaFileArchivio, leggiFileArchivio, puoScegliereDove, salvaFile } from '../services/archivio';
+import { useEdizioneAperta } from '../hooks';
 import { ConfermaIdentita } from './ConfermaIdentita';
 import { azzeraEdizione, esportaEdizione, messaggioErrore, ricaricaEdizione, riepilogoEdizioni } from '../services/callables';
 
@@ -39,6 +40,7 @@ function adesso(): string {
  * Tutti e tre chiedono prima la password dell'amministratore. */
 export function Archivio() {
   const [edizioni, setEdizioni] = useState<RiepilogoEdizione[] | null>(null);
+  const { edizione: aperta } = useEdizioneAperta();
   const [anno, setAnno] = useState<string | null>(null);
   const [inCorso, setInCorso] = useState<string | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
@@ -81,6 +83,10 @@ export function Archivio() {
   }
 
   const scelta = edizioni?.find((e) => e.anno === anno) ?? null;
+  // Una prova, o un'edizione creata e ancora vuota, si azzera anche senza
+  // salvarla: lo ricontrolla il server.
+  const senzaSalvare = !!scelta && (scelta.prova || scelta.documenti === 0);
+  const azzerabile = senzaSalvare || !!scaricati[anno!];
   const fraseConferma = anno ? `AZZERA ${anno}` : '';
 
   /** Prima la password, poi l'operazione. */
@@ -122,7 +128,7 @@ export function Archivio() {
         setConferma('');
         setScaricati(({ [anno!]: _tolto, ...resto }) => resto);
         await aggiorna();
-        return `Edizione ${data.anno} azzerata: cancellati ${data.documenti} documenti. Persone, menù e biglietti sono rimasti.`;
+        return `Edizione ${data.anno} azzerata: cancellati ${data.documenti} documenti. Persone, menù e biglietti sono rimasti. Dal menù delle app ora si crea l'edizione nuova.`;
       });
     });
 
@@ -164,8 +170,8 @@ export function Archivio() {
       <section className="elenco">
         <h2>Archivio delle edizioni</h2>
         <p className="spiegazione">
-          A fine sagra si salva l'edizione in un file e la si azzera, così l'anno dopo si riparte pulito. Restano
-          sempre le persone, il menù, i biglietti e i QR.
+          A fine sagra si salva l'edizione in un file e la si azzera: così si riparte pulito, e dal menù delle app si
+          crea l'edizione nuova. Restano sempre le persone, il menù, i biglietti e i QR.
         </p>
 
         {edizioni === null ? (
@@ -180,6 +186,7 @@ export function Archivio() {
                 {edizioni.map((e) => (
                   <option key={e.anno} value={e.anno}>
                     {e.anno}
+                    {e.prova ? ' · di prova' : ''}
                   </option>
                 ))}
               </select>
@@ -224,13 +231,19 @@ export function Archivio() {
             {scaricati[anno!] && <p className="fatto">✓ Salvato: {scaricati[anno!]}</p>}
           </section>
 
-          <section className={`elenco passo passo-pericoloso ${scaricati[anno!] ? '' : 'spento'}`}>
+          <section className={`elenco passo passo-pericoloso ${azzerabile ? '' : 'spento'}`}>
             <h3>
               <span className="numero-passo">2</span> Azzera l'edizione
             </h3>
             <p className="spiegazione">
-              Cancella serate, ordini, incassi, chiusure, spese, entrate e presenze del {anno}.{' '}
-              {scaricati[anno!] ? (
+              Cancella l'edizione del {anno}, con serate, ordini, incassi, chiusure, spese, entrate e presenze.{' '}
+              {scelta.prova && !scaricati[anno!] && (
+                <>È un'edizione di prova: si può azzerare anche senza salvarla. </>
+              )}
+              {!scelta.prova && scelta.documenti === 0 && !scaricati[anno!] && (
+                <>È ancora vuota: si può azzerare anche senza salvarla. </>
+              )}
+              {azzerabile ? (
                 <>
                   Per confermare scrivi <strong>{fraseConferma}</strong>.
                 </>
@@ -244,14 +257,14 @@ export function Archivio() {
                 value={conferma}
                 onChange={(e) => setConferma(e.target.value)}
                 placeholder="scrivi qui la frase"
-                disabled={!scaricati[anno!] || !!inCorso}
+                disabled={!azzerabile || !!inCorso}
                 aria-label="Frase di conferma"
                 autoComplete="off"
               />
               <button
                 type="button"
                 className="bottone-elimina"
-                disabled={!scaricati[anno!] || conferma !== fraseConferma || !!inCorso}
+                disabled={!azzerabile || conferma !== fraseConferma || !!inCorso}
                 onClick={azzera}
               >
                 Azzera il {anno}
@@ -266,8 +279,9 @@ export function Archivio() {
           <span className="numero-passo">3</span> Ricarica un archivio
         </h3>
         <p className="spiegazione">
-          Rimette nell'app un'edizione salvata, per riguardarla in Contabilità. Si ricarica solo in un'edizione vuota,
-          così due anni non si mescolano mai. Menù e persone non si toccano: quelli di allora restano nell'Excel.
+          Rimette nell'app un'edizione salvata, che torna a essere quella aperta: per riguardarla in Contabilità o, se
+          è una prova, per continuare a provare. Si ricarica solo quando non c'è un'edizione aperta, così due edizioni
+          non si mescolano mai. Menù e persone non si toccano: quelli di allora restano nell'Excel.
         </p>
         <input
           type="file"
@@ -283,16 +297,23 @@ export function Archivio() {
         {daRicaricare && (
           <div className="anteprima-archivio">
             <p>
-              Archivio dell'edizione <strong>{daRicaricare.anno}</strong>, creato il{' '}
+              Archivio dell'edizione <strong>{daRicaricare.anno}</strong>
+              {riepilogoDiMovimenti(daRicaricare.anno, daRicaricare.movimenti).prova ? ' (di prova)' : ''}, creato il{' '}
               {new Date(daRicaricare.creatoAt).toLocaleString('it-IT')}:
             </p>
             <Conteggi r={riepilogoDiMovimenti(daRicaricare.anno, daRicaricare.movimenti)} />
-            {edizioni?.some((e) => e.anno === daRicaricare.anno) && (
+            {aperta ? (
               <p className="errore">
-                Nel {daRicaricare.anno} ci sono già dei dati: prima salvali e azzera l'edizione, poi ricarica.
+                C'è già un'edizione aperta ({aperta.nome}): prima salvala e azzerala, poi ricarica.
               </p>
+            ) : (
+              edizioni?.some((e) => e.anno === daRicaricare.anno) && (
+                <p className="errore">
+                  Nel {daRicaricare.anno} ci sono già dei dati: prima salvali e azzera l'edizione, poi ricarica.
+                </p>
+              )
             )}
-            <button type="button" className="bottone-principale" disabled={!!inCorso} onClick={ricarica}>
+            <button type="button" className="bottone-principale" disabled={!!inCorso || !!aperta} onClick={ricarica}>
               Ricarica nel {daRicaricare.anno}
             </button>
           </div>
