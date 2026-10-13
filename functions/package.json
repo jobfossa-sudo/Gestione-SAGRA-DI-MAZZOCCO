@@ -1,7 +1,7 @@
 {
   "name": "functions",
   "scripts": {
-    "build": "tsc --noEmit && esbuild src/index.ts --bundle --platform=node --target=node20 --external:firebase-admin --external:firebase-functions --outfile=lib/index.js",
+    "build": "tsc --noEmit && esbuild src/index.ts --bundle --platform=node --target=node22 --external:firebase-admin --external:firebase-functions --outfile=lib/index.js",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
@@ -9,7 +9,7 @@
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "lib/index.js",
   "dependencies": {

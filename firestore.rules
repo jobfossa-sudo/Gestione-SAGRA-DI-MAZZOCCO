@@ -139,10 +139,13 @@ service cloud.firestore {
     }
 
     // Le edizioni della sagra (un anno = un'edizione) con dentro le spese e
-    // gli incassi che non passano dalla cassa.
+    // gli incassi che non passano dalla cassa. Il documento dell'edizione
+    // (nome, serate, se è di prova) lo legge tutto il personale, perché ogni
+    // app deve sapere se si sta provando; lo scrive solo il server, che
+    // controlla che ce ne sia una sola alla volta.
     match /edizioni/{edizioneId} {
-      allow read: if contabile();
-      allow write: if contabile();
+      allow read: if personaleComande() || contabile();
+      allow write: if false;
 
       match /uscite/{uscitaId} {
         allow read: if contabile();

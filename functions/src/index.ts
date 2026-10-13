@@ -48,6 +48,16 @@ import {
   SottoOrdine,
   Prodotto,
   Serata,
+  Edizione,
+  CreaEdizioneRichiesta,
+  ModificaEdizioneRichiesta,
+  EdizioneRisposta,
+  MASSIMO_SERATE_EDIZIONE,
+  dataValida,
+  edizioneAperta,
+  idSerataItaliana,
+  nomeEdizioneIniziale,
+  serataDellEdizione,
   ItemOrdine,
   ItemSottoOrdine,
   Componente,
@@ -395,23 +405,53 @@ function scalaPorzioni(transaction: Transaction, serataId: string, righe: RigaDi
   }
 }
 
-/** Legge la serata (dentro la transazione) e verifica che sia aperta. Non
- * scrive nulla: l'incremento del contatore va fatto DOPO tutte le altre
- * letture della stessa transazione (Firestore vuole tutte le get prima di
- * qualsiasi set/update). */
-async function leggiSerataAperta(
-  transaction: Transaction,
-  serataId: string
-): Promise<{
+interface SerataLetta {
   ref: DocumentReference;
   contatoreOrdini: number;
   contatoriCassa: Record<string, number>;
   contatoriBanco: Record<string, number>;
-}> {
+  /** La serata da aprire adesso, al primo ordine: non esiste ancora, e la
+   * scrive aggiornaSerata() insieme ai contatori. */
+  nuova: Serata | null;
+}
+
+/** Legge la serata (dentro la transazione) e verifica che sia aperta. Non
+ * scrive nulla: l'incremento del contatore va fatto DOPO tutte le altre
+ * letture della stessa transazione (Firestore vuole tutte le get prima di
+ * qualsiasi set/update), con aggiornaSerata().
+ *
+ * Se la serata non esiste ancora la apre il primo ordine, purché sia quella
+ * di oggi (secondo l'ora italiana del server, non l'orologio di chi chiama) e
+ * l'edizione aperta preveda una serata oggi. `cliente` è il menù dal QR: a
+ * lui i messaggi parlano della sagra, non di cosa deve fare l'amministratore. */
+async function leggiSerataAperta(transaction: Transaction, serataId: string, cliente = false): Promise<SerataLetta> {
   const ref = db.collection('serate').doc(serataId);
   const snapshot = await transaction.get(ref);
   if (!snapshot.exists) {
-    throw new HttpsError('not-found', 'Serata inesistente.');
+    // Si apre solo la serata di oggi: un telefono con la data sbagliata non
+    // deve aprirne una a caso.
+    if (serataId !== idSerataItaliana()) {
+      throw new HttpsError('not-found', 'Serata inesistente.');
+    }
+    const edizioni = (await transaction.get(db.collection('edizioni'))).docs.map((d) => d.data() as Edizione);
+    const edizione = edizioneAperta(edizioni);
+    const chiusa = 'Stasera la sagra non è aperta: le comande non si possono ancora prendere.';
+    if (!edizione) {
+      throw new HttpsError(
+        'failed-precondition',
+        cliente ? chiusa : 'Non c’è nessuna edizione aperta: l’amministratore la crea dal menù delle app.'
+      );
+    }
+    if (!serataDellEdizione(edizione, serataId)) {
+      throw new HttpsError(
+        'failed-precondition',
+        cliente
+          ? chiusa
+          : `Oggi non è una serata della ${edizione.nome}: le serate si spuntano nel menù delle app.`
+      );
+    }
+    const nuova: Serata = { id: serataId, data: serataId, aperta: true, contatoreOrdini: 0 };
+    return { ref, contatoreOrdini: 0, contatoriCassa: {}, contatoriBanco: {}, nuova };
   }
   const serata = snapshot.data() as Serata;
   if (!serata.aperta) {
@@ -422,7 +462,25 @@ async function leggiSerataAperta(
     contatoreOrdini: serata.contatoreOrdini,
     contatoriCassa: serata.contatoriCassa ?? {},
     contatoriBanco: serata.contatoriBanco ?? {},
+    nuova: null,
   };
+}
+
+/** Scrive i contatori aggiornati della serata (campi come
+ * "contatoriCassa.A"). Una serata aperta adesso dal primo ordine non esiste
+ * ancora: la si scrive intera, con i contatori già dentro. */
+function aggiornaSerata(transaction: Transaction, serata: SerataLetta, campi: Record<string, number>): void {
+  if (!serata.nuova) {
+    transaction.update(serata.ref, campi);
+    return;
+  }
+  const intera: Record<string, unknown> = { ...serata.nuova };
+  for (const [campo, valore] of Object.entries(campi)) {
+    const [primo, secondo] = campo.split('.');
+    if (secondo === undefined) intera[primo] = valore;
+    else intera[primo] = { ...((intera[primo] as Record<string, number> | undefined) ?? {}), [secondo]: valore };
+  }
+  transaction.set(serata.ref, intera);
 }
 
 /** La lettera di cassa di chi sta battendo l'ordine, letta dal suo profilo
@@ -444,11 +502,11 @@ async function leggiLetteraCassa(transaction: Transaction, uid: string): Promise
  * della transazione: scrive il contatore aggiornato. */
 function prossimoCodiceOrdine(
   transaction: Transaction,
-  serata: { ref: DocumentReference; contatoriCassa: Record<string, number> },
+  serata: SerataLetta,
   lettera: string
 ): { numero: number; codice: string; codiceBarre: string } {
   const numero = (serata.contatoriCassa[lettera] ?? 0) + 1;
-  transaction.update(serata.ref, { [`contatoriCassa.${lettera}`]: numero });
+  aggiornaSerata(transaction, serata, { [`contatoriCassa.${lettera}`]: numero });
   const codice = formattaCodiceOrdine(lettera, numero);
   return { numero, codice, codiceBarre: componiCodiceBarre(codice, dataOraItaliana(new Date()), lettera) };
 }
@@ -773,6 +831,90 @@ export const apriSerata = onCall(CHIAMABILE, async (request: CallableRequest<Apr
 });
 
 // ---------------------------------------------------------------------------
+// L'edizione — la crea l'amministratore dal menù delle app quando non ce n'è
+// nessuna, spuntando le serate sul calendario. Da lì in poi le serate si
+// aprono da sole al primo ordine (vedi leggiSerataAperta).
+// ---------------------------------------------------------------------------
+
+function validaNomeEdizione(valore: unknown): string {
+  const nome = validaTesto(valore, 'Nome dell’edizione');
+  if (nome.length > 80) throw new HttpsError('invalid-argument', 'Il nome dell’edizione è troppo lungo.');
+  return nome;
+}
+
+/** Le serate spuntate: date vere, senza doppioni, in ordine e tutte dello
+ * stesso anno, perché l'anno è l'edizione (e il nome dei suoi dati). */
+function validaSerateEdizione(valore: unknown, almenoUna: boolean): string[] {
+  if (!Array.isArray(valore) || valore.some((data) => typeof data !== 'string' || !dataValida(data))) {
+    throw new HttpsError('invalid-argument', 'Le serate devono essere date valide.');
+  }
+  const serate = [...new Set(valore as string[])].sort();
+  if (almenoUna && serate.length === 0) {
+    throw new HttpsError('invalid-argument', 'Spunta sul calendario almeno una serata.');
+  }
+  if (serate.length > MASSIMO_SERATE_EDIZIONE) {
+    throw new HttpsError('invalid-argument', `Al massimo ${MASSIMO_SERATE_EDIZIONE} serate per edizione.`);
+  }
+  if (new Set(serate.map((data) => data.slice(0, 4))).size > 1) {
+    throw new HttpsError('invalid-argument', 'Le serate di un’edizione devono essere tutte dello stesso anno.');
+  }
+  return serate;
+}
+
+export const creaEdizione = onCall(CHIAMABILE, async (request: CallableRequest<CreaEdizioneRichiesta>): Promise<EdizioneRisposta> => {
+  richiedeAmministratore(request);
+  const prova = request.data?.prova === true;
+  // Una prova può non avere serate spuntate: la cassa ci lavora tutti i giorni.
+  const serate = validaSerateEdizione(request.data?.serate, !prova);
+  const anno = serate[0]?.slice(0, 4) ?? idSerataItaliana().slice(0, 4);
+  const nome = request.data?.nome ? validaNomeEdizione(request.data.nome) : nomeEdizioneIniziale(anno, prova);
+
+  await db.runTransaction(async (transaction) => {
+    // Una sola edizione alla volta: Comande e Contabilità devono sapere
+    // sempre su quale lavorare.
+    const esistenti = await transaction.get(db.collection('edizioni'));
+    if (!esistenti.empty) {
+      const aperta = esistenti.docs[0].data() as Edizione;
+      throw new HttpsError(
+        'failed-precondition',
+        `C’è già un’edizione aperta (${aperta.nome}): prima salvala e azzerala dall’Archivio, nell’app Utenti.`
+      );
+    }
+    const edizione: Edizione = {
+      id: anno,
+      nome,
+      serate,
+      prova,
+      createdAt: FieldValue.serverTimestamp() as unknown as Edizione['createdAt'],
+    };
+    transaction.set(db.doc(`edizioni/${anno}`), edizione);
+  });
+  return { edizioneId: anno };
+});
+
+export const modificaEdizione = onCall(
+  CHIAMABILE,
+  async (request: CallableRequest<ModificaEdizioneRichiesta>): Promise<EdizioneRisposta> => {
+    richiedeAmministratore(request);
+    const nome = validaNomeEdizione(request.data?.nome);
+
+    return db.runTransaction(async (transaction) => {
+      const edizione = edizioneAperta(
+        (await transaction.get(db.collection('edizioni'))).docs.map((d) => d.data() as Edizione)
+      );
+      if (!edizione) throw new HttpsError('not-found', 'Non c’è nessuna edizione aperta da modificare.');
+      const serate = validaSerateEdizione(request.data?.serate, !edizione.prova);
+      // L'anno non si sposta: è il nome sotto cui stanno tutti i suoi dati.
+      if (serate.some((data) => !data.startsWith(`${edizione.id}-`))) {
+        throw new HttpsError('invalid-argument', `Le serate di questa edizione devono essere del ${edizione.id}.`);
+      }
+      transaction.update(db.doc(`edizioni/${edizione.id}`), { nome, serate });
+      return { edizioneId: edizione.id };
+    });
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Porzioni della serata — quante se ne possono vendere stasera e quando un
 // piatto è finito. Il conteggio passa dal server: il numero venduto non deve
 // poter essere ritoccato dal client.
@@ -832,13 +974,13 @@ export const creaOrdineBozza = onCall(CHIAMABILE, async (request: CallableReques
   const itemsRichiesti = validaItemsRichiesti(items);
 
   return db.runTransaction(async (transaction) => {
-    const serata = await leggiSerataAperta(transaction, serataId);
+    const serata = await leggiSerataAperta(transaction, serataId, true);
     // La bozza controlla la disponibilità ma non scala nulla: le porzioni si
     // scalano al pagamento.
     const { items: itemsOrdine, totale } = await costruisciItemsOrdine(transaction, serataId, itemsRichiesti);
 
     const numero = serata.contatoreOrdini + 1;
-    transaction.update(serata.ref, { contatoreOrdini: numero });
+    aggiornaSerata(transaction, serata, { contatoreOrdini: numero });
 
     const ordineRef = db.collection(`serate/${serataId}/ordini`).doc();
     const ordine: Ordine = {
@@ -1346,7 +1488,7 @@ export const creaOrdineBanco = onCall(
       // transazione: due baristi che battono nello stesso istante non possono
       // prendere lo stesso numero.
       const numero = (serata.contatoriBanco[bancoValidato] ?? 0) + 1;
-      transaction.update(serata.ref, { [`contatoriBanco.${bancoValidato}`]: numero });
+      aggiornaSerata(transaction, serata, { [`contatoriBanco.${bancoValidato}`]: numero });
 
       const ordineRef = db.collection(`serate/${serataId}/ordiniBanco`).doc();
       const ordine: OrdineBanco = {
@@ -1678,8 +1820,10 @@ export const riepilogoEdizioni = onCall(
         ordiniBanco: await conta(`${ref.path}/ordiniBanco`),
       }));
       const somma = (campo: 'ordini' | 'ordiniBanco') => perSerata.reduce((totale, s) => totale + s[campo], 0);
+      const documento = (await db.doc(`edizioni/${anno}`).get()).data() as Edizione | undefined;
       const riepilogo: RiepilogoEdizione = {
         anno,
+        prova: documento?.prova === true,
         serate: perSerata.filter((s) => s.esiste).length,
         ordini: somma('ordini'),
         ordiniBanco: somma('ordiniBanco'),
@@ -1690,8 +1834,9 @@ export const riepilogoEdizioni = onCall(
       };
       riepilogo.documenti =
         riepilogo.serate + riepilogo.ordini + riepilogo.ordiniBanco + riepilogo.uscite + riepilogo.entrate + riepilogo.giornate;
-      // Un anno rimasto con solo documenti vuoti non si mostra.
-      if (riepilogo.documenti > 0) edizioni.push(riepilogo);
+      // Un anno rimasto con solo documenti vuoti non si mostra; un'edizione
+      // appena creata sì, anche se non ha ancora niente dentro.
+      if (riepilogo.documenti > 0 || documento) edizioni.push(riepilogo);
     }
     return { edizioni };
   }
@@ -1727,15 +1872,21 @@ export const azzeraEdizione = onCall(
     if (request.data?.conferma !== `AZZERA ${anno}`) {
       throw new HttpsError('invalid-argument', `Per confermare scrivi esattamente: AZZERA ${anno}`);
     }
+    const movimenti = await movimentiDellEdizione(anno);
+    // Senza salvare si butta solo quello che non serve a nessuno: un'edizione
+    // di prova, o una creata per sbaglio e ancora vuota. Salvarle resta
+    // possibile.
+    const documento = movimenti.find((d) => d.percorso === `edizioni/${anno}`);
+    const prova = documento?.dati.prova === true;
+    const vuota = documento !== undefined && movimenti.length === 1;
     const salvato = (await db.doc('config/archivio').get()).get(anno) as Timestamp | undefined;
-    if (!salvato || Date.now() - salvato.toMillis() > VALIDITA_SALVATAGGIO_MS) {
+    if (!prova && !vuota && (!salvato || Date.now() - salvato.toMillis() > VALIDITA_SALVATAGGIO_MS)) {
       throw new HttpsError(
         'failed-precondition',
         `Prima di azzerare scarica l'archivio del ${anno}: l'ultimo salvataggio manca o è di più di due ore fa.`
       );
     }
 
-    const movimenti = await movimentiDellEdizione(anno);
     for (const radice of await radiciDellEdizione(anno)) await db.recursiveDelete(radice);
     for (const immagine of movimenti.filter((d) => d.percorso.startsWith('immagini/'))) {
       await db.doc(immagine.percorso).delete();
@@ -1784,9 +1935,34 @@ export const ricaricaEdizione = onCall(
       );
     }
 
+    // Una sola edizione alla volta: ricaricata, diventa quella aperta.
+    const aperta = edizioneAperta((await db.collection('edizioni').get()).docs.map((d) => d.data() as Edizione));
+    if (aperta) {
+      throw new HttpsError(
+        'failed-precondition',
+        `C’è già un’edizione aperta (${aperta.nome}): prima salvala e azzerala, poi ricarica.`
+      );
+    }
+
     const scrittore = db.bulkWriter();
     for (const documento of archivio.movimenti) {
       void scrittore.set(db.doc(documento.percorso), decodifica(documento.dati) as Record<string, unknown>);
+    }
+    // Gli archivi di prima delle edizioni non hanno il documento
+    // dell'edizione: lo si ricostruisce dalle serate che contengono.
+    if (!archivio.movimenti.some((d) => d.percorso === `edizioni/${anno}`)) {
+      const serate = archivio.movimenti
+        .map((d) => d.percorso.match(/^serate\/([^/]+)$/)?.[1])
+        .filter((id): id is string => !!id && dataValida(id))
+        .sort();
+      const edizione: Edizione = {
+        id: anno,
+        nome: nomeEdizioneIniziale(anno, false),
+        serate,
+        prova: false,
+        createdAt: FieldValue.serverTimestamp() as unknown as Edizione['createdAt'],
+      };
+      void scrittore.set(db.doc(`edizioni/${anno}`), edizione);
     }
     await scrittore.close();
     return { anno, documenti: archivio.movimenti.length };

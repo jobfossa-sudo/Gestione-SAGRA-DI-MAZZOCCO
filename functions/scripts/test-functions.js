@@ -1185,6 +1185,17 @@ async function main() {
     'invalid-argument'
   );
   await assertOk('l’archivio si ricarica', ricaricaEdizione({ archivio }));
+  const ricostruita = (await db.doc(`edizioni/${ANNO}`).get()).data();
+  record(
+    'un archivio di prima delle edizioni torna con la sua edizione',
+    ricostruita?.prova === false && JSON.stringify(ricostruita?.serate) === JSON.stringify([`${ANNO}-07-01`]),
+    JSON.stringify(ricostruita)
+  );
+  await assertRifiutato(
+    'con un’edizione aperta non se ne ricarica un’altra',
+    ricaricaEdizione({ archivio: { ...archivio, anno: '2033', movimenti: [] } }),
+    'failed-precondition'
+  );
   const ordineTornato = (await db.doc(`serate/${ANNO}-07-01/ordini/o1`).get()).data();
   record('gli ordini tornano com’erano', ordineTornato?.totale === 10 && ordineTornato?.items?.[0]?.nome === 'Pasta');
   record('con le date vere, al nanosecondo', ordineTornato?.createdAt instanceof admin.firestore.Timestamp && ordineTornato.createdAt.isEqual(quando));
@@ -1229,6 +1240,148 @@ async function main() {
   await db.recursiveDelete(db.doc(`serate/${ANNO}-07-01`));
   await db.recursiveDelete(db.doc(`edizioni/${ANNO}`));
   await db.doc('immagini/scontrino-2031').delete();
+
+  // --- L'edizione: la crea l'amministratore, e apre le serate da sola ---------
+  // Sta in fondo perché cancella la serata di oggi: il primo ordine la deve
+  // riaprire da solo.
+  const creaEdizione = httpsCallable(functions, 'creaEdizione');
+  const modificaEdizione = httpsCallable(functions, 'modificaEdizione');
+  const ANNO_OGGI = SERATA_ID.slice(0, 4);
+  const ALTRO_GIORNO = SERATA_ID.endsWith('-01-01') ? `${ANNO_OGGI}-01-02` : `${ANNO_OGGI}-01-01`;
+  const senzaSerataDiOggi = () => db.recursiveDelete(db.doc(`serate/${SERATA_ID}`));
+  const unaBottiglia = (serataId = SERATA_ID) =>
+    creaEInvia({ serataId, ...TAVOLO, items: [{ prodottoId: 'acqua', quantita: 1 }] });
+  await senzaSerataDiOggi();
+
+  await accediCome('cassa');
+  await assertRifiutato(
+    'la cassa non crea un’edizione',
+    creaEdizione({ nome: 'Sagra', serate: [SERATA_ID], prova: false }),
+    'permission-denied'
+  );
+  await assertRifiutato('senza edizione il primo ordine non apre la serata', unaBottiglia(), 'failed-precondition');
+
+  await accediCome('admin');
+  await assertRifiutato(
+    'un’edizione vera senza serate non si crea',
+    creaEdizione({ nome: 'Sagra', serate: [], prova: false }),
+    'invalid-argument'
+  );
+  await assertRifiutato(
+    'né con una data che non esiste',
+    creaEdizione({ nome: 'Sagra', serate: [`${ANNO_OGGI}-02-30`], prova: false }),
+    'invalid-argument'
+  );
+  await assertRifiutato(
+    'né con serate di due anni diversi',
+    creaEdizione({ nome: 'Sagra', serate: [ALTRO_GIORNO, '2099-07-01'], prova: false }),
+    'invalid-argument'
+  );
+  const creata = await assertOk(
+    'l’amministratore crea l’edizione',
+    creaEdizione({ nome: 'Sagra delle prove', serate: [ALTRO_GIORNO, ALTRO_GIORNO], prova: false })
+  );
+  const vera = (await db.doc(`edizioni/${ANNO_OGGI}`).get()).data();
+  record(
+    'l’edizione prende l’anno delle sue serate, senza doppioni',
+    creata?.edizioneId === ANNO_OGGI && vera?.prova === false && JSON.stringify(vera?.serate) === JSON.stringify([ALTRO_GIORNO]),
+    JSON.stringify(vera)
+  );
+  await assertRifiutato(
+    'una seconda edizione insieme non si crea',
+    creaEdizione({ nome: 'Doppia', serate: [], prova: true }),
+    'failed-precondition'
+  );
+
+  await accediCome('cassa');
+  await assertRifiutato('se oggi non è spuntato la serata non si apre', unaBottiglia(), 'failed-precondition');
+  await accediCome('admin');
+  await assertRifiutato(
+    'le serate non cambiano anno',
+    modificaEdizione({ nome: 'Sagra delle prove', serate: ['2099-07-01'] }),
+    'invalid-argument'
+  );
+  await assertOk(
+    'l’amministratore spunta anche oggi',
+    modificaEdizione({ nome: 'Sagra delle prove', serate: [ALTRO_GIORNO, SERATA_ID] })
+  );
+
+  await accediCome('cassa');
+  const primo = await assertOk('il primo ordine di oggi apre la serata', unaBottiglia());
+  const apertaOggi = (await db.doc(`serate/${SERATA_ID}`).get()).data();
+  record(
+    'la serata nasce aperta, con la numerazione che parte da 1',
+    apertaOggi?.aperta === true && apertaOggi?.data === SERATA_ID && primo?.codice?.endsWith('0001') &&
+      Object.values(apertaOggi?.contatoriCassa ?? {})[0] === 1,
+    `${primo?.codice} ${JSON.stringify(apertaOggi)}`
+  );
+  const secondo = await assertOk('il secondo ordine la trova già aperta', unaBottiglia());
+  record('e prende il numero dopo', secondo?.codice?.endsWith('0002'), secondo?.codice);
+  await assertRifiutato(
+    'una serata spuntata non si apre fuori dal suo giorno',
+    unaBottiglia(ALTRO_GIORNO),
+    'not-found'
+  );
+
+  await senzaSerataDiOggi();
+  await signOut(auth);
+  const bozzaOggi = await assertOk(
+    'anche un ordine dal QR apre la serata',
+    creaOrdineBozza({ serataId: SERATA_ID, tavolo: 3, coperti: 2, items: [{ prodottoId: 'acqua', quantita: 1 }] })
+  );
+  record(
+    'e prende il numero 1',
+    bozzaOggi?.numero === 1 && (await db.doc(`serate/${SERATA_ID}`).get()).data()?.contatoreOrdini === 1
+  );
+
+  await senzaSerataDiOggi();
+  await accediCome('bancobar');
+  const scontrinoOggi = await assertOk(
+    'e anche uno scontrino del banco',
+    creaOrdineBanco({ serataId: SERATA_ID, banco: 'bar', items: [{ prodottoId: 'caffe', quantita: 1 }] })
+  );
+  record('che riparte da BAR0001', scontrinoOggi?.codice === 'BAR0001', scontrinoOggi?.codice);
+
+  // L'edizione di prova: la cassa lavora tutti i giorni, e si butta senza salvarla.
+  await db.doc(`edizioni/${ANNO_OGGI}`).delete();
+  await senzaSerataDiOggi();
+  await accediCome('admin');
+  await assertOk(
+    'l’amministratore crea un’edizione di prova senza spuntare niente',
+    creaEdizione({ nome: '', serate: [], prova: true })
+  );
+  const prova = (await db.doc(`edizioni/${ANNO_OGGI}`).get()).data();
+  record(
+    'è di prova, dell’anno in corso, col nome proposto',
+    prova?.prova === true && prova?.id === ANNO_OGGI && prova?.nome === `Prova ${ANNO_OGGI}`,
+    JSON.stringify(prova)
+  );
+  await accediCome('cassa');
+  await assertOk('in prova la cassa lavora anche nei giorni non spuntati', unaBottiglia());
+  await accediCome('admin');
+  const inArchivio = (await riepilogoEdizioni()).data.edizioni.find((e) => e.anno === ANNO_OGGI);
+  record('l’archivio la riconosce come prova', inArchivio?.prova === true, JSON.stringify(inArchivio));
+  await assertOk(
+    'una prova si azzera anche senza averla salvata',
+    azzeraEdizione({ anno: ANNO_OGGI, conferma: `AZZERA ${ANNO_OGGI}` })
+  );
+  record(
+    'e se ne va con le sue serate',
+    !(await db.doc(`edizioni/${ANNO_OGGI}`).get()).exists && !(await db.doc(`serate/${SERATA_ID}`).get()).exists
+  );
+
+  await assertOk(
+    'si ricrea un’edizione vera',
+    creaEdizione({ nome: 'Creata per sbaglio', serate: [ALTRO_GIORNO], prova: false })
+  );
+  const vuotaInArchivio = (await riepilogoEdizioni()).data.edizioni.find((e) => e.anno === ANNO_OGGI);
+  record('appena creata, l’archivio la mostra anche se è vuota', vuotaInArchivio?.documenti === 0, JSON.stringify(vuotaInArchivio));
+  await assertOk(
+    'ancora vuota, si azzera senza salvarla',
+    azzeraEdizione({ anno: ANNO_OGGI, conferma: `AZZERA ${ANNO_OGGI}` })
+  );
+  record('e il sistema torna senza edizioni', (await db.collection('edizioni').get()).empty);
+
   console.log('\nRisultati test Cloud Functions:');
   let tuttiOk = true;
   for (const e of esiti) {

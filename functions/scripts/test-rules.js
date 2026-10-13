@@ -308,6 +308,19 @@ async function main() {
     assertSucceeds(admin.collection('edizioni/2026/uscite').get())
   );
 
+  // L'edizione: tutto il personale sa qual è (e se è di prova), solo il
+  // server la crea e la cambia.
+  await check('chi sta in cassa legge l’edizione', assertSucceeds(cassa.doc('edizioni/2026').get()));
+  await check('e anche chi sta in cucina', assertSucceeds(cucina.doc('edizioni/2026').get()));
+  await check('il contabile la legge', assertSucceeds(contabile.collection('edizioni').get()));
+  await check('chi non ha fatto l’accesso no', assertFails(anonimo.doc('edizioni/2026').get()));
+  await check('né chi non ha un ruolo', assertFails(senzaRuolo.doc('edizioni/2026').get()));
+  await check(
+    'nemmeno l’amministratore la scrive dal browser',
+    assertFails(admin.doc('edizioni/2027').set({ id: '2027', nome: 'Finta', serate: [], prova: true }))
+  );
+  await check('né il contabile la trasforma in vera', assertFails(contabile.doc('edizioni/2026').update({ prova: false })));
+
   // Configurazione di sistema
   await check('nemmeno l’amministratore legge la configurazione interna', assertFails(admin.doc('config/sistema').get()));
 

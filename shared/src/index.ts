@@ -1069,16 +1069,62 @@ export function confrontaPersone(a: Pick<Utente, 'nome' | 'cognome'>, b: Pick<Ut
 /** Un'edizione della sagra: le serate di un anno, più tutto quello che si
  * spende e si incassa fuori dalle serate. Serve a due cose che senza di lei
  * non si possono fare: attribuire le spese che non sono di una sera sola (la
- * tensostruttura non è di martedì) e confrontare un anno con quello prima. */
+ * tensostruttura non è di martedì) e confrontare un anno con quello prima.
+ *
+ * Ce n'è una sola alla volta, in `edizioni/{anno}`: la crea l'amministratore
+ * dal menù delle app quando non ce n'è nessuna, e a fine sagra la si salva e
+ * la si azzera dall'Archivio. La scrive solo il server. */
 export interface Edizione {
   /** L'anno, che è anche l'id: "2027". */
   id: string;
   nome: string;
-  /** Prima e ultima serata, in formato AAAA-MM-GG. Le serate dentro questo
-   * intervallo appartengono all'edizione. */
-  dal: string;
-  al: string;
-  chiusa: boolean;
+  /** Le serate della sagra, spuntate sul calendario: AAAA-MM-GG, in ordine,
+   * tutte dello stesso anno. Solo in questi giorni il primo ordine apre la
+   * serata. */
+  serate: string[];
+  /** Un'edizione per provare il sistema: la cassa lavora tutti i giorni
+   * dell'anno, spuntati o no, e in ogni app una fascia a strisce ricorda che
+   * quei numeri non sono la sagra vera. Si azzera anche senza salvarla. */
+  prova: boolean;
+  createdAt: FirestoreTimestampLike;
+}
+
+/** Al massimo una al giorno per due mesi: oltre è di sicuro uno sbaglio. */
+export const MASSIMO_SERATE_EDIZIONE = 60;
+
+/** Il nome che si propone creando un'edizione. */
+export function nomeEdizioneIniziale(anno: string, prova: boolean): string {
+  return prova ? `Prova ${anno}` : `Sagra di Mazzocco ${anno}`;
+}
+
+/** L'edizione su cui si lavora. Di norma ce n'è una sola; se per qualche
+ * ragione fossero di più, vale la più recente. */
+export function edizioneAperta(edizioni: Edizione[]): Edizione | null {
+  return [...edizioni].sort((a, b) => b.id.localeCompare(a.id))[0] ?? null;
+}
+
+/** Se in quella serata la cassa può lavorare: nell'edizione di prova tutti i
+ * giorni del suo anno, in quella vera solo le serate spuntate. */
+export function serataDellEdizione(edizione: Edizione, serataId: string): boolean {
+  if (edizione.prova) return serataId.startsWith(`${edizione.id}-`);
+  return edizione.serate.includes(serataId);
+}
+
+export interface CreaEdizioneRichiesta {
+  nome: string;
+  serate: string[];
+  prova: boolean;
+}
+
+/** Si cambiano nome e serate. Se è di prova resta di prova: i numeri di una
+ * prova non devono diventare quelli veri, né il contrario. */
+export interface ModificaEdizioneRichiesta {
+  nome: string;
+  serate: string[];
+}
+
+export interface EdizioneRisposta {
+  edizioneId: string;
 }
 
 export type CategoriaUscita =
@@ -1293,6 +1339,27 @@ export function idSerata(momento: Date = new Date()): string {
   return `${anno}-${mese}-${giorno}`;
 }
 
+/** Come idSerata(), ma sull'ora italiana qualunque sia l'orologio di chi
+ * chiama: il server gira sull'ora di Greenwich, e un'ora di differenza
+ * all'una di notte cambia serata. */
+export function idSerataItaliana(momento: Date = new Date()): string {
+  const spostato = new Date(momento.getTime() - ORE_CODA_SERATA * 60 * 60 * 1000);
+  // Il formato canadese scrive le date proprio come AAAA-MM-GG.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(spostato);
+}
+
+/** Una data AAAA-MM-GG che esiste davvero (niente 30 febbraio). */
+export function dataValida(data: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
+  const giorno = new Date(`${data}T12:00:00Z`);
+  return !Number.isNaN(giorno.getTime()) && giorno.toISOString().slice(0, 10) === data;
+}
+
 /** L'id dell'edizione a cui appartiene una serata: l'anno della sua data.
  * Una sagra che scavallasse il capodanno non esiste. */
 export function edizioneDiSerata(serataId: string): string {
@@ -1332,6 +1399,8 @@ export interface ArchivioEdizione {
 /** Quanto c'è in un'edizione: si mostra prima di salvare, azzerare o ricaricare. */
 export interface RiepilogoEdizione {
   anno: string;
+  /** Edizione di prova: si può azzerare anche senza averla salvata. */
+  prova: boolean;
   serate: number;
   ordini: number;
   ordiniBanco: number;
@@ -1356,6 +1425,7 @@ export function riepilogoDiMovimenti(anno: string, movimenti: DocumentoArchiviat
   const conta = (regola: RegExp) => movimenti.filter((d) => regola.test(d.percorso)).length;
   return {
     anno,
+    prova: movimenti.some((d) => d.percorso === `edizioni/${anno}` && d.dati.prova === true),
     serate: conta(/^serate\/[^/]+$/),
     ordini: conta(/^serate\/[^/]+\/ordini\/[^/]+$/),
     ordiniBanco: conta(/^serate\/[^/]+\/ordiniBanco\/[^/]+$/),
