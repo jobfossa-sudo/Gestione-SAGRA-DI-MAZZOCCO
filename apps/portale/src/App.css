@@ -59,10 +59,6 @@
   --colore: var(--app-utenti);
   --colore-soft: var(--app-utenti-soft);
 }
-.app-tombola {
-  --colore: var(--app-tombola);
-  --colore-soft: var(--app-tombola-soft);
-}
 .app-magazzino {
   --colore: var(--app-magazzino);
   --colore-soft: var(--app-magazzino-soft);

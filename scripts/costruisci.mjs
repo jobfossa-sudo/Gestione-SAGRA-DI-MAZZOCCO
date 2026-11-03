@@ -27,7 +27,6 @@ const APP = [
   ['comande', 'comande'],
   ['contabilita', 'contabilita'],
   ['utenti', 'utenti'],
-  ['tombola', 'tombola'],
 ];
 
 if (!existsSync(join(radice, 'node_modules'))) execSync('npm ci', { cwd: radice, stdio: 'inherit' });

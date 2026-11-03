@@ -109,17 +109,3 @@ export function Lucchetto() {
     </svg>
   );
 }
-
-/** Tombola: il tabellone a caselle, con una pallina estratta. */
-export function IconaTombola() {
-  return (
-    <Icona titolo="Tombola">
-      <g {...tratto}>
-        <rect x="6" y="8" width="26" height="32" rx="3" />
-        <path d="M6 18.7h26M6 29.3h26M14.7 8v32M23.3 8v32" />
-        <circle cx="36" cy="32" r="7" />
-        <path d="M33.5 32h5M36 29.5v5" />
-      </g>
-    </Icona>
-  );
-}
