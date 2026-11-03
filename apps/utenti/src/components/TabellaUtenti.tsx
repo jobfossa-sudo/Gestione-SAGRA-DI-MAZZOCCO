@@ -267,7 +267,7 @@ export function TabellaUtenti({ uidCorrente }: { uidCorrente: string }) {
 
   return (
     <div className="tabella-scroll">
-      <table className="tabella-utenti">
+      <table className="tabella-utenti griglia alterna">
         <thead>
           <tr>
             <th>Cognome</th>

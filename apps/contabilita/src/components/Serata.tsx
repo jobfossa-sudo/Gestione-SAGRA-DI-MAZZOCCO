@@ -77,7 +77,7 @@ export function Serata({ serataId, edizioneId }: { serataId: string | null; ediz
         {incasso.punti.length === 0 ? (
           <p className="vuoto">Nessun incasso in questa serata.</p>
         ) : (
-          <table className="tabella-conti">
+          <table className="griglia alterna tabella-conti">
             <thead>
               <tr>
                 <th>Punto</th>
@@ -112,7 +112,7 @@ export function Serata({ serataId, edizioneId }: { serataId: string | null; ediz
         {venduto.length === 0 ? (
           <p className="vuoto">Ancora niente venduto.</p>
         ) : (
-          <table className="tabella-conti">
+          <table className="griglia alterna tabella-conti">
             <thead>
               <tr>
                 <th>Voce</th>

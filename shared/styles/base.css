@@ -1,24 +1,36 @@
-/* Aspetto di base condiviso da tutte le app della sagra: colori, caratteri e
-   controlli. Ogni app aggiunge poi il proprio foglio di stile. */
+/* Aspetto di base condiviso da tutte le app della sagra: colori, caratteri,
+   controlli e la cornice in cima (barra del titolo e linguette). Ogni app
+   aggiunge poi il proprio foglio di stile.
+
+   L'aspetto è quello di TheAccount: il chiaro è il suo tema "Cantiere" (blu
+   notte e arancio di sicurezza), lo scuro è il tema "Notte" (antracite e
+   ambra). Tutti i colori stanno nei due blocchi qui sotto; il resto del file
+   e i fogli delle app usano solo le variabili. */
 
 :root {
-  --bg: #f6f2ec;
+  --bg: #f3f5f8;
   --surface: #ffffff;
-  --surface-alt: #fbf8f4;
-  --border: #e6ddd1;
-  --border-strong: #d4c8b8;
+  --surface-alt: #f8fafc;
+  --border: #d5dbe4;
+  --border-strong: #b9c4d2;
+  /* Più leggera dei bordi: separa le colonne e le righe dentro le tabelle. */
+  --linea: #e3e7ee;
 
-  --text: #2a231d;
-  --text-muted: #7b6f63;
+  --text: #1a202c;
+  --text-muted: #5a6577;
+  --titolo: #1d3557;
 
   --accent: #c2410c;
   --accent-hover: #9a3412;
-  --accent-soft: #fdf0e7;
+  --accent-soft: #fdeee2;
+  /* Il testo sopra un colore pieno (tasto principale, targhetta accesa). */
+  --su-pieno: #ffffff;
+  --fuoco: #2b4a73;
 
-  --success: #15803d;
-  --success-soft: #eaf6ee;
-  --danger: #b91c1c;
-  --danger-soft: #fdecec;
+  --success: #1f7a45;
+  --success-soft: #e3f4ea;
+  --danger: #b42318;
+  --danger-soft: #fde8e6;
   /* Giallo: serve a staccare un totale dalle voci che lo compongono. */
   --oro: #a16207;
   --oro-soft: #fdf6e0;
@@ -40,12 +52,33 @@
   --portata-4: #0e7490; /* blu */
   --portata-5: #7e22ce; /* viola */
 
-  --radius: 12px;
-  --radius-lg: 18px;
-  --shadow-sm: 0 1px 2px rgba(42, 35, 29, 0.06);
-  --shadow: 0 4px 16px rgba(42, 35, 29, 0.08);
+  /* La cornice in cima: barra del titolo e linguette, scure in tutti e due
+     i temi, con il filo colorato sotto. */
+  --barra-sfondo: #1d3557;
+  --barra-testo: #ffffff;
+  --barra-tenue: #c9d2df;
+  --barra-filo: #f28c28;
+  --barra-evidenza: rgb(255 255 255 / 0.12);
+  --barra-bordo: rgb(255 255 255 / 0.28);
+  --scheda-attiva-sfondo: #ffffff;
+  --scheda-attiva-testo: #c2410c;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Tabelle a griglia, come in Excel. */
+  --intestazione-sfondo: #f8fafc;
+  --intestazione-testo: #2a3445;
+  --intestazione-filo: #1d3557;
+  --riga-alterna: #f7f9fc;
+  --riga-sopra: #e8eef6;
+  --totale-sfondo: #cdd9e8;
+  --totale-testo: #12263f;
+  --casella-sfondo: #ffffff;
+
+  --radius: 6px;
+  --radius-lg: 8px;
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.06);
+  --shadow: 0 1px 3px rgb(16 24 40 / 0.08);
+
+  --sans: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
   font-family: var(--sans);
   /* Misura di partenza di tutto il testo: quasi ogni dimensione è espressa in
@@ -71,26 +104,31 @@
 :root[data-tema='scuro'] {
   color-scheme: dark;
 
-  --bg: #17130f;
-  --surface: #211c17;
-  --surface-alt: #1a1612;
-  --border: #352d25;
-  --border-strong: #493d32;
+  --bg: #14181f;
+  --surface: #1c222c;
+  --surface-alt: #181e27;
+  --border: #2e3744;
+  --border-strong: #3d4858;
+  --linea: #262e3a;
 
-  --text: #f3ece4;
-  --text-muted: #a99c8e;
+  --text: #e7ebf1;
+  --text-muted: #9aa6b8;
+  --titolo: #f3f5f8;
 
-  --accent: #f97316;
-  --accent-hover: #fb923c;
-  --accent-soft: #2e1b0e;
+  --accent: #f5a524;
+  --accent-hover: #f5b94a;
+  --accent-soft: #2b2416;
+  /* L'ambra è chiara: sopra ci va il testo scuro, non il bianco. */
+  --su-pieno: #14181f;
+  --fuoco: #f5a524;
 
-  --success: #4ade80;
-  --success-soft: #12251a;
-  --danger: #f87171;
-  --danger-soft: #2a1414;
+  --success: #6fd39a;
+  --success-soft: #12301f;
+  --danger: #ff9b8f;
+  --danger-soft: #3a1714;
   /* Sul fondo scuro il giallo scuro sparirebbe: qui serve chiaro. */
-  --oro: #fbbf24;
-  --oro-soft: #2a2008;
+  --oro: #f5c06a;
+  --oro-soft: #33270f;
   --tempo: #38bdf8;
   --tempo-soft: #0c2430;
 
@@ -105,8 +143,26 @@
   --portata-4: #38bdf8;
   --portata-5: #c084fc;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --barra-sfondo: #0e1217;
+  --barra-testo: #e7ebf1;
+  --barra-tenue: #8d99ab;
+  --barra-filo: #f5a524;
+  --barra-evidenza: rgb(255 255 255 / 0.08);
+  --barra-bordo: rgb(255 255 255 / 0.2);
+  --scheda-attiva-sfondo: #1c222c;
+  --scheda-attiva-testo: #f5b94a;
+
+  --intestazione-sfondo: #181e27;
+  --intestazione-testo: #d3dae4;
+  --intestazione-filo: #6b778a;
+  --riga-alterna: #20262f;
+  --riga-sopra: #29313d;
+  --totale-sfondo: #374354;
+  --totale-testo: #f6f8fb;
+  --casella-sfondo: #12161c;
+
+  --shadow-sm: none;
+  --shadow: none;
 }
 
 * {
@@ -126,13 +182,21 @@ h1,
 h2,
 h3 {
   margin: 0;
-  font-weight: 650;
-  letter-spacing: -0.015em;
-  color: var(--text);
+  font-weight: 700;
+  color: var(--titolo);
 }
 
 p {
   margin: 0;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--fuoco);
+  outline-offset: 2px;
 }
 
 button {
@@ -148,7 +212,7 @@ button {
 
 button:hover:not(:disabled) {
   border-color: var(--accent);
-  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 button:disabled {
@@ -157,19 +221,27 @@ button:disabled {
 }
 
 input,
-select {
+select,
+textarea {
   font: inherit;
   color: var(--text);
-  background: var(--surface);
+  background: var(--casella-sfondo);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   padding: 8px 13px;
   width: 100%;
+  caret-color: var(--accent);
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
 }
 
 input:focus,
-select:focus {
-  outline: 2px solid var(--accent);
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--fuoco);
   outline-offset: -1px;
   border-color: transparent;
 }
@@ -203,9 +275,10 @@ label {
   border-color: color-mix(in srgb, var(--success) 25%, transparent);
 }
 
-/* Schermata di accesso, uguale in tutte le app. */
+/* Schermata di accesso, uguale in tutte le app: un riquadro con il filo
+   colorato in cima, come quello sotto la barra del titolo. */
 .login {
-  max-width: 380px;
+  max-width: 400px;
   min-height: 100svh;
   margin: 0 auto;
   padding: 40px 20px;
@@ -240,6 +313,7 @@ label {
   gap: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
+  border-top: 4px solid var(--barra-filo);
   border-radius: var(--radius-lg);
   padding: 24px;
   box-shadow: var(--shadow);
@@ -248,7 +322,7 @@ label {
 .bottone-principale {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--su-pieno);
   font-weight: 650;
   font-size: 1rem;
   padding: 14px 20px;
@@ -256,7 +330,7 @@ label {
 .bottone-principale:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
-  color: #fff;
+  color: var(--su-pieno);
 }
 
 /* Scelta dello sfondo, chiaro o scuro. Tre pulsanti affiancati: si vede a
@@ -266,14 +340,14 @@ label {
   gap: 2px;
   background: var(--surface-alt);
   border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 3px;
+  border-radius: var(--radius);
+  padding: 2px;
 }
 .selettore-tema button {
   border: none;
   background: transparent;
-  border-radius: 999px;
-  padding: 5px 10px;
+  border-radius: calc(var(--radius) - 2px);
+  padding: 4px 10px;
   font-size: 0.95rem;
   line-height: 1.1;
   color: var(--text-muted);
@@ -319,19 +393,174 @@ label {
 }
 
 /* ---------------------------------------------------------------------------
+   La cornice in cima, come in TheAccount.
+
+   La barra del titolo è scura in tutti e due i temi: a sinistra il nome
+   dell'app, con un segno del colore dell'app, a destra chi è collegato e le
+   scelte di schermo. Le linguette stanno sotto, sullo stesso fondo, e il filo
+   colorato chiude la cornice. Le linguette possono stare dentro la barra
+   (Comande, che la tiene ferma in cima mentre si scorre) o subito dopo
+   (Contabilità, Utenti): il filo si sposta da solo sotto l'ultima delle due.
+   --------------------------------------------------------------------------- */
+.barra-titolo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+  flex-wrap: wrap;
+  padding: 7px 20px;
+  background: var(--barra-sfondo);
+  color: var(--barra-testo);
+  border-bottom: 3px solid var(--barra-filo);
+}
+.barra-titolo:has(+ .schede) {
+  border-bottom: none;
+}
+
+.barra-titolo .marchio {
+  padding-left: 10px;
+  border-left: 4px solid var(--app-colore-barra, var(--barra-filo));
+}
+.barra-titolo .marchio h1 {
+  font-size: 1rem;
+  line-height: 1.2;
+  color: var(--barra-testo);
+}
+.barra-titolo .marchio p {
+  font-size: 0.78rem;
+  color: var(--barra-tenue);
+}
+
+.barra-titolo .utente {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--barra-tenue);
+}
+.barra-titolo .utente > button {
+  padding: 5px 12px;
+  font-size: 0.85rem;
+  background: transparent;
+  color: var(--barra-testo);
+  border-color: var(--barra-bordo);
+}
+.barra-titolo .utente > button:hover:not(:disabled) {
+  background: var(--barra-evidenza);
+  border-color: var(--barra-tenue);
+}
+
+/* Le due pillole (scritte e sfondo) sulla barra scura. */
+.barra-titolo .selettore-tema {
+  background: var(--barra-evidenza);
+  border-color: var(--barra-bordo);
+}
+.barra-titolo .selettore-tema button {
+  color: var(--barra-tenue);
+}
+.barra-titolo .selettore-tema button:hover:not(.attivo) {
+  background: var(--barra-evidenza);
+  color: var(--barra-testo);
+}
+.barra-titolo .selettore-tema button.attivo {
+  background: var(--barra-testo);
+  color: var(--barra-sfondo);
+}
+
+.schede {
+  display: flex;
+  gap: 2px;
+  padding: 0 12px;
+  background: var(--barra-sfondo);
+  border-bottom: 3px solid var(--barra-filo);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+/* Dentro la barra: occupa tutta la riga sotto il nome e arriva fino al filo. */
+.barra-titolo > .schede {
+  order: 3;
+  flex-basis: calc(100% + 40px);
+  margin: 2px -20px -7px;
+  border-bottom: none;
+}
+.schede button {
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 7px 16px 8px;
+  color: var(--barra-tenue);
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.schede button:hover:not(:disabled):not(.attiva) {
+  background: var(--barra-evidenza);
+  color: var(--barra-testo);
+}
+.schede button.attiva {
+  background: var(--scheda-attiva-sfondo);
+  color: var(--scheda-attiva-testo);
+  font-weight: 700;
+  box-shadow: inset 0 -3px 0 var(--barra-filo);
+}
+
+/* ---------------------------------------------------------------------------
+   Tabelle a griglia, come in TheAccount: intestazione su fondo proprio con un
+   filo scuro sotto, righe tracciate, la riga sotto il mouse che si colora.
+   Si accendono con la classe "griglia" sulla tabella. Le misure (imbottiture,
+   larghezze) restano quelle di ogni app: qui ci sono solo i colori e i fili,
+   più l'aria sopra e sotto le intestazioni, che adesso hanno un fondo.
+   --------------------------------------------------------------------------- */
+table.griglia {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+table.griglia > thead > tr > th {
+  background: var(--intestazione-sfondo);
+  color: var(--intestazione-testo);
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--intestazione-filo);
+}
+table.griglia > tbody > tr > td {
+  border-top: 1px solid var(--linea);
+  border-bottom: none;
+}
+table.griglia > tbody > tr:first-child > td {
+  border-top: none;
+}
+table.griglia > tbody > tr:hover > td {
+  background: var(--riga-sopra);
+}
+table.griglia.alterna > tbody > tr:nth-child(even):not(:hover) > td {
+  background: var(--riga-alterna);
+}
+table.griglia > tfoot td,
+table.griglia > tfoot th {
+  background: var(--totale-sfondo);
+  color: var(--totale-testo);
+  font-weight: 700;
+  border-top: 2px solid var(--intestazione-filo);
+}
+
+/* ---------------------------------------------------------------------------
    Il colore di ciascuna app.
 
    Ogni app si riconosce dal suo colore: Comande arancione, Contabilità verde
-   petrolio, Utenti viola, Magazzino azzurro. Tutto il resto (sfondo, riquadri,
-   testi, verde delle conferme, rosso degli errori) resta uguale per tutte.
-   L'app dice chi è con data-app sul documento, scritto in index.html, e
-   prende il suo colore come --accent; il menù delle app usa i quattro colori
-   insieme, per i riquadri.
+   petrolio, Utenti viola, Magazzino azzurro. Si vede nel segno accanto al
+   nome, sulla barra del titolo, e nei riquadri del menù delle app; tasti,
+   linguette e caselle hanno invece lo stesso colore in tutte le app, come in
+   TheAccount. L'app dice chi è con data-app sul documento, scritto in
+   index.html.
 
-   Il verde della Contabilità tende all'azzurro apposta: il verde pieno vuol
-   già dire "fatto, tutto a posto", e un tasto non deve sembrare una conferma.
-   Nel tema scuro le tinte sono più accese, ma abbastanza piene da reggere la
-   scritta bianca dei tasti.
+   Sulla barra, che è scura in tutti e due i temi, il segno usa sempre la
+   tinta accesa: quella piena sparirebbe sul blu notte.
    --------------------------------------------------------------------------- */
 :root {
   --app-comande: #c2410c;
@@ -362,24 +591,16 @@ label {
   --app-magazzino-soft: #0b2230;
 }
 :root[data-app='comande'] {
-  --accent: var(--app-comande);
-  --accent-hover: var(--app-comande-hover);
-  --accent-soft: var(--app-comande-soft);
+  --app-colore-barra: #f97316;
 }
 :root[data-app='contabilita'] {
-  --accent: var(--app-contabilita);
-  --accent-hover: var(--app-contabilita-hover);
-  --accent-soft: var(--app-contabilita-soft);
+  --app-colore-barra: #14b8a6;
 }
 :root[data-app='utenti'] {
-  --accent: var(--app-utenti);
-  --accent-hover: var(--app-utenti-hover);
-  --accent-soft: var(--app-utenti-soft);
+  --app-colore-barra: #a78bfa;
 }
 :root[data-app='magazzino'] {
-  --accent: var(--app-magazzino);
-  --accent-hover: var(--app-magazzino-hover);
-  --accent-soft: var(--app-magazzino-soft);
+  --app-colore-barra: #38bdf8;
 }
 
 /* ---------------------------------------------------------------------------
@@ -425,9 +646,9 @@ label {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 7px 12px;
+  padding: 5px 12px;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius);
   color: var(--accent);
   font-size: 0.85rem;
   font-weight: 650;
@@ -438,4 +659,13 @@ label {
 .torna-menu:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
+}
+.barra-titolo .torna-menu {
+  background: transparent;
+  color: var(--barra-testo);
+  border-color: var(--barra-bordo);
+}
+.barra-titolo .torna-menu:hover {
+  background: var(--barra-evidenza);
+  border-color: var(--barra-tenue);
 }

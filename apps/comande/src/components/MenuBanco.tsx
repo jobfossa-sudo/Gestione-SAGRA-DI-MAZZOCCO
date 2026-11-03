@@ -469,7 +469,7 @@ export function MenuBanco({ banco }: { banco: Banco }) {
           </p>
         ) : (
           <div className="tabella-scroll">
-            <table className="tabella-menu tabella-menu-banco">
+            <table className="tabella-menu tabella-menu-banco griglia">
               <colgroup>
                 <col className="col-maniglia" />
                 <col className="col-piatto" />

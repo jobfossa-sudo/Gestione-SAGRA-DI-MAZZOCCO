@@ -325,7 +325,7 @@ export function Composizioni() {
           componente dice chi lo prepara, così un piatto può dare lavoro a più settori insieme.
         </p>
         <div className="tabella-scroll">
-          <table className="tabella-componenti">
+          <table className="tabella-componenti griglia">
             <thead>
               <tr>
                 <th>Componente</th>

@@ -53,7 +53,7 @@ function App() {
 
   return (
     <div className="app-portale">
-      <header>
+      <header className="barra-titolo">
         <div className="marchio">
           <h1>Sagra di Mazzocco</h1>
           <p>Le app della sagra</p>

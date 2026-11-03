@@ -539,7 +539,7 @@ export function GestioneMenu() {
           <p className="vuoto">Nessuna portata: creane una qui sopra (Primi, Secondi…) e poi aggiungi i piatti.</p>
         ) : (
           <div className="tabella-scroll">
-            <table className="tabella-menu">
+            <table className="tabella-menu griglia">
               <colgroup>
                 <col className="col-maniglia" />
                 <col className="col-settore" />

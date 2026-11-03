@@ -95,7 +95,7 @@ export function Report({ edizioneId, serate }: { edizioneId: string; serate: Ser
           Entrate meno uscite. Contano solo le spese già pagate e le entrate già incassate: i preventivi restano
           fuori finché non diventano veri.
         </p>
-        <table className="tabella-conti tabella-bilancio">
+        <table className="griglia alterna tabella-conti tabella-bilancio">
           <tbody>
             <tr>
               <td>Incasso delle casse e dei banchi</td>
@@ -131,7 +131,7 @@ export function Report({ edizioneId, serate }: { edizioneId: string; serate: Ser
 
       <section className="riquadro">
         <h2>Serata per serata</h2>
-        <table className="tabella-conti">
+        <table className="griglia alterna tabella-conti">
           <thead>
             <tr>
               <th>Serata</th>
@@ -175,7 +175,7 @@ export function Report({ edizioneId, serate }: { edizioneId: string; serate: Ser
       {venduto.length > 0 && (
         <section className="riquadro">
           <h2>I più venduti dell'edizione</h2>
-          <table className="tabella-conti">
+          <table className="griglia alterna tabella-conti">
             <thead>
               <tr>
                 <th>Voce</th>

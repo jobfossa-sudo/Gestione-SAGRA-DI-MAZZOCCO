@@ -403,7 +403,7 @@ function Giornaliero({
               <button type="submit">Applica</button>
             </form>
 
-            <table className="tabella-conti tabella-presenze">
+            <table className="griglia alterna tabella-conti tabella-presenze">
               <thead>
                 <tr>
                   <th>Persona</th>

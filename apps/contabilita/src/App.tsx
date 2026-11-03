@@ -74,7 +74,7 @@ function Conti({ nome, amministratore }: { nome: string; amministratore: boolean
   return (
     <div className="app-contabilita">
       <FasciaProva />
-      <header>
+      <header className="barra-titolo">
         <div className="marchio">
           <h1>Sagra di Mazzocco · Contabilità</h1>
           <p>Quanto è entrato, quanto è uscito, cosa resta</p>

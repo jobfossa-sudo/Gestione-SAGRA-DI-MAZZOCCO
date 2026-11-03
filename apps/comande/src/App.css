@@ -6,68 +6,14 @@
   min-height: 100svh;
 }
 
-/* ">" apposta: solo la barra in cima alla pagina, non le intestazioni dei
-   riquadri (comande, composizioni) che usano anch'esse <header>. */
+/* La barra del titolo (aspetto in shared/styles/base.css) resta ferma in
+   cima mentre si scorre, linguette comprese. ">" apposta: solo la barra in
+   cima alla pagina, non le intestazioni dei riquadri (comande, composizioni)
+   che usano anch'esse <header>. */
 .app-cassa > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 9px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 10;
-}
-
-.marchio h1 {
-  font-size: 1.05rem;
-  line-height: 1.2;
-}
-.marchio p {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.app-cassa nav {
-  display: flex;
-  gap: 4px;
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 4px;
-}
-.app-cassa nav button {
-  border: none;
-  background: transparent;
-  padding: 6px 18px;
-  font-weight: 600;
-  font-size: 0.92rem;
-  color: var(--text-muted);
-  border-radius: 9px;
-}
-.app-cassa nav button:hover:not(.attiva) {
-  color: var(--text);
-  background: var(--surface);
-}
-.app-cassa nav button.attiva {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: var(--shadow-sm);
-}
-
-.utente {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-.utente button {
-  padding: 7px 14px;
-  font-size: 0.85rem;
 }
 
 .app-cassa main {
@@ -469,7 +415,7 @@
 }
 .controlli-quantita button:hover:not(:disabled) {
   background: var(--accent);
-  color: #fff;
+  color: var(--su-pieno);
 }
 .controlli-quantita span {
   min-width: 26px;
@@ -781,7 +727,7 @@
 .bottone-annulla:hover:not(:disabled) {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--su-pieno);
 }
 .vuoto {
   font-size: 0.9rem;
@@ -1092,7 +1038,7 @@ body.trascinamento-in-corso {
 }
 .bottone-aggiungi:hover:not(:disabled) {
   background: var(--accent);
-  color: #fff;
+  color: var(--su-pieno);
 }
 
 .conteggio {
@@ -2143,17 +2089,17 @@ body.trascinamento-in-corso {
 .filtro.scelto.attesa {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--su-pieno);
 }
 .filtro.scelto.corso {
   background: var(--tempo);
   border-color: var(--tempo);
-  color: #fff;
+  color: var(--su-pieno);
 }
 .filtro.scelto.fatto {
   background: var(--success);
   border-color: var(--success);
-  color: #fff;
+  color: var(--su-pieno);
 }
 .filtro .quanti {
   font-variant-numeric: tabular-nums;

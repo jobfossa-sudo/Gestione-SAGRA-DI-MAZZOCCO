@@ -172,7 +172,7 @@ export function Uscite({ edizioneId, serate }: { edizioneId: string; serate: Ser
       {perCategoria.length > 0 && (
         <section className="riquadro">
           <h2>Dove sono andati i soldi</h2>
-          <table className="tabella-conti">
+          <table className="griglia alterna tabella-conti">
             <tbody>
               {perCategoria.map(([cat, somma]) => (
                 <tr key={cat}>
@@ -192,7 +192,7 @@ export function Uscite({ edizioneId, serate }: { edizioneId: string; serate: Ser
         {uscite.length === 0 ? (
           <p className="vuoto">Ancora nessuna spesa inserita.</p>
         ) : (
-          <table className="tabella-conti tabella-movimenti">
+          <table className="griglia alterna tabella-conti tabella-movimenti">
             <thead>
               <tr>
                 <th>Data</th>

@@ -37,7 +37,7 @@ function App() {
   return (
     <div className="app-utenti">
       <FasciaProva />
-      <header>
+      <header className="barra-titolo">
         <div className="marchio">
           <h1>Sagra di Mazzocco · Utenti</h1>
           <p>Le persone della sagra e il ruolo di ciascuna</p>

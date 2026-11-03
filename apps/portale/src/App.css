@@ -4,36 +4,8 @@
   min-height: 100svh;
 }
 
-.app-portale header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 9px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-.marchio h1 {
-  font-size: 1.05rem;
-  line-height: 1.2;
-}
-.marchio p {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-.utente {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-.utente button {
-  padding: 7px 14px;
-  font-size: 0.85rem;
-}
+/* La barra del titolo ha l'aspetto comune a tutte le app, in
+   shared/styles/base.css. */
 
 /* ---------- il menù delle app ---------- */
 

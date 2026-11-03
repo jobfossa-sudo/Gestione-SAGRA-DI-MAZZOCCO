@@ -4,35 +4,8 @@
   min-height: 100svh;
 }
 
-.app-utenti header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 9px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-.marchio h1 {
-  font-size: 1.05rem;
-  line-height: 1.2;
-}
-.marchio p {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-.utente {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-.utente button {
-  padding: 7px 14px;
-  font-size: 0.85rem;
-}
+/* La barra del titolo e le schede hanno l'aspetto comune a tutte le app, in
+   shared/styles/base.css. */
 
 .app-utenti main {
   flex: 1;
@@ -242,7 +215,7 @@
 .bottone-elimina:hover:not(:disabled) {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--su-pieno);
 }
 .cambio-password {
   display: flex;
@@ -311,31 +284,6 @@
 
 /* ---------- schede e archivio ---------- */
 
-.schede {
-  display: flex;
-  gap: 4px;
-  padding: 0 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-.schede button {
-  border: none;
-  background: none;
-  border-radius: 0;
-  border-bottom: 3px solid transparent;
-  padding: 10px 14px;
-  color: var(--text-muted);
-  font-weight: 600;
-}
-.schede button:hover:not(:disabled) {
-  background: none;
-  color: var(--text);
-}
-.schede button.attiva {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-
 .archivio {
   width: 100%;
   max-width: 1000px;
@@ -363,7 +311,7 @@
   height: 28px;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--su-pieno);
   font-size: 0.9rem;
 }
 /* L'azzeramento si riconosce da lontano: bordo rosso, e spento finché non

@@ -122,7 +122,7 @@ export function CassaBanco({ banco }: { banco: Banco }) {
           </p>
         ) : (
           <div className="tabella-scroll">
-            <table className="tabella-ordine">
+            <table className="tabella-ordine griglia">
               <colgroup>
                 <col className="col-piatto" />
                 <col className="col-note" />

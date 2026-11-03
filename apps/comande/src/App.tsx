@@ -125,13 +125,13 @@ function App() {
       <FasciaProva />
       <AvvisoRete />
       {!area.schermoDaLontano && <AvvisoBagni />}
-      <header>
+      <header className="barra-titolo">
         <div className="marchio">
           <h1>Sagra di Mazzocco · Comande</h1>
           <p>Serata di {dataSerata}</p>
         </div>
         {areeVisibili.length > 1 && (
-          <nav>
+          <nav className="schede">
             {areeVisibili.map((a) => (
               <button
                 key={a.nome}

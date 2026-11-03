@@ -27,7 +27,7 @@ export function TabellaTotale({ righe }: { righe: RigaPersona[] }) {
     arrotonda(righe.reduce((totale, r) => totale + r[campo], 0));
 
   return (
-    <table className="tabella-conti tabella-ore">
+    <table className="griglia alterna tabella-conti tabella-ore">
       <thead>
         <tr>
           <th>Persona</th>
@@ -80,7 +80,7 @@ export function TabellaGiornate({
   presenze: Map<string, Presenza[]>;
 }) {
   return (
-    <table className="tabella-conti tabella-giornate">
+    <table className="griglia alterna tabella-conti tabella-giornate">
       <thead>
         <tr>
           <th>Persona</th>

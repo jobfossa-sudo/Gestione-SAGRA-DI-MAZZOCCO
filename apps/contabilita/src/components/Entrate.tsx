@@ -154,7 +154,7 @@ export function Entrate({ edizioneId, serate }: { edizioneId: string; serate: Se
         {entrate.length === 0 ? (
           <p className="vuoto">Ancora nessuna entrata fuori cassa.</p>
         ) : (
-          <table className="tabella-conti tabella-movimenti">
+          <table className="griglia alterna tabella-conti tabella-movimenti">
             <thead>
               <tr>
                 <th>Data</th>

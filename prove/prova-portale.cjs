@@ -148,26 +148,30 @@ async function riquadri(pagina) {
   verifica('stampa i cartelli dei tre bagni', (await admin.evaluate(() => window.__stampe)) === 2);
 
   // --- Il tasto "◀ Menù" e il colore dentro le app ----------------------------------
+  // Tasti e linguette hanno lo stesso colore in tutte le app, come in TheAccount;
+  // il colore dell'app sta nel segno accanto al nome, sulla barra del titolo.
   for (const [app, porta, colore] of [
-    ['Comande', 5173, '#c2410c'],
-    ['Utenti', 5174, '#6d28d9'],
-    ['Contabilità', 5175, '#0f766e'],
+    ['Comande', 5173, 'rgb(249, 115, 22)'],
+    ['Utenti', 5174, 'rgb(167, 139, 250)'],
+    ['Contabilità', 5175, 'rgb(20, 184, 166)'],
   ]) {
     const pagina = await entra(browser, 'admin', `http://127.0.0.1:${porta}/`);
     const link = pagina.getByRole('link', { name: '◀ Menù' });
     verifica(`${app}: c’è il tasto "◀ Menù"`, (await link.count()) === 1 && (await link.getAttribute('href')) === PORTALE);
     const accento = await pagina.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim());
-    verifica(`${app}: ha il suo colore`, accento === colore, accento);
+    verifica(`${app}: tasti del colore comune`, accento === '#c2410c', accento);
+    const segno = await pagina.evaluate(() => getComputedStyle(document.querySelector('.barra-titolo .marchio')).borderLeftColor);
+    verifica(`${app}: il segno accanto al nome ha il colore dell’app`, segno === colore, segno);
     await pagina.screenshot({ path: RISULTATI + `/portale-colore-${porta}.png` });
     await pagina.close();
   }
   const comande = await entra(browser, 'admin', 'http://127.0.0.1:5173/');
   verifica('in Comande la scheda QR non c’è più', (await comande.locator('header nav button', { hasText: /^QR$/ }).count()) === 0);
 
-  // Il tema scuro: i colori cambiano insieme al tema.
+  // Il tema scuro: i colori cambiano insieme al tema (l'ambra del tema Notte).
   await comande.evaluate(() => (document.documentElement.dataset.tema = 'scuro'));
   const scuro = await comande.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim());
-  verifica('nel tema scuro il colore dell’app si accende', scuro === '#f97316', scuro);
+  verifica('nel tema scuro i tasti diventano ambra', scuro === '#f5a524', scuro);
 
   await browser.close();
   const passati = esiti.filter((e) => e.ok).length;
