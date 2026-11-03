@@ -1476,7 +1476,7 @@ export interface OperazioneArchivioRisposta {
 // sulla sua porta.
 // ---------------------------------------------------------------------------
 
-export type AppSagra = 'portale' | 'comande' | 'contabilita' | 'utenti' | 'magazzino';
+export type AppSagra = 'portale' | 'comande' | 'contabilita' | 'utenti' | 'magazzino' | 'tombola';
 
 const PORTE_SVILUPPO: Record<AppSagra, number> = {
   portale: 5170,
@@ -1484,6 +1484,7 @@ const PORTE_SVILUPPO: Record<AppSagra, number> = {
   utenti: 5174,
   contabilita: 5175,
   magazzino: 5176,
+  tombola: 5177,
 };
 
 /** L'indirizzo di un'app, da usare nei collegamenti. `sviluppo` è

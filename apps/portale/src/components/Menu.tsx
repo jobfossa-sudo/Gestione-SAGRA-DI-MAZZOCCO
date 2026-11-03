@@ -1,6 +1,6 @@
 import { indirizzoApp, type AppSagra, type Permessi } from '@sagra-mazzocco/shared';
 import { RiquadroEdizione } from './Edizione';
-import { IconaComande, IconaContabilita, IconaMagazzino, IconaQr, IconaUtenti, Lucchetto } from './Icone';
+import { IconaComande, IconaContabilita, IconaMagazzino, IconaQr, IconaTombola, IconaUtenti, Lucchetto } from './Icone';
 import { Installazione } from './Installazione';
 
 interface Riquadro {
@@ -51,6 +51,14 @@ const RIQUADRI: Riquadro[] = [
     Icona: IconaMagazzino,
     destinazione: indirizzoApp('magazzino', SVILUPPO),
     spento: () => 'In arrivo',
+  },
+  {
+    id: 'tombola',
+    nome: 'Tombola',
+    descrizione: 'Tabellone ed estrazione dei numeri',
+    Icona: IconaTombola,
+    destinazione: indirizzoApp('tombola', SVILUPPO),
+    spento: () => null,
   },
   {
     id: 'qr',

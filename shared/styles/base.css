@@ -575,6 +575,9 @@ table.griglia > tfoot th {
   --app-magazzino: #0369a1;
   --app-magazzino-hover: #075985;
   --app-magazzino-soft: #e7f3fa;
+  --app-tombola: #be185d;
+  --app-tombola-hover: #9d174d;
+  --app-tombola-soft: #fce7f1;
 }
 :root[data-tema='scuro'] {
   --app-comande: #f97316;
@@ -589,6 +592,9 @@ table.griglia > tfoot th {
   --app-magazzino: #0ea5e9;
   --app-magazzino-hover: #38bdf8;
   --app-magazzino-soft: #0b2230;
+  --app-tombola: #ec4899;
+  --app-tombola-hover: #f472b6;
+  --app-tombola-soft: #2e1220;
 }
 :root[data-app='comande'] {
   --app-colore-barra: #f97316;
@@ -601,6 +607,9 @@ table.griglia > tfoot th {
 }
 :root[data-app='magazzino'] {
   --app-colore-barra: #38bdf8;
+}
+:root[data-app='tombola'] {
+  --app-colore-barra: #f472b6;
 }
 
 /* ---------------------------------------------------------------------------
