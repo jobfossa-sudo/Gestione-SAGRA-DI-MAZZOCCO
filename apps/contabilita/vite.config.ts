@@ -8,6 +8,7 @@ import { defineConfig } from 'vite'
 const shared = fileURLToPath(new URL('../../shared/src/index.ts', import.meta.url))
 const tema = fileURLToPath(new URL('../../shared/src/tema.ts', import.meta.url))
 const carattere = fileURLToPath(new URL('../../shared/src/carattere.ts', import.meta.url))
+const pwa = fileURLToPath(new URL('../../shared/src/pwa.ts', import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -21,6 +22,7 @@ export default defineConfig({
     alias: [
       { find: '@sagra-mazzocco/shared/carattere', replacement: carattere },
       { find: '@sagra-mazzocco/shared/tema', replacement: tema },
+      { find: '@sagra-mazzocco/shared/pwa', replacement: pwa },
       { find: '@sagra-mazzocco/shared', replacement: shared },
     ],
   },

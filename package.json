@@ -3,6 +3,11 @@
   "private": true,
   "description": "Le app della Sagra di Mazzocco, pubblicate insieme sotto un unico indirizzo.",
   "scripts": {
-    "build": "node scripts/costruisci.mjs"
+    "build": "node scripts/costruisci.mjs",
+    "build:prova": "node scripts/costruisci.mjs --prova",
+    "prova:app": "node scripts/costruisci.mjs --prova && node scripts/servi.mjs dist-prova"
+  },
+  "devDependencies": {
+    "workbox-build": "^7.4.1"
   }
 }

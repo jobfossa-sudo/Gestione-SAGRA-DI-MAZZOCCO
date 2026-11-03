@@ -1,6 +1,7 @@
 import { indirizzoApp, type AppSagra, type Permessi } from '@sagra-mazzocco/shared';
 import { RiquadroEdizione } from './Edizione';
 import { IconaComande, IconaContabilita, IconaMagazzino, IconaQr, IconaUtenti, Lucchetto } from './Icone';
+import { Installazione } from './Installazione';
 
 interface Riquadro {
   id: Exclude<AppSagra, 'portale'> | 'qr';
@@ -102,6 +103,7 @@ export function Menu({ permessi }: { permessi: Permessi }) {
           );
         })}
       </div>
+      <Installazione />
     </main>
   );
 }

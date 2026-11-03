@@ -54,6 +54,9 @@ function sistemaEScuro(): boolean {
 export function applicaTema(tema: Tema): void {
   const scuro = tema === 'scuro' || (tema === 'sistema' && sistemaEScuro());
   document.documentElement.dataset.tema = scuro ? 'scuro' : 'chiaro';
+  // Il telefono colora la sua barra in cima (ora, batteria) come la barra del
+  // titolo dell'app: blu notte nel chiaro, antracite nello scuro.
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', scuro ? '#0e1217' : '#1d3557');
 }
 
 /** Avvisa quando il dispositivo passa da chiaro a scuro o viceversa, per

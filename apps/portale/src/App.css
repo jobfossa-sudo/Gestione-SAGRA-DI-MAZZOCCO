@@ -130,6 +130,48 @@ a.riquadro-app:focus-visible {
   height: 16px;
 }
 
+/* ---------- installare l'app, sotto i riquadri ---------- */
+
+.installazione {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--barra-filo);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+.menu-app .installazione h2 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+.installazione .spiegazione {
+  margin: 0;
+}
+.installazione .bottone-principale {
+  padding: 10px 20px;
+}
+.passi-installazione {
+  font-size: 0.9rem;
+  max-width: 95ch;
+}
+.installazione details {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.installazione summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.installazione details .passi-installazione {
+  margin-top: 6px;
+  color: var(--text);
+}
+
 /* ---------- la pagina dei QR ---------- */
 
 .intestazione-qr {

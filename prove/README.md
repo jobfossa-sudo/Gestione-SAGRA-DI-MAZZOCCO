@@ -38,6 +38,10 @@ salvata su GitHub.
   entrate extra, presenze dei volontari e il report con il foglio da
   appendere.
 - `prova-offline.cjs` — cosa si vede quando la rete cade.
+- `prova-pwa.cjs` — l'app installabile, sul sito costruito (dalla radice,
+  prima `npm run build:prova`): scheda dell'app e icone, copia di tutte le
+  app nel dispositivo, apertura senza rete, l'avviso "Aggiorna" quando esce
+  una versione nuova, i clienti del QR che non scaricano niente.
 - `prova-carattere.cjs` — i tasti che rimpiccioliscono e ingrandiscono le
   scritte: in Comande, sul telefono del cliente e nell'app Utenti. Controlla
   anche che il biglietto da stampare resti della sua misura.

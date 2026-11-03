@@ -35,8 +35,10 @@ export const functions = getFunctions(app);
 
 // In sviluppo (npm run dev) ci si collega sempre agli emulatori locali, mai
 // ai dati reali. `npm run build` (usato per pubblicare) non definisce import.meta.env.DEV,
-// quindi il sito pubblicato parla sempre con il vero Firebase.
-if (import.meta.env.DEV) {
+// quindi il sito pubblicato parla sempre con il vero Firebase. Fa eccezione la
+// versione di prova dell'app installabile (npm run build:prova), che è
+// costruita come quella vera ma lavora sugli emulatori.
+if (import.meta.env.DEV || import.meta.env.VITE_EMULATORI === '1') {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099');
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
   connectFunctionsEmulator(functions, '127.0.0.1', 5001);

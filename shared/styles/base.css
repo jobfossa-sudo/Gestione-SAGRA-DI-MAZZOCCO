@@ -641,6 +641,49 @@ table.griglia > tfoot th {
   }
 }
 
+/* La versione nuova dell'app è pronta: un riquadro scuro in basso, come la
+   barra del titolo, che non copre i tasti in cima e non si confonde con gli
+   avvisi della pagina. */
+.avviso-aggiornamento {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 14px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 10px 14px 10px 18px;
+  background: var(--barra-sfondo);
+  color: var(--barra-testo);
+  border: 1px solid var(--barra-filo);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+  font-weight: 600;
+}
+.avviso-aggiornamento .bottone-principale {
+  padding: 7px 16px;
+  font-size: 0.95rem;
+}
+.avviso-aggiornamento button:not(.bottone-principale) {
+  background: transparent;
+  color: var(--barra-testo);
+  border-color: var(--barra-bordo);
+}
+.avviso-aggiornamento button:not(.bottone-principale):hover:not(:disabled) {
+  background: var(--barra-evidenza);
+  border-color: var(--barra-tenue);
+}
+@media print {
+  .avviso-aggiornamento {
+    display: none;
+  }
+}
+
 /* Il tasto per tornare al menù delle app, in alto in ogni app. */
 .torna-menu {
   display: inline-flex;

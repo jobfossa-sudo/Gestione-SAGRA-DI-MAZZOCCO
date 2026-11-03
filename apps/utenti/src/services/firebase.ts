@@ -18,8 +18,9 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const functions = getFunctions(app);
 
-// In sviluppo ci si collega sempre agli emulatori locali, mai ai dati reali.
-if (import.meta.env.DEV) {
+// In sviluppo ci si collega sempre agli emulatori locali, mai ai dati reali,
+// e così nella versione di prova dell'app installabile (npm run build:prova).
+if (import.meta.env.DEV || import.meta.env.VITE_EMULATORI === '1') {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099');
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
   connectFunctionsEmulator(functions, '127.0.0.1', 5001);
