@@ -28,6 +28,7 @@ function verifica(descrizione, condizione, extra = '') {
 
     if (tema === 'chiaro') {
       verifica('il tabellone ha 90 caselle', (await p.locator('.casella-numero').count()) === 90);
+      verifica('è diviso in sei blocchi da quindici numeri', (await p.locator('.blocco-tabellone').count()) === 6 && (await p.locator('.blocco-tabellone').first().locator('.casella-numero').allInnerTexts()).join(',') === '1,2,3,4,5,11,12,13,14,15,21,22,23,24,25');
       verifica('all’inizio nessun numero è uscito', (await p.locator('.casella-numero.uscito').count()) === 0);
       verifica('la cornice è quella comune delle app', (await p.locator('header.barra-titolo').count()) === 1);
     }
@@ -45,6 +46,7 @@ function verifica(descrizione, condizione, extra = '') {
     const testo = await p.locator('.annuncio').innerText();
     const numero = Number((testo.match(/\d+/) ?? [])[0]);
     verifica(`esce un numero da 1 a 90 (${tema})`, numero >= 1 && numero <= 90, testo);
+    verifica('sotto compare il nome della smorfia', (await p.locator('.nome-smorfia b').innerText()).length > 0 && (await p.locator('.nome-smorfia i').innerText()).length > 0, await p.locator('.nome-smorfia').innerText());
     verifica('la pallina mostra quel numero', (await p.locator('.pallina .cifra').innerText()) === String(numero));
     verifica('sul tabellone si accende solo quel numero', (await p.locator('.casella-numero.uscito').count()) === 1 && (await p.locator('.casella-numero.nuovo').innerText()) === String(numero));
     await p.waitForTimeout(500);
