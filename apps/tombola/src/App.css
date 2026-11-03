@@ -137,40 +137,30 @@
 /* ---------- il tabellone ---------- */
 
 .tabellone {
-  padding: 18px;
+  padding: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
 }
-/* Sei blocchi da quindici numeri, due per riga: come le sei cartelle. */
-.blocchi-tabellone {
+.griglia-tabellone {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(14px, 3vw, 30px) clamp(14px, 3vw, 34px);
+  gap: 6px;
 }
-.blocco-tabellone {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: clamp(4px, 1vw, 10px);
-}
-/* Tondi e sbiaditi finché non escono, poi pieni. */
 .casella-numero {
   display: grid;
   place-items: center;
-  aspect-ratio: 1;
-  border-radius: 50%;
+  aspect-ratio: 1.15;
   background: var(--surface-alt);
   border: 1px solid var(--border);
+  border-radius: var(--radius);
   color: var(--text-muted);
-  opacity: 0.6;
-  font-size: clamp(0.85rem, 2.3vw, 1.8rem);
+  font-size: clamp(0.9rem, 2.6vw, 2rem);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease, opacity 0.4s ease;
+  transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease;
 }
 .casella-numero.uscito {
-  opacity: 1;
   background: var(--accent);
   border-color: var(--accent);
   color: var(--su-pieno);
@@ -184,36 +174,8 @@
 }
 @keyframes acceso {
   0% { transform: scale(0.6); }
-  35% { transform: scale(1.35); }
+  35% { transform: scale(1.3); }
   100% { transform: scale(1); }
-}
-
-/* Il nome della smorfia, sotto la pallina: lo spazio è sempre riservato, così
-   il resto non salta quando compare. */
-.nome-smorfia {
-  min-height: 3.2em;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-}
-.nome-smorfia b {
-  font-size: 1.25rem;
-  color: var(--accent);
-}
-.nome-smorfia i {
-  color: var(--text-muted);
-}
-.voce {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.voce input {
-  width: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

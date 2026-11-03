@@ -1,6 +1,7 @@
 // La logica della tombola, senza niente di grafico: così si può provare da sola.
 
 export const QUANTI = 90;
+export const COLONNE = 10;
 
 /** Un intero a caso in [0, massimo), scelto con il generatore del browser
  * (crypto) e non con Math.random: per un'estrazione davanti al pubblico
