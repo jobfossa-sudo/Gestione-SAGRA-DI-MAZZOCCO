@@ -34,7 +34,7 @@ export const db = initializeFirestore(app, {
 export const functions = getFunctions(app);
 
 // In sviluppo (npm run dev) ci si collega sempre agli emulatori locali, mai
-// ai dati reali. `npm run build` (usato da Netlify) non definisce import.meta.env.DEV,
+// ai dati reali. `npm run build` (usato per pubblicare) non definisce import.meta.env.DEV,
 // quindi il sito pubblicato parla sempre con il vero Firebase.
 if (import.meta.env.DEV) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099');

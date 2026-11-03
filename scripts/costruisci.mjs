@@ -3,8 +3,9 @@
 //
 //   npm run build          (dalla radice del progetto)
 //
-// È il comando che usa Netlify. Un solo sito, un solo indirizzo: chi entra dal
-// menù è già dentro anche in tutte le app.
+// `firebase deploy` lo lancia da solo prima di pubblicare (vedi firebase.json).
+// Un solo sito, un solo indirizzo: chi entra dal menù è già dentro anche in
+// tutte le app.
 
 import { execSync } from 'node:child_process';
 import { cpSync, existsSync, rmSync } from 'node:fs';

@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 // I tipi condivisi vengono letti direttamente dal sorgente in shared/src:
-// la cartella compilata shared/lib non è su GitHub, quindi la build di
-// Netlify non potrebbe trovarla.
+// la cartella compilata shared/lib non è su GitHub, quindi una copia appena
+// scaricata non potrebbe trovarla.
 const shared = fileURLToPath(new URL('../../shared/src/index.ts', import.meta.url))
 const tema = fileURLToPath(new URL('../../shared/src/tema.ts', import.meta.url))
 const carattere = fileURLToPath(new URL('../../shared/src/carattere.ts', import.meta.url))

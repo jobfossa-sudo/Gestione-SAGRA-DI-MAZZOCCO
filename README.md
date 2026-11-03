@@ -16,10 +16,19 @@ di business comune (Cloud Functions).
 
 ## Pubblicazione
 
-Un solo sito Netlify per tutte le app: `npm run build` dalla radice costruisce le
-app e le mette insieme in `dist/` (il menù alla radice, le app in `/comande/`,
-`/contabilita/`, `/utenti/`). Sotto lo stesso indirizzo l'accesso è uno solo.
-Su Netlify la "Base directory" resta vuota: le impostazioni sono in `netlify.toml`.
+Tutto su Firebase, sito compreso (Firebase Hosting):
+https://gestione-sagra-mazzocco.web.app
+
+`npm run build` dalla radice costruisce le app e le mette insieme in `dist/`
+(il menù alla radice, le app in `/comande/`, `/contabilita/`, `/utenti/`).
+Sotto lo stesso indirizzo l'accesso è uno solo.
+
+Niente si pubblica da solo con il push su GitHub: si pubblica con
+
+    firebase deploy --only hosting                 (solo il sito)
+    firebase deploy --only hosting,firestore,functions   (tutto)
+
+che ricostruisce il sito prima di caricarlo.
 
 ## In locale
 
